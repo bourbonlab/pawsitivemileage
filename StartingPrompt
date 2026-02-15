@@ -1,0 +1,33 @@
+I am devloping a new application to track fuel usage, odometer readings, fill up locations and prices, gallons added, MPG, oil changes, etc.  
+
+
+
+The application should ask for the minimum required information for fillups and caulculate the rest of the information (Date, CurrencySpent, GallonsAdded, and Odometer reading) and then calculate things like MPG, Miles between fuelups, price per gallon.    
+
+
+
+This application should be hosted with serverless application components wherever possable to keep costs as low as realistic.  AWS is the preferred hosting location.  
+
+
+
+For Infrastructure, we want to use pawsitivemileage.bourbonlab.net as the custom domaain for a web application and pawsitivemileageapi.bourbonlab.net as the custom domain for the API Gateawy instance.  DNS is hosted within CloudFlare and will be proxied by cloudflare.  
+
+
+
+I want the project structure broken up into individual components, Web Frontend, API Backend, IaC (CDK), and CLI/Tool for any scripts and CLI administrative tools we create. 
+
+
+
+The application should authenticate through AWS Cognito and use Google as it's Login Provider.  
+
+
+
+The application should use either AWS SAM or ESBUILD for Lambda Functions as well to keep them light and built specifically for their purpose.  
+
+
+
+Please reesearch and use the latest avaiable runtimes for any components that you build into this application, I want to minimize refactoring / updating.  
+
+
+
+What other questions or things should I be thinking of before we start creating the specificiation.  
