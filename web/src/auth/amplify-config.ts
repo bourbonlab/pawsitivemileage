@@ -21,9 +21,9 @@ export function configureAmplify() {
         loginWith: {
           oauth: {
             domain: domain ?? '',
-            scopes: ['openid', 'email', 'profile'],
-            redirectSignIn: [redirectBase + '/'],
-            redirectSignOut: [redirectBase + '/login'],
+            scopes: ['openid', 'email', 'profile', 'aws.cognito.signin.user.admin'],
+            redirectSignIn: [redirectBase + '/callback'],
+            redirectSignOut: [redirectBase + '/'],
             responseType: 'code',
             providers: ['Google'],
           },

@@ -23,6 +23,10 @@ export const router = createBrowserRouter([
     element: <LoginPage />,
   },
   {
+    path: '/callback',
+    element: <Navigate to="/garage" replace />,
+  },
+  {
     path: '/garage',
     element: (
       <ProtectedRoute>

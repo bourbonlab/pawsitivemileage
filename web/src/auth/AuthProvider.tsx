@@ -89,11 +89,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signIn = useCallback(async () => {
-    await signInWithRedirect({ provider: 'Google' });
-  }, []);
+    try {
+      await signInWithRedirect({ provider: 'Google' });
+    } catch (err: unknown) {
+      // If already authenticated, just re-check auth state
+      if (err instanceof Error && err.name === 'UserAlreadyAuthenticatedException') {
+        await checkAuth();
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = useCallback(async () => {
-    await amplifySignOut();
+    try {
+      await amplifySignOut({ global: true });
+    } catch {
+      // Force local cleanup even if global sign-out fails
+      await amplifySignOut();
+    }
     setUser(null);
     setIsAdmin(false);
   }, []);

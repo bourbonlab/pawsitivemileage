@@ -52,9 +52,14 @@ export class AuthStack extends cdk.Stack {
       },
     });
 
+    // Cognito domain prefix must NOT contain "aws" (even as substring).
+    // "pawsitivemileage" contains "p-aws-itive", so we use a separate prefix from context.
+    const cognitoDomainPrefix = this.node.tryGetContext('cognitoDomainPrefix')
+      ?? config.resourcePrefix.replace(/aws/gi, '');
+
     this.userPoolDomain = this.userPool.addDomain('HostedUIDomain', {
       cognitoDomain: {
-        domainPrefix: `${config.resourcePrefix}`,
+        domainPrefix: cognitoDomainPrefix,
       },
     });
 
@@ -74,6 +79,7 @@ export class AuthStack extends cdk.Stack {
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
+          cognito.OAuthScope.COGNITO_ADMIN,
         ],
         callbackUrls,
         logoutUrls,

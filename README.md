@@ -74,7 +74,7 @@ Built with React, AWS Lambda, DynamoDB, and CDK — designed to run for under $1
        │
        │            ┌──────────────┐     ┌─────────────────┐
        └───────────▶│ API Gateway  │────▶│  Lambda (×10)    │
-                    │ HTTP API v2  │     │  Node.js 22.x    │
+                    │ HTTP API v2  │     │  Node.js 24.x    │
                     │ JWT Auth     │     └────────┬────────┘
                     └──────────────┘              │
                                                   ▼
@@ -185,7 +185,15 @@ cd web && npm install --yes && cd ..
 cd infra && npm install --yes && cd ..
 ```
 
-### 2. Configure environment variables
+### 2. Configure environment
+
+Set up deployment secrets and domain configuration (required before any deploy):
+
+```bash
+cp .env.example .env
+# Edit .env with your Google OAuth credentials, ACM certificate ARN, and domain names
+# See .env.example for all required variables
+```
 
 Create `web/.env.local` for local frontend development:
 
@@ -193,7 +201,7 @@ Create `web/.env.local` for local frontend development:
 VITE_API_URL=https://pawsitivemileageapitest.bourbonlab.net
 VITE_COGNITO_USER_POOL_ID=us-east-1_XXXXXXXXX
 VITE_COGNITO_APP_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
-VITE_COGNITO_DOMAIN=pawsitivemileage-test.auth.us-east-1.amazoncognito.com
+VITE_COGNITO_DOMAIN=pmileage-test.auth.us-east-1.amazoncognito.com
 ```
 
 These values come from CDK stack outputs after your first deployment.
@@ -232,6 +240,26 @@ Or use the deploy script:
 ---
 
 ## Environment Variables
+
+### Deployment (`.env`)
+
+All deployment configuration lives in a single `.env` file at the project root. The `deploy.sh` script validates that every required variable is present before running.
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 Client Secret |
+| `ACM_CERTIFICATE_ARN` | ACM wildcard certificate ARN (us-east-1) |
+| `FRONTEND_DOMAIN_TEST` | Frontend domain for test environment |
+| `FRONTEND_DOMAIN_STAGING` | Frontend domain for staging environment |
+| `FRONTEND_DOMAIN_PRODUCTION` | Frontend domain for production environment |
+| `API_DOMAIN_TEST` | API domain for test environment |
+| `API_DOMAIN_STAGING` | API domain for staging environment |
+| `API_DOMAIN_PRODUCTION` | API domain for production environment |
+| `RESOURCE_PREFIX` | Prefix for all AWS resource names (e.g. `pawsitivemileage`) |
+| `COGNITO_DOMAIN_PREFIX` | Cognito hosted UI domain prefix (must not contain "aws") |
+
+See `.env.example` for a complete template with default values.
 
 ### Frontend (`web/.env.local`)
 
@@ -276,38 +304,75 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 ```
 
 The script performs:
-1. Prerequisite checks (Node.js 22+, npm, AWS CLI, CDK)
+1. Prerequisite checks (Node.js 24+, npm, AWS CLI, CDK)
 2. AWS credential verification
 3. `npm install` in api/, web/, infra/
 4. API build (esbuild) and tests (vitest)
-5. Frontend build (Vite)
-6. CDK synth with environment context
-7. CDK deploy (if environment flag provided)
+5. CDK synth with environment context
+6. CDK deploy (if environment flag provided)
+7. Fetch Cognito outputs from CloudFormation, build frontend with `VITE_*` env vars
+8. S3 sync of frontend assets + CloudFront cache invalidation
 
 Production deploys require the `--yes` flag as a safety gate.
 
 ### Environments
 
-| Environment | Frontend Domain | API Domain | CDK Context |
-|-------------|----------------|------------|-------------|
-| test | `pawsitivemileagetest.bourbonlab.net` | `pawsitivemileageapitest.bourbonlab.net` | `-c environment=test` |
-| staging | `pawsitivemileagestaging.bourbonlab.net` | `pawsitivemileageapistaging.bourbonlab.net` | `-c environment=staging` |
-| production | `pawsitivemileage.bourbonlab.net` | `pawsitivemileageapi.bourbonlab.net` | `-c environment=production` |
+| Environment | Deploy Flag | CDK Context |
+|-------------|-------------|-------------|
+| test | `--test` | `-c environment=test` |
+| staging | `--stage` | `-c environment=staging` |
+| production | `--prod --yes` | `-c environment=production` |
+
+Frontend and API domains for each environment are configured in `.env` (e.g. `FRONTEND_DOMAIN_TEST`, `API_DOMAIN_TEST`). The deploy script resolves the correct pair based on the target environment and passes them to CDK.
 
 ### Custom Domains
 
-Custom domains require pre-provisioned ACM certificates. Pass the ARNs via CDK context:
+All domain names and the ACM certificate ARN are configured in `.env` — nothing is hardcoded. To use your own domains:
+
+1. Provision a wildcard ACM certificate in us-east-1
+2. Set `ACM_CERTIFICATE_ARN` in `.env`
+3. Set the `FRONTEND_DOMAIN_*` and `API_DOMAIN_*` variables to your domains
+4. Create DNS records in your DNS provider (CloudFlare, Route 53, etc.)
+
+The deploy script validates all required variables are present and not placeholders before running any CDK commands.
+
+### Google OAuth Setup
+
+PawsitiveMileage uses Google as the sole identity provider via AWS Cognito. You need a Google OAuth 2.0 Client ID before deploying.
+
+**1. Create OAuth credentials in Google Cloud Console**
+
+1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
+2. Click **Create Credentials → OAuth client ID**
+3. Application type: **Web application**
+4. Name: `PawsitiveMileage` (or whatever you prefer)
+
+**2. Configure authorized origins and redirect URIs**
+
+The Cognito hosted UI domain is derived from `COGNITO_DOMAIN_PREFIX` in `.env`. The default prefix is `pmileage` (we can't use `pawsitivemileage` because it contains the substring "aws" which Cognito rejects).
+
+| Environment | Authorized JavaScript Origin | Authorized Redirect URI |
+|-------------|------------------------------|------------------------|
+| Test | `https://{COGNITO_DOMAIN_PREFIX}-test.auth.us-east-1.amazoncognito.com` | `https://{COGNITO_DOMAIN_PREFIX}-test.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
+| Staging | `https://{COGNITO_DOMAIN_PREFIX}-staging.auth.us-east-1.amazoncognito.com` | `https://{COGNITO_DOMAIN_PREFIX}-staging.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
+| Production | `https://{COGNITO_DOMAIN_PREFIX}-production.auth.us-east-1.amazoncognito.com` | `https://{COGNITO_DOMAIN_PREFIX}-production.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
+| Local dev | `http://localhost:5173` | — (handled by Cognito callback URLs) |
+
+**3. Save credentials to `.env`**
 
 ```bash
-npx cdk deploy --all \
-  -c environment=production \
-  -c googleClientId=YOUR_GOOGLE_CLIENT_ID \
-  -c googleClientSecret=YOUR_GOOGLE_CLIENT_SECRET
+cp .env.example .env
 ```
 
-The wildcard ACM certificate (`arn:aws:acm:us-east-1:817281265012:certificate/71b9761c-8a43-4303-8d0b-77d6e4231864`) is configured in `infra/cdk.json` and passed automatically by `deploy.sh` — no need to specify it manually.
+Edit `.env` with your Client ID, Secret, and all other required values:
 
-DNS is managed in CloudFlare with proxy enabled (Full Strict SSL).
+```env
+GOOGLE_CLIENT_ID=123456789-abcdef.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxx
+ACM_CERTIFICATE_ARN=arn:aws:acm:us-east-1:000000000000:certificate/your-cert-id
+```
+
+The `deploy.sh` script automatically sources `.env` and passes all values to CDK as context variables. The `.env` file is already in `.gitignore`.
 
 ---
 

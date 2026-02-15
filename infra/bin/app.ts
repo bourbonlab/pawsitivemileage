@@ -13,7 +13,7 @@ import { MonitoringStack } from '../lib/stacks/monitoring-stack.js';
 const app = new cdk.App();
 
 const envName = app.node.tryGetContext('environment') ?? 'test';
-const config = getEnvironmentConfig(envName);
+const config = getEnvironmentConfig(app, envName);
 
 const stackPrefix = `PawsitiveMileage-${config.envName}`;
 
@@ -39,6 +39,18 @@ const monitoringStack = new MonitoringStack(app, `${stackPrefix}-Monitoring`, {
   apiStack,
   databaseStack,
 });
+
+// Explicit deploy ordering
+// Auth, Database, Storage have no inter-dependencies — deploy in parallel
+// API depends on Auth + Database + Storage (implicit via props, but be explicit)
+apiStack.addDependency(authStack);
+apiStack.addDependency(databaseStack);
+apiStack.addDependency(storageStack);
+// Frontend depends on API (needs API Gateway endpoint for CORS/config)
+frontendStack.addDependency(apiStack);
+// Monitoring depends on API + Database
+monitoringStack.addDependency(apiStack);
+monitoringStack.addDependency(databaseStack);
 
 // Apply tags to all stacks
 [authStack, databaseStack, storageStack, apiStack, frontendStack, monitoringStack].forEach(

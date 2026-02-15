@@ -1,8 +1,6 @@
 {
   "app": "npx tsx bin/app.ts",
   "context": {
-    "environment": "test",
-    "apiCertificateArn": "arn:aws:acm:us-east-1:817281265012:certificate/71b9761c-8a43-4303-8d0b-77d6e4231864",
-    "frontendCertificateArn": "arn:aws:acm:us-east-1:817281265012:certificate/71b9761c-8a43-4303-8d0b-77d6e4231864"
+    "environment": "test"
   }
 }

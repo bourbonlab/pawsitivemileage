@@ -172,6 +172,7 @@ export class ApiStack extends cdk.Stack {
         methods: [method],
         integration,
         authorizer: auth ? jwtAuthorizer : undefined,
+        authorizationScopes: auth ? [] : undefined,
       });
     };
 
