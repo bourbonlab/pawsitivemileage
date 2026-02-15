@@ -46,6 +46,19 @@ export class FrontendStack extends cdk.Stack {
     const photosBucket = s3.Bucket.fromBucketName(this, 'PhotosBucket', `${config.resourcePrefix}-photos`);
     const photosOrigin = origins.S3BucketOrigin.withOriginAccessControl(photosBucket);
 
+    // CloudFront Function to strip /photos prefix so S3 key matches the actual object path
+    const stripPhotosPrefix = new cloudfront.Function(this, 'StripPhotosPrefix', {
+      comment: 'Strip /photos prefix from URI before forwarding to photos S3 bucket',
+      code: cloudfront.FunctionCode.fromInline(`
+        function handler(event) {
+          var request = event.request;
+          request.uri = request.uri.replace(/^\\/photos/, '');
+          return request;
+        }
+      `),
+      functionName: `${config.resourcePrefix}-strip-photos-prefix`,
+    });
+
     // CloudFront distribution using Origin Access Control
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `PawsitiveMileage Frontend (${config.envName})`,
@@ -61,6 +74,10 @@ export class FrontendStack extends cdk.Stack {
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+          functionAssociations: [{
+            function: stripPhotosPrefix,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          }],
         },
       },
       defaultRootObject: 'index.html',
