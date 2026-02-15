@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from '../config.js';
 
@@ -43,6 +44,21 @@ export class StorageStack extends cdk.Stack {
         },
       ],
     });
+
+    // Allow CloudFront OAC to read photos via the frontend distribution
+    // Uses account-scoped SourceArn so the Frontend stack doesn't need to pass its distribution ARN
+    this.photosBucket.addToResourcePolicy(new iam.PolicyStatement({
+      sid: 'AllowCloudFrontOAC',
+      effect: iam.Effect.ALLOW,
+      principals: [new iam.ServicePrincipal('cloudfront.amazonaws.com')],
+      actions: ['s3:GetObject'],
+      resources: [this.photosBucket.arnForObjects('*')],
+      conditions: {
+        StringEquals: {
+          'AWS:SourceAccount': cdk.Stack.of(this).account,
+        },
+      },
+    }));
 
     // Exports bucket — CSV and PDF exports
     this.exportsBucket = new s3.Bucket(this, 'ExportsBucket', {

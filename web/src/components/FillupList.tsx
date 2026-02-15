@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowUpDown, Trash2, Pencil, Fuel, Loader2 } from 'lucide-react';
+import { ArrowUpDown, Trash2, Pencil, Fuel, Loader2, ImageIcon } from 'lucide-react';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -12,12 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { PhotoUpload } from '@/components/PhotoUpload';
 import type { Fillup } from '@/types';
 
 type SortField = 'date' | 'odometerReading' | 'gallonsAdded' | 'currencySpent' | 'mpg' | 'pricePerGallon';
 
 interface FillupListProps {
   fillups: Fillup[];
+  vehicleId: string;
   onDelete: (fillupId: string) => void;
   onEdit: (fillupId: string, data: FillupEditData) => void;
   isDeleting?: boolean;
@@ -30,10 +32,11 @@ export interface FillupEditData {
   gallonsAdded: number;
   odometerReading: number;
   isPartialFill?: boolean;
+  receiptPhotoKey?: string;
   notes?: string;
 }
 
-export function FillupList({ fillups, onDelete, onEdit, isDeleting, isEditing }: FillupListProps) {
+export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, isEditing }: FillupListProps) {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [editingFillup, setEditingFillup] = useState<Fillup | null>(null);
@@ -92,6 +95,17 @@ export function FillupList({ fillups, onDelete, onEdit, isDeleting, isEditing }:
                 <TableCell className="text-right tabular-nums">{f.pricePerGallon != null ? `${f.pricePerGallon.toFixed(2)}` : '—'}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
+                    {f.receiptPhotoKey && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => window.open(`/photos/${f.receiptPhotoKey}`, '_blank')}
+                        aria-label={`View receipt photo from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+                      >
+                        <ImageIcon className="size-4" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -122,6 +136,7 @@ export function FillupList({ fillups, onDelete, onEdit, isDeleting, isEditing }:
       {editingFillup && (
         <EditFillupDialog
           fillup={editingFillup}
+          vehicleId={vehicleId}
           open={!!editingFillup}
           onOpenChange={(open) => { if (!open) setEditingFillup(null); }}
           onSave={(data) => {
@@ -158,17 +173,23 @@ function SortableHead({
 
 function EditFillupDialog({
   fillup,
+  vehicleId,
   open,
   onOpenChange,
   onSave,
   isSaving,
 }: {
   fillup: Fillup;
+  vehicleId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (data: FillupEditData) => void;
   isSaving?: boolean;
 }) {
+  const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | undefined>(
+    fillup.receiptPhotoKey,
+  );
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -182,7 +203,7 @@ function EditFillupDialog({
 
     if (!date || isNaN(currencySpent) || isNaN(gallonsAdded) || isNaN(odometerReading)) return;
 
-    onSave({ date, currencySpent, gallonsAdded, odometerReading, isPartialFill, notes });
+    onSave({ date, currencySpent, gallonsAdded, odometerReading, isPartialFill, receiptPhotoKey, notes });
   }
 
   return (
@@ -266,6 +287,17 @@ function EditFillupDialog({
               name="notes"
               rows={2}
               defaultValue={fillup.notes ?? ''}
+            />
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label>Receipt Photo</Label>
+            <PhotoUpload
+              uploadType="receipt-photo"
+              vehicleId={vehicleId}
+              fillupId={fillup.fillupId}
+              onUploadComplete={setReceiptPhotoKey}
+              currentPhotoKey={receiptPhotoKey}
             />
           </div>
         </form>

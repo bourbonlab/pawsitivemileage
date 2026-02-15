@@ -10,8 +10,9 @@ interface PresignRequest {
 }
 
 interface PresignResponse {
-  uploadUrl: string;
-  s3Key: string;
+  url: string;
+  key: string;
+  expiresIn: number;
 }
 
 export function usePresignedUpload() {
@@ -19,7 +20,12 @@ export function usePresignedUpload() {
     mutationFn: (data: PresignRequest) =>
       apiClient<PresignResponse>('/v1/upload/presign', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          uploadType: data.uploadType,
+          vehicleId: data.vehicleId,
+          filename: data.fileName,
+          contentType: data.contentType,
+        }),
       }),
   });
 }

@@ -46,8 +46,9 @@ const monitoringStack = new MonitoringStack(app, `${stackPrefix}-Monitoring`, {
 apiStack.addDependency(authStack);
 apiStack.addDependency(databaseStack);
 apiStack.addDependency(storageStack);
-// Frontend depends on API (needs API Gateway endpoint for CORS/config)
+// Frontend depends on API (needs API Gateway endpoint for CORS/config) and Storage (photos bucket must exist first)
 frontendStack.addDependency(apiStack);
+frontendStack.addDependency(storageStack);
 // Monitoring depends on API + Database
 monitoringStack.addDependency(apiStack);
 monitoringStack.addDependency(databaseStack);

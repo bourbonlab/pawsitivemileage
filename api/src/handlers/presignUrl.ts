@@ -28,6 +28,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   try {
+
     const body = parseBody(event.body);
     if (!body) {
       return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);

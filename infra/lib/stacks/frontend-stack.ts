@@ -41,6 +41,11 @@ export class FrontendStack extends cdk.Stack {
       );
     }
 
+    // Photos origin — import bucket by name to avoid cross-stack circular dependency
+    // (OAC modifies the source bucket's policy, which would create Storage → Frontend → Storage cycle)
+    const photosBucket = s3.Bucket.fromBucketName(this, 'PhotosBucket', `${config.resourcePrefix}-photos`);
+    const photosOrigin = origins.S3BucketOrigin.withOriginAccessControl(photosBucket);
+
     // CloudFront distribution using Origin Access Control
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `PawsitiveMileage Frontend (${config.envName})`,
@@ -49,6 +54,14 @@ export class FrontendStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+      },
+      additionalBehaviors: {
+        '/photos/*': {
+          origin: photosOrigin,
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        },
       },
       defaultRootObject: 'index.html',
       errorResponses: [

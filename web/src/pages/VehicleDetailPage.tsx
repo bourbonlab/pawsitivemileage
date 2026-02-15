@@ -175,6 +175,7 @@ export default function VehicleDetailPage() {
             <TabsContent value="list">
               <FillupList
                 fillups={fillupsQuery.data ?? []}
+                vehicleId={vehicleId!}
                 onDelete={(id) => deleteFillup.mutate(id)}
                 onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data })}
                 isDeleting={deleteFillup.isPending}

@@ -30,7 +30,7 @@ export function PhotoUpload({
   const presignMutation = usePresignedUpload();
 
   const existingPhotoUrl = currentPhotoKey
-    ? `${import.meta.env.VITE_PHOTOS_URL ?? ''}/${currentPhotoKey}`
+    ? `/photos/${currentPhotoKey}`
     : null;
 
   const displayImage = preview ?? existingPhotoUrl;
@@ -46,7 +46,7 @@ export function PhotoUpload({
       setErrorMessage(null);
 
       try {
-        const { uploadUrl, s3Key } = await presignMutation.mutateAsync({
+        const { url, key } = await presignMutation.mutateAsync({
           uploadType,
           vehicleId,
           fillupId,
@@ -54,10 +54,10 @@ export function PhotoUpload({
           fileName: file.name,
         });
 
-        await uploadFileToS3(uploadUrl, file);
+        await uploadFileToS3(url, file);
 
         setUploadState('success');
-        onUploadComplete(s3Key);
+        onUploadComplete(key);
       } catch (err) {
         setUploadState('error');
         setErrorMessage(
