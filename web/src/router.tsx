@@ -1,7 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminRoute } from './auth/AdminRoute';
+import { Layout } from './components/Layout';
 import LoginPage from './pages/LoginPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/TermsOfServicePage';
 import GaragePage from './pages/GaragePage';
 import VehicleDetailPage from './pages/VehicleDetailPage';
 import AddFillupPage from './pages/AddFillupPage';
@@ -27,10 +30,20 @@ export const router = createBrowserRouter([
     element: <Navigate to="/garage" replace />,
   },
   {
+    path: '/privacy',
+    element: <PrivacyPolicyPage />,
+  },
+  {
+    path: '/terms',
+    element: <TermsOfServicePage />,
+  },
+  {
     path: '/garage',
     element: (
       <ProtectedRoute>
-        <GaragePage />
+        <Layout>
+          <GaragePage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -38,7 +51,9 @@ export const router = createBrowserRouter([
     path: '/vehicles/:vehicleId',
     element: (
       <ProtectedRoute>
-        <VehicleDetailPage />
+        <Layout>
+          <VehicleDetailPage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -46,7 +61,9 @@ export const router = createBrowserRouter([
     path: '/vehicles/:vehicleId/fillups/new',
     element: (
       <ProtectedRoute>
-        <AddFillupPage />
+        <Layout>
+          <AddFillupPage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -54,7 +71,9 @@ export const router = createBrowserRouter([
     path: '/vehicles/:vehicleId/maintenance/new',
     element: (
       <ProtectedRoute>
-        <AddMaintenancePage />
+        <Layout>
+          <AddMaintenancePage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -62,7 +81,9 @@ export const router = createBrowserRouter([
     path: '/vehicles/:vehicleId/analytics',
     element: (
       <ProtectedRoute>
-        <AnalyticsPage />
+        <Layout>
+          <AnalyticsPage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -70,7 +91,9 @@ export const router = createBrowserRouter([
     path: '/vehicles/:vehicleId/export',
     element: (
       <ProtectedRoute>
-        <ExportPage />
+        <Layout>
+          <ExportPage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
@@ -78,7 +101,9 @@ export const router = createBrowserRouter([
     path: '/admin/users',
     element: (
       <AdminRoute>
-        <AdminUsersPage />
+        <Layout>
+          <AdminUsersPage />
+        </Layout>
       </AdminRoute>
     ),
   },
@@ -86,7 +111,9 @@ export const router = createBrowserRouter([
     path: '/admin/schemas',
     element: (
       <AdminRoute>
-        <AdminSchemasPage />
+        <Layout>
+          <AdminSchemasPage />
+        </Layout>
       </AdminRoute>
     ),
   },
@@ -94,7 +121,9 @@ export const router = createBrowserRouter([
     path: '/admin/stats',
     element: (
       <AdminRoute>
-        <AdminStatsPage />
+        <Layout>
+          <AdminStatsPage />
+        </Layout>
       </AdminRoute>
     ),
   },
@@ -102,7 +131,9 @@ export const router = createBrowserRouter([
     path: '/account',
     element: (
       <ProtectedRoute>
-        <AccountPage />
+        <Layout>
+          <AccountPage />
+        </Layout>
       </ProtectedRoute>
     ),
   },
