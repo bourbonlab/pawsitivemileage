@@ -17,6 +17,7 @@ When a set of related changes is complete (feature, bugfix, refactor):
    - Summary line under 72 chars, body with bullet points for multi-file changes
    - Example: `feat: add receipt photo display in fillup edit dialog`
 3. If tests exist for the changed code, run them: `cd api && npm test`
+4. Push commits to remote: `git push`
 
 ## Production Deployment
 
