@@ -7,7 +7,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
 ## Tasks
 
 - [ ] 1. Initialize project structure and shared foundations
-  - [ ] 1.1 Scaffold project directories and install dependencies
+  - [~] 1.1 Scaffold project directories and install dependencies
     - Create `web/`, `api/`, `infra/`, `cli/` directories with package.json files
     - Install core dependencies: React 19, Vite 7, TypeScript, shadcn/ui v4, TanStack Query v5, React Router v7, Recharts, AWS Amplify v6 (web); esbuild, aws-sdk v3, ulid (api); aws-cdk-lib (infra)
     - Install test dependencies: vitest, fast-check, @testing-library/react
@@ -15,12 +15,12 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - Configure vitest.config.ts for api and web packages
     - _Requirements: 10.1_
 
-  - [ ] 1.2 Create shared TypeScript type definitions
+  - [~] 1.2 Create shared TypeScript type definitions
     - Create `api/src/types/user.ts`, `vehicle.ts`, `fillup.ts`, `maintenance.ts`, `schema.ts` with all interfaces from the design document
     - Create a shared types package or copy types to `web/src/types/` for frontend use
     - _Requirements: 9.1_
 
-  - [ ] 1.3 Implement API shared utilities
+  - [~] 1.3 Implement API shared utilities
     - Create `api/src/lib/response.ts` — standardized API response formatting (success and error responses with requestId)
     - Create `api/src/lib/logger.ts` — structured JSON logger with level, message, requestId, userId, handler, timestamp
     - Create `api/src/lib/auth.ts` — extract userId from API Gateway JWT authorizer claims
@@ -38,31 +38,31 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - _Requirements: 8.4, 8.5_
 
 - [ ] 2. Implement CDK infrastructure stacks
-  - [ ] 2.1 Create CDK app entry point and environment configuration
+  - [~] 2.1 Create CDK app entry point and environment configuration
     - Create `infra/bin/app.ts` reading environment parameter from context
     - Create `infra/lib/config.ts` with EnvironmentConfig for test, staging, production (domains, resource prefixes, tags)
     - Create `infra/lib/tags.ts` helper to apply Environment, Project, ManagedBy tags to all resources
     - _Requirements: 10.1, 10.3, 10.4, 10.9_
 
-  - [ ] 2.2 Create Auth stack
+  - [~] 2.2 Create Auth stack
     - Create `infra/lib/stacks/auth-stack.ts` with Cognito User Pool, Google identity provider, app client, hosted UI domain
     - Configure JWT issuer and audience for API Gateway authorizer
     - Apply environment-specific naming and tags
     - _Requirements: 1.1, 1.2, 10.3, 10.4_
 
-  - [ ] 2.3 Create Database stack
+  - [~] 2.3 Create Database stack
     - Create `infra/lib/stacks/database-stack.ts` with five DynamoDB tables: Users, Vehicles, Fillups, Maintenance, Schemas
     - Configure partition keys, sort keys, and GSIs as defined in the design data models
     - Apply environment-specific table naming (e.g., `pawsitivemileage-fillups-{env}`) and tags
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 10.3, 10.4_
 
-  - [ ] 2.4 Create Storage stack
+  - [~] 2.4 Create Storage stack
     - Create `infra/lib/stacks/storage-stack.ts` with three S3 buckets: photos, frontend static hosting, exports
     - Configure CORS for presigned URL uploads on the photos bucket
     - Apply environment-specific naming and tags
     - _Requirements: 2.7, 3.7, 10.3, 10.4_
 
-  - [ ] 2.5 Create API stack with Lambda functions and API Gateway
+  - [~] 2.5 Create API stack with Lambda functions and API Gateway
     - Create `infra/lib/stacks/api-stack.ts` with API Gateway v2 HTTP API
     - Create `infra/lib/constructs/lambda-function.ts` reusable construct with Node.js 24.x runtime, esbuild bundling, environment variables, and default settings
     - Define all Lambda functions (vehicleCrud, fillupCrud, maintenanceCrud, analytics, exportData, presignUrl, userProfile, adminUsers, adminSchemas, adminStats)
@@ -72,13 +72,13 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - Apply tags
     - _Requirements: 8.1, 8.2, 8.3, 10.4, 10.5, 10.6, 10.7_
 
-  - [ ] 2.6 Create Frontend stack
+  - [~] 2.6 Create Frontend stack
     - Create `infra/lib/stacks/frontend-stack.ts` with S3 bucket deployment and CloudFront distribution
     - Configure custom domain (environment-specific) on CloudFront
     - Apply tags
     - _Requirements: 10.3, 10.4, 10.5, 10.6, 10.7_
 
-  - [ ] 2.7 Create Monitoring stack
+  - [~] 2.7 Create Monitoring stack
     - Create `infra/lib/stacks/monitoring-stack.ts` with CloudWatch dashboard for API latency, error rates, Lambda cold starts, DynamoDB capacity
     - Apply tags
     - _Requirements: 7.5, 10.3_
@@ -94,7 +94,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
   - Ensure all CDK tests pass, synthesize all stacks for each environment, ask the user if questions arise.
 
 - [ ] 4. Implement core fillup tracking (backend)
-  - [ ] 4.1 Implement derived metrics calculation engine
+  - [~] 4.1 Implement derived metrics calculation engine
     - Create `api/src/lib/metrics.ts` with `calculateDerivedMetrics` function
     - Handle: standard two-fillup calculation, first fillup (price per gallon only), partial fill accumulation, full fill after partials
     - Create `recalculateAllMetrics(fillups: Fillup[]): Fillup[]` that processes an ordered sequence and recalculates all derived metrics
@@ -117,7 +117,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - Test edge cases: very small gallons, very large odometer gaps
     - _Requirements: 3.2, 3.3_
 
-  - [ ] 4.4 Implement fillup CRUD Lambda handler
+  - [~] 4.4 Implement fillup CRUD Lambda handler
     - Create `api/src/handlers/fillupCrud.ts` handling GET (list), GET (detail), POST (create), PUT (update), DELETE
     - On POST: validate input (date, currencySpent, gallonsAdded, odometerReading), enforce odometer monotonicity, calculate derived metrics, store in Fillups table
     - On PUT/DELETE: recalculate derived metrics for all subsequent fillups using `recalculateAllMetrics`
@@ -131,7 +131,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Validates: Requirements 3.1**
 
 - [ ] 5. Implement vehicle management (backend)
-  - [ ] 5.1 Implement vehicle CRUD Lambda handler
+  - [~] 5.1 Implement vehicle CRUD Lambda handler
     - Create `api/src/handlers/vehicleCrud.ts` handling GET (list with active/archived filter), POST (create), GET (detail), PUT (update), PATCH (archive/unarchive)
     - On POST: validate required fields (nickname, make, model, year), generate vehicleId (ULID), store in Vehicles table
     - On PATCH archive: set isArchived flag without deleting associated data
@@ -148,7 +148,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Property 9: Vehicle edit round-trip**
     - **Validates: Requirements 2.2**
 
-  - [ ] 5.3 Implement presigned URL Lambda handler
+  - [~] 5.3 Implement presigned URL Lambda handler
     - Create `api/src/handlers/presignUrl.ts` handling POST to generate presigned S3 upload URLs
     - Accept upload type (vehicle-photo, receipt-photo), vehicleId, and optional fillupId
     - Generate user-scoped S3 key: `{userId}/{vehicleId}/{type}/{filename}`
@@ -160,7 +160,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Validates: Requirements 2.7, 3.7**
 
 - [ ] 6. Implement user profile and authentication (backend)
-  - [ ] 6.1 Implement user profile Lambda handler
+  - [~] 6.1 Implement user profile Lambda handler
     - Create `api/src/handlers/userProfile.ts` handling GET (profile), PUT (update), DELETE (account deletion)
     - On first GET (profile not found): create profile from JWT claims (userId, email, displayName)
     - On DELETE: cascade delete all user's vehicles, fillups, maintenance records, and S3 objects
@@ -176,7 +176,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 8. Implement maintenance tracking (backend)
-  - [ ] 8.1 Implement admin schemas Lambda handler
+  - [~] 8.1 Implement admin schemas Lambda handler
     - Create `api/src/handlers/adminSchemas.ts` handling GET (list), POST (create), PUT (update), PATCH (activate/deactivate)
     - Verify admin flag on all requests
     - Store schemas in Schemas table with ULID schemaId
@@ -188,7 +188,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Property 12: Deactivated schema exclusion**
     - **Validates: Requirements 4.3**
 
-  - [ ] 8.3 Implement maintenance CRUD Lambda handler
+  - [~] 8.3 Implement maintenance CRUD Lambda handler
     - Create `api/src/handlers/maintenanceCrud.ts` handling GET (list), POST (create), PUT (update), DELETE, GET reminders
     - On POST: validate input, allow schema-based or custom maintenance records
     - Implement reminder calculation using `calculateReminder` from design
@@ -204,13 +204,13 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Validates: Requirements 4.9, 9.3, 9.4**
 
 - [ ] 9. Implement admin panel and analytics (backend)
-  - [ ] 9.1 Implement admin users Lambda handler
+  - [~] 9.1 Implement admin users Lambda handler
     - Create `api/src/handlers/adminUsers.ts` handling GET (list users with stats), PATCH (set/remove admin flag)
     - Verify admin flag on all requests
     - Query Users table GSI1 for listing, aggregate vehicle/fillup counts per user
     - _Requirements: 7.1, 7.2, 7.3_
 
-  - [ ] 9.2 Implement admin stats Lambda handler
+  - [~] 9.2 Implement admin stats Lambda handler
     - Create `api/src/handlers/adminStats.ts` handling GET (platform statistics)
     - Aggregate total users, active users, total fillups, total vehicles from GSIs
     - _Requirements: 7.4_
@@ -221,7 +221,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Property 22: Admin flag toggle round-trip**
     - **Validates: Requirements 7.3**
 
-  - [ ] 9.4 Implement analytics Lambda handler
+  - [~] 9.4 Implement analytics Lambda handler
     - Create `api/src/handlers/analytics.ts` handling GET (dashboard data), GET (year-over-year), POST (summary card)
     - Compute MPG over time, monthly spending, cost per mile trends, miles per month from Fillups table
     - Compute year-over-year summaries with trend indicators
@@ -236,7 +236,7 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Property 19: Summary card data completeness**
     - **Validates: Requirements 6.3**
 
-  - [ ] 9.6 Implement export Lambda handler
+  - [~] 9.6 Implement export Lambda handler
     - Create `api/src/handlers/exportData.ts` handling GET (fillup CSV), GET (maintenance CSV), POST (PDF report)
     - Generate CSV with all fields and derived metrics, scoped by vehicle and date range
     - Generate PDF with charts and summary statistics
@@ -258,14 +258,14 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - **Validates: Requirements 8.5**
 
 - [ ] 12. Implement frontend — Auth and routing
-  - [ ] 12.1 Set up Vite project with React 19 and configure routing
+  - [~] 12.1 Set up Vite project with React 19 and configure routing
     - Initialize Vite 7 project in `web/` with React 19 and TypeScript
     - Install and configure shadcn/ui v4
     - Set up React Router v7 with route definitions for all pages
     - Configure TanStack Query v5 provider
     - _Requirements: 12.1, 12.4, 12.5_
 
-  - [ ] 12.2 Implement authentication flow
+  - [~] 12.2 Implement authentication flow
     - Create `web/src/auth/AuthProvider.tsx` using AWS Amplify v6 for Cognito integration
     - Create `web/src/auth/ProtectedRoute.tsx` — redirects to Cognito hosted UI if not authenticated
     - Create `web/src/auth/AdminRoute.tsx` — checks admin flag, shows 403 if not admin
@@ -273,20 +273,20 @@ This plan implements PawsitiveMileage incrementally, starting with shared infras
     - Handle token storage, transparent refresh, and logout
     - _Requirements: 1.1, 1.2, 1.4, 1.5, 1.6_
 
-  - [ ] 12.3 Create API client layer
+  - [~] 12.3 Create API client layer
     - Create `web/src/api/client.ts` — fetch wrapper that injects JWT from Amplify auth session
     - Create TanStack Query hooks for each API resource: `web/src/api/vehicles.ts`, `fillups.ts`, `maintenance.ts`, `analytics.ts`, `admin.ts`, `upload.ts`
     - Configure query invalidation patterns for mutations
     - _Requirements: 12.4_
 
 - [ ] 13. Implement frontend — Garage and Vehicle pages
-  - [ ] 13.1 Build Garage page
+  - [~] 13.1 Build Garage page
     - Create `web/src/pages/GaragePage.tsx` with active/archived vehicle tabs
     - Create `web/src/components/VehicleCard.tsx` showing photo thumbnail, nickname, make/model/year
     - Add "Add Vehicle" button opening a form dialog
     - _Requirements: 2.1, 2.4, 2.5_
 
-  - [ ] 13.2 Build Vehicle detail page
+  - [~] 13.2 Build Vehicle detail page
     - Create `web/src/pages/VehicleDetailPage.tsx` with vehicle info, fillup list, maintenance list, and reminder banner
     - Create `web/src/components/FillupList.tsx` — sortable table of fillups with derived metrics
     - Create `web/src/components/MaintenanceList.tsx` — sortable table of maintenance records
