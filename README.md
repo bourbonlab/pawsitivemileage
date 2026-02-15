@@ -151,7 +151,7 @@ pawsitive-mileage/
 | Charts | Recharts | 2.x |
 | Styling | Tailwind CSS | 4.x |
 | Auth (client) | AWS Amplify JS | v6 |
-| Backend Runtime | Node.js on Lambda | 22.x |
+| Backend Runtime | Node.js on Lambda | 24.x |
 | Bundler | esbuild | 0.27.x |
 | Database | DynamoDB | On-demand |
 | Infrastructure | AWS CDK | 2.x |
@@ -162,7 +162,7 @@ pawsitive-mileage/
 
 ## Prerequisites
 
-- **Node.js** 22+ ([nodejs.org](https://nodejs.org/))
+- **Node.js** 24+ ([nodejs.org](https://nodejs.org/))
 - **npm** (comes with Node.js)
 - **AWS CLI** v2 ([install guide](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html))
 - **AWS CDK CLI** (`npm install -g aws-cdk` or use via `npx`)
@@ -451,7 +451,7 @@ Test files:
 | adminSchemas | Schema CRUD | Schemas (RW) | — |
 | adminStats | Platform statistics | All tables (R) | — |
 
-All functions: 256 MB memory, 30s timeout, Node.js 22.x, X-Ray tracing, structured JSON logging.
+All functions: 256 MB memory, 30s timeout, Node.js 24.x, X-Ray tracing, structured JSON logging.
 
 ---
 

@@ -36,7 +36,7 @@ export class AppFunction extends Construct {
 
     this.function = new lambdaNodejs.NodejsFunction(this, 'Function', {
       functionName: `${config.resourcePrefix}-${handlerFile}`,
-      runtime: lambda.Runtime.NODEJS_22_X,
+      runtime: lambda.Runtime.NODEJS_24_X,
       entry: path.join(__dirname, '..', '..', '..', 'api', 'src', 'handlers', `${handlerFile}.ts`),
       handler: handlerExport,
       memorySize,
@@ -50,7 +50,7 @@ export class AppFunction extends Construct {
       bundling: {
         minify: true,
         sourceMap: true,
-        target: 'node22',
+        target: 'node24',
         format: lambdaNodejs.OutputFormat.ESM,
         mainFields: ['module', 'main'],
         esbuildArgs: { '--tree-shaking': 'true' },

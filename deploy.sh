@@ -106,8 +106,8 @@ if ! command -v node &>/dev/null; then
   fail "Node.js is not installed. Install Node.js 22+ from https://nodejs.org/"
 fi
 NODE_VERSION=$(node -v | sed 's/v//' | cut -d. -f1)
-if [[ "$NODE_VERSION" -lt 22 ]]; then
-  fail "Node.js v22+ required (found v${NODE_VERSION}). Please upgrade."
+if [[ "$NODE_VERSION" -lt 24 ]]; then
+  fail "Node.js v24+ required (found v${NODE_VERSION}). Please upgrade."
 fi
 ok "Node.js $(node -v)"
 
