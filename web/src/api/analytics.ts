@@ -3,8 +3,9 @@ import { apiClient } from './client';
 
 export interface AnalyticsDashboard {
   mpgOverTime: { date: string; mpg: number }[];
-  monthlySpending: { month: string; total: number }[];
+  monthlySpending: { month: string; totalSpent: number }[];
   costPerMileTrend: { date: string; costPerMile: number }[];
+  pricePerGallonTrend: { date: string; pricePerGallon: number }[];
   milesPerMonth: { month: string; miles: number }[];
   fillupFrequency: { month: string; count: number }[];
 }

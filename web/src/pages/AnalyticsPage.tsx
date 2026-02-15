@@ -10,6 +10,7 @@ import { useVehicle } from '@/api/vehicles';
 import { MpgChart } from '@/components/charts/MpgChart';
 import { SpendingChart } from '@/components/charts/SpendingChart';
 import { CostPerMileChart } from '@/components/charts/CostPerMileChart';
+import { CostPerGallonChart } from '@/components/charts/CostPerGallonChart';
 import { SummaryCard } from '@/components/SummaryCard';
 import type { YearOverYear } from '@/api/analytics';
 
@@ -53,7 +54,8 @@ export default function AnalyticsPage() {
     dashboard &&
     (dashboard.mpgOverTime.length > 0 ||
       dashboard.monthlySpending.length > 0 ||
-      dashboard.costPerMileTrend.length > 0);
+      dashboard.costPerMileTrend.length > 0 ||
+      dashboard.pricePerGallonTrend.length > 0);
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -92,6 +94,7 @@ export default function AnalyticsPage() {
               <MpgChart data={dashboard!.mpgOverTime} />
               <SpendingChart data={dashboard!.monthlySpending} />
               <CostPerMileChart data={dashboard!.costPerMileTrend} />
+              <CostPerGallonChart data={dashboard!.pricePerGallonTrend} />
             </div>
           </section>
 

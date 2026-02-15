@@ -254,6 +254,8 @@ async function createFillup(
       fillupDateId: sortKey,
       GSI1PK: userId,
       GSI1SK: date,
+      GSI2PK: 'FILLUPS',
+      GSI2SK: date,
     },
   }));
 
@@ -463,6 +465,8 @@ async function writeAllFillups(fillups: Fillup[], userId: string): Promise<void>
         fillupDateId: `${fillup.date}#${fillup.fillupId}`,
         GSI1PK: userId,
         GSI1SK: fillup.date,
+        GSI2PK: 'FILLUPS',
+        GSI2SK: fillup.date,
       },
     })),
   );

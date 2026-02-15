@@ -15,6 +15,7 @@ import AdminUsersPage from './pages/AdminUsersPage';
 import AdminSchemasPage from './pages/AdminSchemasPage';
 import AdminStatsPage from './pages/AdminStatsPage';
 import AccountPage from './pages/AccountPage';
+import NotFoundPage from './pages/NotFoundPage';
 
 export const router = createBrowserRouter([
   {
@@ -136,5 +137,9 @@ export const router = createBrowserRouter([
         </Layout>
       </ProtectedRoute>
     ),
+  },
+  {
+    path: '*',
+    element: <NotFoundPage />,
   },
 ]);

@@ -5,7 +5,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card';
 
 interface SpendingChartProps {
-  data: { month: string; total: number }[];
+  data: { month: string; totalSpent: number }[];
 }
 
 export function SpendingChart({ data }: SpendingChartProps) {
@@ -46,7 +46,7 @@ export function SpendingChart({ data }: SpendingChartProps) {
               }}
             />
             <Bar
-              dataKey="total"
+              dataKey="totalSpent"
               fill="hsl(221, 83%, 53%)"
               radius={[4, 4, 0, 0]}
             />

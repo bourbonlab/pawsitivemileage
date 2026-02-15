@@ -1,10 +1,10 @@
 import { Link } from 'react-router';
-import { LogOut } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { signOut } = useAuth();
+  const { signOut, isAdmin } = useAuth();
 
   const handleSignOut = async () => {
     await signOut();
@@ -18,10 +18,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <img src="/WebLogo.png" alt="PawsitiveMileage logo" className="h-8 w-8 rounded" />
             <span className="text-lg font-semibold">PawsitiveMileage</span>
           </Link>
-          <Button variant="ghost" size="sm" onClick={handleSignOut} aria-label="Sign out">
-            <LogOut className="mr-2 h-4 w-4" />
-            Sign out
-          </Button>
+          <div className="flex items-center gap-1">
+            {isAdmin && (
+              <Button variant="ghost" size="sm" asChild>
+                <Link to="/admin/stats">
+                  <Shield className="mr-2 h-4 w-4" />
+                  Admin
+                </Link>
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={handleSignOut} aria-label="Sign out">
+              <LogOut className="mr-2 h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -37,6 +47,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <Link to="/terms" className="hover:text-foreground transition-colors">
               Terms of Service
             </Link>
+            <a href="https://gitea.bourbonlab.net/bourbonlab/PawsitiveMileage" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+              Source Code
+            </a>
           </nav>
         </div>
       </footer>

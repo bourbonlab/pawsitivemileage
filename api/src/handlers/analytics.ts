@@ -179,10 +179,16 @@ async function handleDashboard(
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([month, count]) => ({ month, count }));
 
+  // Price per gallon trend — only fillups with non-null pricePerGallon
+  const pricePerGallonTrend = fillups
+    .filter((f) => f.pricePerGallon !== null && f.pricePerGallon !== undefined)
+    .map((f) => ({ date: f.date, pricePerGallon: f.pricePerGallon as number }));
+
   return success({
     mpgOverTime,
     monthlySpending,
     costPerMileTrend,
+    pricePerGallonTrend,
     milesPerMonth,
     fillupFrequency,
   }, requestId);

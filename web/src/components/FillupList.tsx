@@ -6,7 +6,7 @@ import {
 import { Button } from '@/components/ui/button';
 import type { Fillup } from '@/types';
 
-type SortField = 'date' | 'odometerReading' | 'gallonsAdded' | 'currencySpent' | 'mpg' | 'costPerMile';
+type SortField = 'date' | 'odometerReading' | 'gallonsAdded' | 'currencySpent' | 'mpg' | 'pricePerGallon';
 
 interface FillupListProps {
   fillups: Fillup[];
@@ -56,7 +56,7 @@ export function FillupList({ fillups, onDelete, isDeleting }: FillupListProps) {
             <SortableHead label="Gallons" field="gallonsAdded" current={sortField} asc={sortAsc} onToggle={toggleSort} />
             <SortableHead label="Cost" field="currencySpent" current={sortField} asc={sortAsc} onToggle={toggleSort} />
             <SortableHead label="MPG" field="mpg" current={sortField} asc={sortAsc} onToggle={toggleSort} />
-            <SortableHead label="$/Mile" field="costPerMile" current={sortField} asc={sortAsc} onToggle={toggleSort} />
+            <SortableHead label="$/Gal" field="pricePerGallon" current={sortField} asc={sortAsc} onToggle={toggleSort} />
             <TableHead className="w-12"><span className="sr-only">Actions</span></TableHead>
           </TableRow>
         </TableHeader>
@@ -68,7 +68,7 @@ export function FillupList({ fillups, onDelete, isDeleting }: FillupListProps) {
               <TableCell className="text-right tabular-nums">{f.gallonsAdded.toFixed(2)}</TableCell>
               <TableCell className="text-right tabular-nums">${f.currencySpent.toFixed(2)}</TableCell>
               <TableCell className="text-right tabular-nums">{f.mpg != null ? f.mpg.toFixed(1) : '—'}</TableCell>
-              <TableCell className="text-right tabular-nums">{f.costPerMile != null ? `$${f.costPerMile.toFixed(2)}` : '—'}</TableCell>
+              <TableCell className="text-right tabular-nums">{f.pricePerGallon != null ? `${f.pricePerGallon.toFixed(2)}` : '—'}</TableCell>
               <TableCell>
                 <Button
                   variant="ghost"
