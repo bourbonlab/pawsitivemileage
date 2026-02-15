@@ -101,14 +101,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const signOut = useCallback(async () => {
-    try {
-      await amplifySignOut({ global: true });
-    } catch {
-      // Force local cleanup even if global sign-out fails
-      await amplifySignOut();
-    }
     setUser(null);
     setIsAdmin(false);
+
+    // Clear local Amplify tokens/session without triggering OAuth redirect
+    try {
+      await amplifySignOut();
+    } catch {
+      // Ignore — we'll redirect manually
+    }
+
+    // Manually construct the Cognito logout URL with the correct parameters.
+    // Amplify v6 sometimes sends `logout_uri` instead of `redirect_uri`,
+    // which Cognito rejects with "Required String parameter 'redirect_uri' is not present".
+    const domain = import.meta.env.VITE_COGNITO_DOMAIN;
+    const clientId = import.meta.env.VITE_COGNITO_APP_CLIENT_ID;
+    const redirectUrl = encodeURIComponent(window.location.origin);
+
+    if (domain && clientId) {
+      window.location.href =
+        `https://${domain}/logout?client_id=${clientId}&logout_uri=${redirectUrl}&redirect_uri=${redirectUrl}&response_type=code`;
+    } else {
+      window.location.href = '/';
+    }
   }, []);
 
   const value: AuthContextValue = {

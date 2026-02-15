@@ -23,7 +23,7 @@ export function configureAmplify() {
             domain: domain ?? '',
             scopes: ['openid', 'email', 'profile', 'aws.cognito.signin.user.admin'],
             redirectSignIn: [redirectBase + '/callback'],
-            redirectSignOut: [redirectBase + '/'],
+            redirectSignOut: [redirectBase],
             responseType: 'code',
             providers: ['Google'],
           },
