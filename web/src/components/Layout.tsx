@@ -1,15 +1,13 @@
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
 import { LogOut } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { signOut } = useAuth();
-  const navigate = useNavigate();
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/login');
   };
 
   return (

@@ -58,7 +58,7 @@ export function MaintenanceList({ records, onDelete, isDeleting }: MaintenanceLi
         <TableBody>
           {sorted.map((r) => (
             <TableRow key={r.recordId}>
-              <TableCell className="whitespace-nowrap">{new Date(r.datePerformed).toLocaleDateString()}</TableCell>
+              <TableCell className="whitespace-nowrap">{new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}</TableCell>
               <TableCell>{r.schemaName || r.customTypeName || '—'}</TableCell>
               <TableCell className="text-right tabular-nums">{r.odometerAtService.toLocaleString()}</TableCell>
               <TableCell className="text-right tabular-nums">${r.cost.toFixed(2)}</TableCell>
@@ -69,7 +69,7 @@ export function MaintenanceList({ records, onDelete, isDeleting }: MaintenanceLi
                   className="size-8 text-destructive hover:text-destructive"
                   onClick={() => onDelete(r.recordId)}
                   disabled={isDeleting}
-                  aria-label={`Delete maintenance from ${new Date(r.datePerformed).toLocaleDateString()}`}
+                  aria-label={`Delete maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
                 >
                   {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                 </Button>

@@ -25,6 +25,22 @@ export interface YearOverYear {
   };
 }
 
+interface YearOverYearSummary {
+  year: string;
+  totalSpent: number;
+  totalGallons: number;
+  averageMpg: number | null;
+  totalMiles: number;
+  maintenanceCost: number;
+  trends?: {
+    totalSpent: 'up' | 'down' | 'flat';
+    totalGallons: 'up' | 'down' | 'flat';
+    averageMpg: 'up' | 'down' | 'flat';
+    totalMiles: 'up' | 'down' | 'flat';
+    maintenanceCost: 'up' | 'down' | 'flat';
+  };
+}
+
 export interface SummaryCardData {
   year: number;
   totalMiles: number;
@@ -46,8 +62,34 @@ export function useAnalyticsDashboard(vehicleId: string | undefined) {
 export function useYearOverYear(vehicleId: string | undefined) {
   return useQuery({
     queryKey: ['analytics', vehicleId, 'yoy'],
-    queryFn: () =>
-      apiClient<YearOverYear>(`/v1/vehicles/${vehicleId}/analytics/yoy`),
+    queryFn: async () => {
+      const raw = await apiClient<{ summaries: YearOverYearSummary[] }>(
+        `/v1/vehicles/${vehicleId}/analytics/yoy`,
+      );
+
+      const summaries = raw.summaries ?? [];
+      if (summaries.length === 0) {
+        return { years: [], trends: { spending: 'flat', mpg: 'flat', miles: 'flat' } } as YearOverYear;
+      }
+
+      // Use the most recent year's trends for the top-level indicators
+      const latest = summaries[summaries.length - 1];
+      return {
+        years: summaries.map((s) => ({
+          year: Number(s.year),
+          totalSpent: s.totalSpent,
+          totalGallons: s.totalGallons,
+          averageMpg: s.averageMpg ?? 0,
+          totalMiles: s.totalMiles,
+          maintenanceCost: s.maintenanceCost,
+        })),
+        trends: {
+          spending: latest.trends?.totalSpent ?? 'flat',
+          mpg: latest.trends?.averageMpg ?? 'flat',
+          miles: latest.trends?.totalMiles ?? 'flat',
+        },
+      } as YearOverYear;
+    },
     enabled: !!vehicleId,
   });
 }

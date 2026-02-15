@@ -65,7 +65,7 @@ export function FillupMap({ fillups }: FillupMapProps) {
                 {f.stationName && (
                   <p className="font-semibold">{f.stationName}</p>
                 )}
-                <p>{new Date(f.date).toLocaleDateString()}</p>
+                <p>{new Date(f.date + 'T00:00:00').toLocaleDateString()}</p>
                 {f.pricePerGallon != null && (
                   <p>${f.pricePerGallon.toFixed(2)}/gal</p>
                 )}

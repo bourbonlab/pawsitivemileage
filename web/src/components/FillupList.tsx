@@ -63,7 +63,7 @@ export function FillupList({ fillups, onDelete, isDeleting }: FillupListProps) {
         <TableBody>
           {sorted.map((f) => (
             <TableRow key={f.fillupId}>
-              <TableCell className="whitespace-nowrap">{new Date(f.date).toLocaleDateString()}</TableCell>
+              <TableCell className="whitespace-nowrap">{new Date(f.date + 'T00:00:00').toLocaleDateString()}</TableCell>
               <TableCell className="text-right tabular-nums">{f.odometerReading.toLocaleString()}</TableCell>
               <TableCell className="text-right tabular-nums">{f.gallonsAdded.toFixed(2)}</TableCell>
               <TableCell className="text-right tabular-nums">${f.currencySpent.toFixed(2)}</TableCell>
@@ -76,7 +76,7 @@ export function FillupList({ fillups, onDelete, isDeleting }: FillupListProps) {
                   className="size-8 text-destructive hover:text-destructive"
                   onClick={() => onDelete(f.fillupId)}
                   disabled={isDeleting}
-                  aria-label={`Delete fillup from ${new Date(f.date).toLocaleDateString()}`}
+                  aria-label={`Delete fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
                 >
                   {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                 </Button>
