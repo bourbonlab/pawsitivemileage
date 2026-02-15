@@ -301,11 +301,11 @@ Custom domains require pre-provisioned ACM certificates. Pass the ARNs via CDK c
 ```bash
 npx cdk deploy --all \
   -c environment=production \
-  -c apiCertificateArn=arn:aws:acm:us-east-1:ACCOUNT:certificate/XXXX \
-  -c frontendCertificateArn=arn:aws:acm:us-east-1:ACCOUNT:certificate/YYYY \
   -c googleClientId=YOUR_GOOGLE_CLIENT_ID \
   -c googleClientSecret=YOUR_GOOGLE_CLIENT_SECRET
 ```
+
+The wildcard ACM certificate (`arn:aws:acm:us-east-1:817281265012:certificate/71b9761c-8a43-4303-8d0b-77d6e4231864`) is configured in `infra/cdk.json` and passed automatically by `deploy.sh` — no need to specify it manually.
 
 DNS is managed in CloudFlare with proxy enabled (Full Strict SSL).
 

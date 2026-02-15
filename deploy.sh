@@ -198,13 +198,14 @@ ok "Frontend built — output in web/dist/"
 # ── Step 6: CDK Synth ───────────────────────────────────────────────────────
 
 CDK_ENV="${DEPLOY_ENV:-test}"
+ACM_CERT_ARN="arn:aws:acm:us-east-1:817281265012:certificate/71b9761c-8a43-4303-8d0b-77d6e4231864"
 
 step "Synthesizing CDK stacks (environment: ${CDK_ENV})"
 
 if [[ "$VERBOSE" == true ]]; then
-  (cd infra && npx cdk synth -c environment="$CDK_ENV")
+  (cd infra && npx cdk synth -c environment="$CDK_ENV" -c apiCertificateArn="$ACM_CERT_ARN" -c frontendCertificateArn="$ACM_CERT_ARN")
 else
-  (cd infra && npx cdk synth -c environment="$CDK_ENV" 2>&1) || fail "CDK synth failed"
+  (cd infra && npx cdk synth -c environment="$CDK_ENV" -c apiCertificateArn="$ACM_CERT_ARN" -c frontendCertificateArn="$ACM_CERT_ARN" 2>&1) || fail "CDK synth failed"
 fi
 
 ok "CDK synth succeeded for ${CDK_ENV}"
@@ -226,9 +227,9 @@ step "Deploying to ${DEPLOY_ENV}"
 info "Running: cdk deploy --all --require-approval never -c environment=${DEPLOY_ENV}"
 
 if [[ "$VERBOSE" == true ]]; then
-  (cd infra && npx cdk deploy --all --require-approval never -c environment="$DEPLOY_ENV")
+  (cd infra && npx cdk deploy --all --require-approval never -c environment="$DEPLOY_ENV" -c apiCertificateArn="$ACM_CERT_ARN" -c frontendCertificateArn="$ACM_CERT_ARN")
 else
-  (cd infra && npx cdk deploy --all --require-approval never -c environment="$DEPLOY_ENV") || fail "CDK deploy failed"
+  (cd infra && npx cdk deploy --all --require-approval never -c environment="$DEPLOY_ENV" -c apiCertificateArn="$ACM_CERT_ARN" -c frontendCertificateArn="$ACM_CERT_ARN") || fail "CDK deploy failed"
 fi
 
 ok "All stacks deployed to ${DEPLOY_ENV}"
