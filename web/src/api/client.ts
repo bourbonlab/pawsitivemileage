@@ -56,5 +56,8 @@ export async function apiClient<T>(
   // Handle 204 No Content
   if (res.status === 204) return undefined as T;
 
-  return res.json() as Promise<T>;
+  const json = await res.json();
+
+  // API wraps responses in { data, requestId } — unwrap automatically
+  return (json.data !== undefined ? json.data : json) as T;
 }

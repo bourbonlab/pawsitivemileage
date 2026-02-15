@@ -204,7 +204,7 @@ async function createMaintenance(
     TableName: tableName,
     Item: {
       ...record,
-      'serviceDate#recordId': sortKey,
+      serviceDateId: sortKey,
       GSI1PK: userId,
       GSI1SK: datePerformed,
     },
@@ -284,7 +284,7 @@ async function updateMaintenance(
   if (oldSortKey !== newSortKey) {
     await docClient.send(new DeleteCommand({
       TableName: tableName,
-      Key: { vehicleId, 'serviceDate#recordId': oldSortKey },
+      Key: { vehicleId, serviceDateId: oldSortKey },
     }));
   }
 
@@ -306,7 +306,7 @@ async function updateMaintenance(
     TableName: tableName,
     Item: {
       ...updated,
-      'serviceDate#recordId': newSortKey,
+      serviceDateId: newSortKey,
       GSI1PK: userId,
       GSI1SK: updatedDate,
     },
@@ -337,7 +337,7 @@ async function deleteMaintenance(
 
   await docClient.send(new DeleteCommand({
     TableName: tableName,
-    Key: { vehicleId, 'serviceDate#recordId': sortKey },
+    Key: { vehicleId, serviceDateId: sortKey },
   }));
 
   logger.info(`Deleted maintenance record ${recordId}`, requestId, userId);

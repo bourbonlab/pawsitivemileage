@@ -46,7 +46,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         headers: { Authorization: `Bearer ${idToken}` },
       });
       if (res.ok) {
-        const profile = await res.json();
+        const json = await res.json();
+        const profile = json.data ?? json;
         setIsAdmin(profile.isAdmin === true);
       }
     } catch {

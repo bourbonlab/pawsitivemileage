@@ -251,7 +251,7 @@ async function createFillup(
     TableName: tableName,
     Item: {
       ...fillup,
-      'fillupDate#fillupId': sortKey,
+      fillupDateId: sortKey,
       GSI1PK: userId,
       GSI1SK: date,
     },
@@ -340,7 +340,7 @@ async function updateFillup(
   if (oldSortKey !== newSortKey) {
     await docClient.send(new DeleteCommand({
       TableName: tableName,
-      Key: { vehicleId, 'fillupDate#fillupId': oldSortKey },
+      Key: { vehicleId, fillupDateId: oldSortKey },
     }));
   }
 
@@ -384,7 +384,7 @@ async function deleteFillup(
   // Delete the fillup
   await docClient.send(new DeleteCommand({
     TableName: tableName,
-    Key: { vehicleId, 'fillupDate#fillupId': sortKey },
+    Key: { vehicleId, fillupDateId: sortKey },
   }));
 
   // Fetch remaining fillups and recalculate all metrics (Req 3.6)
@@ -460,7 +460,7 @@ async function writeAllFillups(fillups: Fillup[], userId: string): Promise<void>
       TableName: tableName,
       Item: {
         ...fillup,
-        'fillupDate#fillupId': `${fillup.date}#${fillup.fillupId}`,
+        fillupDateId: `${fillup.date}#${fillup.fillupId}`,
         GSI1PK: userId,
         GSI1SK: fillup.date,
       },
