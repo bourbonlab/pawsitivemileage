@@ -93,7 +93,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await signInWithRedirect({ provider: 'Google' });
     } catch (err: unknown) {
-      // If already authenticated, just re-check auth state
       if (err instanceof Error && err.name === 'UserAlreadyAuthenticatedException') {
         await checkAuth();
       }
