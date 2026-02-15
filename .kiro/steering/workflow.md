@@ -12,12 +12,13 @@ When a set of related changes is complete (feature, bugfix, refactor):
    - `cd web && npm run lint` (frontend)
    - `cd api && npm run lint` (backend)
    - `cd infra && npm run lint` (infrastructure)
-2. Stage and commit with a conventional commit message:
+2. If infra changes were made, run `./deploy.sh` (no args) to synth and catch CDK errors early
+3. Stage and commit with a conventional commit message:
    - Format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:` prefix
    - Summary line under 72 chars, body with bullet points for multi-file changes
    - Example: `feat: add receipt photo display in fillup edit dialog`
-3. If tests exist for the changed code, run them: `cd api && npm test`
-4. Push commits to remote: `git push`
+4. If tests exist for the changed code, run them: `cd api && npm test`
+5. Push commits to remote: `git push`
 
 ## Production Deployment
 
