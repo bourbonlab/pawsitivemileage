@@ -64,6 +64,22 @@ export function useUpdateFillup(vehicleId: string, fillupId: string) {
   });
 }
 
+export function useEditFillup(vehicleId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ fillupId, data }: { fillupId: string; data: FillupUpdate }) =>
+      apiClient<Fillup>(`/v1/vehicles/${vehicleId}/fillups/${fillupId}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['fillups', vehicleId] });
+      qc.invalidateQueries({ queryKey: ['vehicles', vehicleId] });
+      qc.invalidateQueries({ queryKey: ['analytics', vehicleId] });
+    },
+  });
+}
+
 export function useDeleteFillup(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({

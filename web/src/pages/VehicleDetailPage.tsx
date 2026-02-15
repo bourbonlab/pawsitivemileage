@@ -16,9 +16,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useVehicle, useUpdateVehicle, useArchiveVehicle } from '@/api/vehicles';
-import { useFillups, useDeleteFillup } from '@/api/fillups';
+import { useFillups, useDeleteFillup, useEditFillup } from '@/api/fillups';
 import { useMaintenanceRecords, useReminders, useDeleteMaintenance } from '@/api/maintenance';
 import { FillupList } from '@/components/FillupList';
+import type { FillupEditData } from '@/components/FillupList';
 import { FillupMap } from '@/components/FillupMap';
 import { MaintenanceList } from '@/components/MaintenanceList';
 import { ReminderBanner } from '@/components/ReminderBanner';
@@ -34,6 +35,7 @@ export default function VehicleDetailPage() {
   const remindersQuery = useReminders(vehicleId);
 
   const deleteFillup = useDeleteFillup(vehicleId ?? '');
+  const editFillup = useEditFillup(vehicleId ?? '');
   const deleteMaintenance = useDeleteMaintenance(vehicleId ?? '');
   const archiveVehicle = useArchiveVehicle(vehicleId ?? '');
 
@@ -174,7 +176,9 @@ export default function VehicleDetailPage() {
               <FillupList
                 fillups={fillupsQuery.data ?? []}
                 onDelete={(id) => deleteFillup.mutate(id)}
+                onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data })}
                 isDeleting={deleteFillup.isPending}
+                isEditing={editFillup.isPending}
               />
             </TabsContent>
             <TabsContent value="map">
