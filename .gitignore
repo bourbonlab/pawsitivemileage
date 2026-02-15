@@ -136,3 +136,19 @@ dist
 .yarn/install-state.gz
 .pnp.*
 
+
+# ── Project-specific ─────────────────────────────────────────────────────────
+
+# CDK synth output (regenerated on every synth/deploy)
+infra/cdk.out/
+
+# Editor / IDE settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db

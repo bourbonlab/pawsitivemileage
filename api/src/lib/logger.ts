@@ -1,0 +1,40 @@
+type LogLevel = 'INFO' | 'WARN' | 'ERROR';
+
+interface LogEntry {
+  level: LogLevel;
+  message: string;
+  requestId: string;
+  userId: string;
+  handler: string;
+  timestamp: string;
+  error?: { name: string; message: string; stack: string };
+}
+
+export function createLogger(handler: string) {
+  function log(level: LogLevel, message: string, requestId: string, userId: string, err?: unknown) {
+    const entry: LogEntry = {
+      level,
+      message,
+      requestId,
+      userId,
+      handler,
+      timestamp: new Date().toISOString(),
+    };
+
+    if (err instanceof Error) {
+      entry.error = { name: err.name, message: err.message, stack: err.stack ?? '' };
+    }
+
+    // Structured JSON to stdout — CloudWatch picks it up automatically
+    process.stdout.write(JSON.stringify(entry) + '\n');
+  }
+
+  return {
+    info: (message: string, requestId: string, userId: string) =>
+      log('INFO', message, requestId, userId),
+    warn: (message: string, requestId: string, userId: string) =>
+      log('WARN', message, requestId, userId),
+    error: (message: string, requestId: string, userId: string, err?: unknown) =>
+      log('ERROR', message, requestId, userId, err),
+  };
+}

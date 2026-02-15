@@ -1,0 +1,28 @@
+{
+  "name": "pawsitive-mileage-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/handlers/*.ts --bundle --platform=node --target=node22 --outdir=dist --format=esm --external:@aws-sdk/*",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.990.0",
+    "@aws-sdk/client-s3": "^3.990.0",
+    "@aws-sdk/lib-dynamodb": "^3.990.0",
+    "@aws-sdk/s3-request-presigner": "^3.990.0",
+    "ulid": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.160",
+    "@types/node": "^25.2.3",
+    "@vitest/coverage-v8": "^4.0.18",
+    "esbuild": "^0.27.3",
+    "fast-check": "^4.5.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
