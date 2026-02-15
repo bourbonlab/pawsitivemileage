@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import {
   ArrowLeft, Loader2, BarChart3, Users, Car, Fuel, UserCheck,
-  ExternalLink,
+  ExternalLink, Wrench, ChevronRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -102,6 +102,42 @@ export default function AdminStatsPage() {
           value={stats?.totalFillups ?? 0}
           icon={<Fuel className="size-5" aria-hidden="true" />}
         />
+      </div>
+
+      {/* Admin quick nav */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Card className="transition-colors hover:bg-muted/50" role="link" tabIndex={-1}>
+          <Link to="/admin/users" className="block">
+            <CardContent className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Users className="size-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="font-medium">Manage Users</p>
+                  <p className="text-sm text-muted-foreground">View users, assign admin roles</p>
+                </div>
+              </div>
+              <ChevronRight className="size-5 text-muted-foreground" aria-hidden="true" />
+            </CardContent>
+          </Link>
+        </Card>
+        <Card className="transition-colors hover:bg-muted/50" role="link" tabIndex={-1}>
+          <Link to="/admin/schemas" className="block">
+            <CardContent className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Wrench className="size-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <p className="font-medium">Maintenance Schemas</p>
+                  <p className="text-sm text-muted-foreground">Create, edit, activate schemas</p>
+                </div>
+              </div>
+              <ChevronRight className="size-5 text-muted-foreground" aria-hidden="true" />
+            </CardContent>
+          </Link>
+        </Card>
       </div>
 
       {/* Platform Health section */}

@@ -114,8 +114,9 @@ export class ApiStack extends cdk.Stack {
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['adminUsers'].function);
     databaseStack.fillupsTable.grantReadData(this.lambdaFunctions['adminUsers'].function);
 
-    // adminSchemas needs Schemas table
+    // adminSchemas needs Schemas table + Users table (for checkIsAdmin)
     databaseStack.schemasTable.grantReadWriteData(this.lambdaFunctions['adminSchemas'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['adminSchemas'].function);
 
     // adminStats needs read access to all tables for aggregation
     for (const table of allTables) {
