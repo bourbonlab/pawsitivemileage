@@ -354,6 +354,27 @@ else
   info "You can manually invalidate via: aws cloudfront create-invalidation --distribution-id <ID> --paths '/*'"
 fi
 
+# Purge CloudFlare cache (optional — requires CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN in .env)
+if [[ -n "${CLOUDFLARE_ZONE_ID:-}" && -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+  info "Purging CloudFlare cache for zone ${CLOUDFLARE_ZONE_ID}"
+  CF_RESPONSE=$(curl -s -X POST \
+    "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data '{"purge_everything":true}' 2>/dev/null || true)
+
+  if echo "$CF_RESPONSE" | grep -q '"success":true'; then
+    ok "CloudFlare cache purged"
+  else
+    warn "CloudFlare cache purge failed (non-fatal)"
+    if [[ "$VERBOSE" == true ]]; then
+      info "Response: ${CF_RESPONSE}"
+    fi
+  fi
+else
+  info "CloudFlare cache purge skipped (CLOUDFLARE_ZONE_ID / CLOUDFLARE_API_TOKEN not set in .env)"
+fi
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 
 echo ""

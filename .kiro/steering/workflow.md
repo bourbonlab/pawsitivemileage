@@ -35,6 +35,7 @@ This is a long-running process (~3-5 minutes). Run it as a background process an
 7. Fetch Cognito outputs, build frontend with VITE_* env vars
 8. S3 sync frontend assets
 9. CloudFront cache invalidation
+10. CloudFlare cache purge (if `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_API_TOKEN` set in `.env`)
 
 Other environments:
 - `./deploy.sh --test` — deploy to test
