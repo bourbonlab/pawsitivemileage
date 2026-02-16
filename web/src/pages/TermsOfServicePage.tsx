@@ -71,8 +71,8 @@ export default function TermsOfServicePage() {
         <h2 className="text-xl font-semibold">10. Contact</h2>
         <p>
           If you have questions about these Terms of Service, please contact us at{' '}
-          <a href="mailto:support@bourbonlab.net" className="text-primary underline">
-            support@bourbonlab.net
+          <a href={`mailto:${import.meta.env.VITE_SUPPORT_EMAIL}`} className="text-primary underline">
+            {import.meta.env.VITE_SUPPORT_EMAIL}
           </a>
           .
         </p>

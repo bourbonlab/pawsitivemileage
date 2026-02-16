@@ -56,8 +56,8 @@ export default function PrivacyPolicyPage() {
         <h2 className="text-xl font-semibold">8. Contact</h2>
         <p>
           If you have questions about this Privacy Policy, please contact us at{' '}
-          <a href="mailto:support@bourbonlab.net" className="text-primary underline">
-            support@bourbonlab.net
+          <a href={`mailto:${import.meta.env.VITE_SUPPORT_EMAIL}`} className="text-primary underline">
+            {import.meta.env.VITE_SUPPORT_EMAIL}
           </a>
           .
         </p>

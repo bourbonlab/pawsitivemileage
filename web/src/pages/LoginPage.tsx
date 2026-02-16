@@ -55,9 +55,11 @@ export default function LoginPage() {
             <a href="/terms" className="hover:text-foreground transition-colors">
               Terms of Service
             </a>
-            <a href="https://gitea.bourbonlab.net/bourbonlab/PawsitiveMileage" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
-              Source Code
-            </a>
+            {import.meta.env.VITE_SOURCE_CODE_URL && (
+              <a href={import.meta.env.VITE_SOURCE_CODE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+                Source Code
+              </a>
+            )}
           </nav>
         </div>
       </footer>

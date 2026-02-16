@@ -10,26 +10,20 @@ export interface EnvironmentConfig {
   tags: Record<string, string>;
 }
 
-/** Default domain configuration — overridable via CDK context */
-const defaults: Record<string, Omit<EnvironmentConfig, 'tags' | 'enableMonitoring'>> = {
+/** Default resource prefixes per environment — domains MUST be provided via CDK context */
+const defaults: Record<string, { envName: EnvironmentConfig['envName']; resourcePrefix: string; cognitoDomainPrefix: string }> = {
   test: {
     envName: 'test',
-    frontendDomain: 'pawsitivemileagetest.bourbonlab.net',
-    apiDomain: 'pawsitivemileageapitest.bourbonlab.net',
     resourcePrefix: 'pawsitivemileage-test',
     cognitoDomainPrefix: 'pmileage-test',
   },
   staging: {
     envName: 'staging',
-    frontendDomain: 'pawsitivemileagestaging.bourbonlab.net',
-    apiDomain: 'pawsitivemileageapistaging.bourbonlab.net',
     resourcePrefix: 'pawsitivemileage-staging',
     cognitoDomainPrefix: 'pmileage-staging',
   },
   production: {
     envName: 'production',
-    frontendDomain: 'pawsitivemileage.bourbonlab.net',
-    apiDomain: 'pawsitivemileageapi.bourbonlab.net',
     resourcePrefix: 'pawsitivemileage-production',
     cognitoDomainPrefix: 'pmileage-production',
   },
@@ -45,10 +39,20 @@ export function getEnvironmentConfig(app: cdk.App, envName: string): Environment
     throw new Error(`Unknown environment: ${envName}. Valid values: ${Object.keys(defaults).join(', ')}`);
   }
 
+  const frontendDomain = app.node.tryGetContext('frontendDomain');
+  const apiDomain = app.node.tryGetContext('apiDomain');
+
+  if (!frontendDomain) {
+    throw new Error('Missing required CDK context: frontendDomain. Pass via -c frontendDomain=<domain>');
+  }
+  if (!apiDomain) {
+    throw new Error('Missing required CDK context: apiDomain. Pass via -c apiDomain=<domain>');
+  }
+
   return {
     envName: base.envName,
-    frontendDomain: app.node.tryGetContext('frontendDomain') ?? base.frontendDomain,
-    apiDomain: app.node.tryGetContext('apiDomain') ?? base.apiDomain,
+    frontendDomain,
+    apiDomain,
     resourcePrefix: app.node.tryGetContext('resourcePrefix') ?? base.resourcePrefix,
     cognitoDomainPrefix: app.node.tryGetContext('cognitoDomainPrefix') ?? base.cognitoDomainPrefix,
     enableMonitoring: app.node.tryGetContext('enableMonitoring') === 'true',
