@@ -32,6 +32,7 @@ export interface FillupEditData {
   gallonsAdded: number;
   odometerReading: number;
   isPartialFill?: boolean;
+  isBusiness?: boolean;
   receiptPhotoKey?: string;
   notes?: string;
 }
@@ -199,11 +200,12 @@ function EditFillupDialog({
     const gallonsAdded = parseFloat(fd.get('gallonsAdded') as string);
     const odometerReading = parseFloat(fd.get('odometerReading') as string);
     const isPartialFill = fd.get('isPartialFill') === 'on';
+    const isBusiness = fd.get('isBusiness') === 'on';
     const notes = (fd.get('notes') as string)?.trim() || undefined;
 
     if (!date || isNaN(currencySpent) || isNaN(gallonsAdded) || isNaN(odometerReading)) return;
 
-    onSave({ date, currencySpent, gallonsAdded, odometerReading, isPartialFill, receiptPhotoKey, notes });
+    onSave({ date, currencySpent, gallonsAdded, odometerReading, isPartialFill, isBusiness, receiptPhotoKey, notes });
   }
 
   return (
@@ -277,6 +279,17 @@ function EditFillupDialog({
               id="edit-fillup-partial"
               name="isPartialFill"
               defaultChecked={fillup.isPartialFill}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="edit-fillup-business" className="cursor-pointer">
+              Business
+            </Label>
+            <Switch
+              id="edit-fillup-business"
+              name="isBusiness"
+              defaultChecked={fillup.isBusiness ?? false}
             />
           </div>
 

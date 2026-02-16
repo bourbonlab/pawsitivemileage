@@ -8,6 +8,7 @@ type FillupCreate = {
   gallonsAdded: number;
   odometerReading: number;
   isPartialFill?: boolean;
+  isBusiness?: boolean;
   locationLat?: number;
   locationLng?: number;
   stationName?: string;

@@ -155,6 +155,7 @@ async function createFillup(
     gallonsAdded: 'number',
     odometerReading: 'number',
     isPartialFill: 'boolean',
+    isBusiness: 'boolean',
   });
   if (typeErrors.length > 0) {
     return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
@@ -175,6 +176,7 @@ async function createFillup(
   const gallonsAdded = body.gallonsAdded as number;
   const odometerReading = body.odometerReading as number;
   const isPartialFill = (body.isPartialFill as boolean) ?? false;
+  const isBusiness = (body.isBusiness as boolean) ?? false;
 
   // Fetch existing fillups to check odometer monotonicity and calculate metrics
   const existingFillups = await fetchAllFillups(vehicleId);
@@ -229,6 +231,7 @@ async function createFillup(
     gallonsAdded,
     odometerReading,
     isPartialFill,
+    isBusiness,
     pricePerGallon: metrics.pricePerGallon,
     milesSinceLastFillup: metrics.milesSinceLastFillup,
     mpg: metrics.mpg,
@@ -296,6 +299,9 @@ async function updateFillup(
   const updatedIsPartialFill = body.isPartialFill !== undefined
     ? (body.isPartialFill as boolean)
     : existing.isPartialFill;
+  const updatedIsBusiness = body.isBusiness !== undefined
+    ? (body.isBusiness as boolean)
+    : existing.isBusiness;
 
   // Validate numeric ranges if provided
   const rangeChecks: Record<string, { min?: number }> = {};
@@ -323,6 +329,7 @@ async function updateFillup(
     gallonsAdded: updatedGallonsAdded,
     odometerReading: updatedOdometerReading,
     isPartialFill: updatedIsPartialFill,
+    isBusiness: updatedIsBusiness,
     ...(body.locationLat !== undefined && { locationLat: body.locationLat as number }),
     ...(body.locationLng !== undefined && { locationLng: body.locationLng as number }),
     ...(body.stationName !== undefined && { stationName: body.stationName as string }),
