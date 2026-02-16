@@ -198,7 +198,7 @@ export default function ExportPage() {
         <CardContent className="space-y-3">
           {/* CSV Fillups */}
           <ExportOption
-            icon={<FileSpreadsheet className="size-5 text-green-600" aria-hidden="true" />}
+            icon={<FileSpreadsheet className="size-5 text-green-600 dark:text-green-400" aria-hidden="true" />}
             title="Fillups CSV"
             description="All fillup records with calculated metrics"
             isPending={exportFillups.isPending}
@@ -218,7 +218,7 @@ export default function ExportPage() {
 
           {/* CSV Maintenance */}
           <ExportOption
-            icon={<FileSpreadsheet className="size-5 text-blue-600" aria-hidden="true" />}
+            icon={<FileSpreadsheet className="size-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
             title="Maintenance CSV"
             description="All maintenance records and service history"
             isPending={exportMaintenance.isPending}
@@ -238,7 +238,7 @@ export default function ExportPage() {
 
           {/* PDF Report */}
           <ExportOption
-            icon={<FileText className="size-5 text-red-600" aria-hidden="true" />}
+            icon={<FileText className="size-5 text-red-600 dark:text-red-400" aria-hidden="true" />}
             title="PDF Report"
             description="Summary report with charts and statistics"
             isPending={exportPdf.isPending}
@@ -321,7 +321,7 @@ function ExportOption({
 
       {/* Success feedback */}
       {isSuccess && successMessage && (
-        <div className="flex items-center gap-1.5 text-xs text-green-600" role="status">
+        <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400" role="status">
           <CheckCircle2 className="size-3.5" aria-hidden="true" />
           {successMessage}
         </div>

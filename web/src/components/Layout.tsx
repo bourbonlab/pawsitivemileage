@@ -1,10 +1,12 @@
 import { Link } from 'react-router';
-import { LogOut, Shield } from 'lucide-react';
+import { LogOut, Moon, Shield, Sun } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
+import { useTheme } from '@/lib/useTheme';
 import { Button } from '@/components/ui/button';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { signOut, isAdmin } = useAuth();
+  const { isDark, toggle } = useTheme();
 
   const handleSignOut = async () => {
     await signOut();
@@ -19,6 +21,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-lg font-semibold">PawsitiveMileage</span>
           </Link>
           <div className="flex items-center gap-1">
+            <Button variant="ghost" size="sm" onClick={toggle} aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
             {isAdmin && (
               <Button variant="ghost" size="sm" asChild>
                 <Link to="/admin/stats">

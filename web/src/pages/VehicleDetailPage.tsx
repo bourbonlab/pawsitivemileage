@@ -179,7 +179,7 @@ export default function VehicleDetailPage() {
 
       {/* Recalculate feedback */}
       {recalcMessage && (
-        <p className={`text-sm font-medium ${recalcMessage.includes('failed') ? 'text-destructive' : 'text-green-600'}`}>
+        <p className={`text-sm font-medium ${recalcMessage.includes('failed') ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
           {recalcMessage}
         </p>
       )}

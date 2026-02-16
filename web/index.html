@@ -6,6 +6,10 @@
     <title>PawsitiveMileage</title>
   </head>
   <body>
+    <script>
+      // Prevent flash of wrong theme on load
+      (function(){var t=localStorage.getItem('pm-theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')})();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

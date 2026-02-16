@@ -223,9 +223,9 @@ function TrendBadge({
 
   let colorClass = 'text-muted-foreground';
   if (direction === 'up') {
-    colorClass = invertColor ? 'text-red-600' : 'text-green-600';
+    colorClass = invertColor ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
   } else if (direction === 'down') {
-    colorClass = invertColor ? 'text-green-600' : 'text-red-600';
+    colorClass = invertColor ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
   }
 
   return (
