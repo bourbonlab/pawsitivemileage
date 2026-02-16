@@ -6,6 +6,7 @@ import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
 import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
+import { deleteObject } from '../lib/s3.js';
 import { calculateReminder } from '../lib/reminders.js';
 import type { MaintenanceRecord } from '../types/maintenance.js';
 import type { MaintenanceSchema } from '../types/schema.js';
@@ -316,9 +317,25 @@ async function updateMaintenance(
     cost: (body.cost as number) ?? existing.cost,
     ...(body.location !== undefined && { location: body.location as string }),
     ...(body.notes !== undefined && { notes: body.notes as string }),
-    ...(body.receiptPhotoKey !== undefined && { receiptPhotoKey: body.receiptPhotoKey as string }),
+    // receiptPhotoKey: null means "remove photo"; string means "set new photo"
+    ...(body.receiptPhotoKey !== undefined && body.receiptPhotoKey !== null && { receiptPhotoKey: body.receiptPhotoKey as string }),
     updatedAt: now,
   };
+
+  // If receiptPhotoKey is explicitly null, remove the photo from S3 and strip the field
+  if (body.receiptPhotoKey === null && existing.receiptPhotoKey) {
+    const photosBucket = process.env.PHOTOS_BUCKET;
+    if (photosBucket) {
+      try {
+        await deleteObject(photosBucket, existing.receiptPhotoKey);
+        logger.info(`Deleted receipt photo ${existing.receiptPhotoKey} from S3`, requestId, userId);
+      } catch (s3Err) {
+        logger.error('Failed to delete receipt photo from S3', requestId, userId, s3Err);
+        // Continue — don't fail the update if S3 delete fails
+      }
+    }
+    delete (updated as unknown as Record<string, unknown>).receiptPhotoKey;
+  }
 
   await docClient.send(new PutCommand({
     TableName: tableName,

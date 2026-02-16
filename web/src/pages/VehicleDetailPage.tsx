@@ -17,11 +17,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useVehicle, useUpdateVehicle, useArchiveVehicle } from '@/api/vehicles';
 import { useFillups, useDeleteFillup, useEditFillup } from '@/api/fillups';
-import { useMaintenanceRecords, useReminders, useDeleteMaintenance } from '@/api/maintenance';
+import { useMaintenanceRecords, useReminders, useDeleteMaintenance, useEditMaintenance } from '@/api/maintenance';
 import { FillupList } from '@/components/FillupList';
 import type { FillupEditData } from '@/components/FillupList';
 import { FillupMap } from '@/components/FillupMap';
 import { MaintenanceList } from '@/components/MaintenanceList';
+import type { MaintenanceEditData } from '@/components/MaintenanceList';
 import { ReminderBanner } from '@/components/ReminderBanner';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { ImportDialog } from '@/components/ImportDialog';
@@ -40,6 +41,7 @@ export default function VehicleDetailPage() {
   const deleteFillup = useDeleteFillup(vehicleId ?? '');
   const editFillup = useEditFillup(vehicleId ?? '');
   const deleteMaintenance = useDeleteMaintenance(vehicleId ?? '');
+  const editMaintenance = useEditMaintenance(vehicleId ?? '');
   const archiveVehicle = useArchiveVehicle(vehicleId ?? '');
 
   const [editOpen, setEditOpen] = useState(false);
@@ -255,8 +257,11 @@ export default function VehicleDetailPage() {
         ) : (
           <MaintenanceList
             records={maintenanceQuery.data ?? []}
+            vehicleId={vehicleId!}
             onDelete={(id) => deleteMaintenance.mutate(id)}
+            onEdit={(recordId, data) => editMaintenance.mutate({ recordId, data: data as Parameters<typeof editMaintenance.mutate>[0]['data'] })}
             isDeleting={deleteMaintenance.isPending}
+            isEditing={editMaintenance.isPending}
           />
         )}
       </section>

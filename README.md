@@ -66,9 +66,9 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 **Data Import & Recalculation**
 - Import Fuelly CSV exports (fuelups and maintenance) via S3 presigned upload
 - CSV parsing with field mapping, validation, and skip logic for invalid rows
-- Duplicate detection prevents re-importing existing records
+- Fillup and maintenance imports allow multiple entries per day (no duplicate filtering)
 - Bulk metrics recalculation for all fillups on a vehicle
-- Import result summary (imported, skipped, duplicates, errors)
+- Import result summary (imported, skipped, errors)
 
 **Admin Panel**
 - User management with admin role assignment

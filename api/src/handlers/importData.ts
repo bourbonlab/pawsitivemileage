@@ -108,40 +108,11 @@ async function importFuelups(
   // 3. Sort by date ascending
   const sorted = [...parseResult.records].sort((a, b) => a.date.localeCompare(b.date));
 
-  // 4. Fetch existing fillups for duplicate detection
-  const existingKeys = new Set<string>();
-  let exclusiveStartKey: Record<string, unknown> | undefined;
-  do {
-    const result = await docClient.send(new QueryCommand({
-      TableName: fillupsTable,
-      KeyConditionExpression: 'vehicleId = :vid',
-      ExpressionAttributeValues: { ':vid': vehicleId },
-      ProjectionExpression: '#d, odometerReading',
-      ExpressionAttributeNames: { '#d': 'date' },
-      ExclusiveStartKey: exclusiveStartKey,
-    }));
-    if (result.Items) {
-      for (const item of result.Items) {
-        existingKeys.add(`${item.date}|${item.odometerReading}`);
-      }
-    }
-    exclusiveStartKey = result.LastEvaluatedKey;
-  } while (exclusiveStartKey);
-
-  // 5. Build DynamoDB items, skipping duplicates
+  // 4. Build DynamoDB items — no duplicate filtering (multiple entries per day are allowed)
   const now = new Date().toISOString();
-  let duplicates = 0;
   const itemsToWrite: Record<string, unknown>[] = [];
 
   for (const record of sorted) {
-    const dupKey = `${record.date}|${record.odometerReading}`;
-    if (existingKeys.has(dupKey)) {
-      duplicates++;
-      continue;
-    }
-    // Mark as seen so intra-batch duplicates are also caught
-    existingKeys.add(dupKey);
-
     const fillupId = ulid();
     const item: Record<string, unknown> = {
       vehicleId,
@@ -175,7 +146,7 @@ async function importFuelups(
     itemsToWrite.push(item);
   }
 
-  // 6. Batch write in chunks of 25
+  // 5. Batch write in chunks of 25
   const errors: string[] = [];
   for (let i = 0; i < itemsToWrite.length; i += 25) {
     const batch = itemsToWrite.slice(i, i + 25);
@@ -197,11 +168,11 @@ async function importFuelups(
     totalRows: parseResult.totalRows,
     imported,
     skipped: parseResult.skipped.length,
-    duplicates,
+    duplicates: 0,
     errors,
   };
 
-  logger.info(`Import fuelups complete: ${imported} imported, ${duplicates} duplicates, ${parseResult.skipped.length} skipped`, requestId, userId);
+  logger.info(`Import fuelups complete: ${imported} imported, ${parseResult.skipped.length} skipped`, requestId, userId);
   return success(result, requestId);
 }
 
@@ -243,39 +214,11 @@ async function importMaintenance(
     return error('VALIDATION_ERROR', 'No valid records found in CSV', requestId);
   }
 
-  // 3. Fetch existing maintenance records for duplicate detection
-  const existingKeys = new Set<string>();
-  let exclusiveStartKey: Record<string, unknown> | undefined;
-  do {
-    const result = await docClient.send(new QueryCommand({
-      TableName: maintenanceTable,
-      KeyConditionExpression: 'vehicleId = :vid',
-      ExpressionAttributeValues: { ':vid': vehicleId },
-      ProjectionExpression: 'datePerformed, odometerAtService',
-      ExclusiveStartKey: exclusiveStartKey,
-    }));
-    if (result.Items) {
-      for (const item of result.Items) {
-        existingKeys.add(`${item.datePerformed}|${item.odometerAtService}`);
-      }
-    }
-    exclusiveStartKey = result.LastEvaluatedKey;
-  } while (exclusiveStartKey);
-
-  // 4. Build DynamoDB items, skipping duplicates
+  // 3. Build DynamoDB items — no duplicate filtering (multiple entries per day are allowed)
   const now = new Date().toISOString();
-  let duplicates = 0;
   const itemsToWrite: Record<string, unknown>[] = [];
 
   for (const record of parseResult.records) {
-    const dupKey = `${record.datePerformed}|${record.odometerAtService}`;
-    if (existingKeys.has(dupKey)) {
-      duplicates++;
-      continue;
-    }
-    // Mark as seen so intra-batch duplicates are also caught
-    existingKeys.add(dupKey);
-
     const recordId = ulid();
     const item: Record<string, unknown> = {
       vehicleId,
@@ -298,7 +241,7 @@ async function importMaintenance(
     itemsToWrite.push(item);
   }
 
-  // 5. Batch write in chunks of 25
+  // 4. Batch write in chunks of 25
   const errors: string[] = [];
   for (let i = 0; i < itemsToWrite.length; i += 25) {
     const batch = itemsToWrite.slice(i, i + 25);
@@ -320,11 +263,11 @@ async function importMaintenance(
     totalRows: parseResult.totalRows,
     imported,
     skipped: parseResult.skipped.length,
-    duplicates,
+    duplicates: 0,
     errors,
   };
 
-  logger.info(`Import maintenance complete: ${imported} imported, ${duplicates} duplicates, ${parseResult.skipped.length} skipped`, requestId, userId);
+  logger.info(`Import maintenance complete: ${imported} imported, ${parseResult.skipped.length} skipped`, requestId, userId);
   return success(result, requestId);
 }
 

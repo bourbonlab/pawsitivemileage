@@ -14,7 +14,9 @@ type MaintenanceCreate = {
   receiptPhotoKey?: string;
 };
 
-type MaintenanceUpdate = Partial<MaintenanceCreate>;
+type MaintenanceUpdate = Partial<MaintenanceCreate> & {
+  receiptPhotoKey?: string | null;
+};
 
 export function useMaintenanceRecords(vehicleId: string | undefined) {
   return useQuery({
@@ -67,6 +69,21 @@ export function useUpdateMaintenance(vehicleId: string, recordId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: MaintenanceUpdate) =>
+      apiClient<MaintenanceRecord>(
+        `/v1/vehicles/${vehicleId}/maintenance/${recordId}`,
+        { method: 'PUT', body: JSON.stringify(data) },
+      ),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
+      qc.invalidateQueries({ queryKey: ['reminders', vehicleId] });
+    },
+  });
+}
+
+export function useEditMaintenance(vehicleId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ recordId, data }: { recordId: string; data: MaintenanceUpdate }) =>
       apiClient<MaintenanceRecord>(
         `/v1/vehicles/${vehicleId}/maintenance/${recordId}`,
         { method: 'PUT', body: JSON.stringify(data) },
