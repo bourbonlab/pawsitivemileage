@@ -6,7 +6,7 @@ pawsitive-mileage/
 │   ├── src/
 │   │   ├── api/            # Typed fetch wrappers (client.ts, vehicles.ts, fillups.ts, maintenance.ts, analytics.ts, upload.ts, import.ts, admin.ts)
 │   │   ├── auth/           # Amplify config, AuthProvider, ProtectedRoute, AdminRoute
-│   │   ├── components/     # UI components (Layout, VehicleCard, FillupList, FillupMap, MaintenanceList, ReminderBanner, SummaryCard, PhotoUpload, ImportDialog, LocationPicker)
+│   │   ├── components/     # UI components (Layout, VehicleCard, FillupList, FillupMap, MaintenanceList, ReminderBanner, SummaryCard, PhotoUpload, ImportDialog, LocationPicker, DetailPeekDialog)
 │   │   │   ├── charts/     # Recharts: MpgChart, SpendingChart, CostPerMileChart, CostPerGallonChart
 │   │   │   └── ui/         # shadcn/ui primitives (alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
 │   │   ├── lib/            # utils.ts (cn() helper), metrics.ts (client-side formatting)

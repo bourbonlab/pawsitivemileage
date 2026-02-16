@@ -26,6 +26,7 @@ DNS managed in CloudFlare (proxied, Full Strict SSL). ACM wildcard certificate i
 - Partial fill support (defers MPG calculation, accumulates gallons/miles until next full fill)
 - Receipt photo uploads via S3 presigned URLs
 - Optional location tagging (browser geolocation, Leaflet map picker, or manual entry)
+- Quick-peek detail dialog for viewing notes, location, and derived metrics without editing
 
 **Garage / Multi-Vehicle**
 - Unlimited vehicles with make, model, year, photo, specs (trim, color, VIN, license plate, tank size, fuel type)
@@ -39,6 +40,7 @@ DNS managed in CloudFlare (proxied, Full Strict SSL). ACM wildcard certificate i
 - Custom one-off maintenance entries not tied to a schema
 - Per-vehicle interval overrides for global schemas
 - Optional location tagging (browser geolocation, Leaflet map picker, or manual entry)
+- Quick-peek detail dialog for viewing notes and location without editing
 
 **Analytics & Reporting**
 - MPG over time, monthly spending, cost per mile, cost per gallon trend charts (Recharts)

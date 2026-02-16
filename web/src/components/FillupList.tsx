@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { ArrowUpDown, Trash2, Pencil, Fuel, Loader2, ImageIcon } from 'lucide-react';
+import { ArrowUpDown, Trash2, Pencil, Fuel, Loader2, ImageIcon, FileText } from 'lucide-react';
+import { DetailPeekDialog, hasDetails } from '@/components/DetailPeekDialog';
+import type { DetailPeekData } from '@/components/DetailPeekDialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -46,6 +48,29 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [editingFillup, setEditingFillup] = useState<Fillup | null>(null);
+  const [peekingFillup, setPeekingFillup] = useState<Fillup | null>(null);
+
+  function buildPeekData(f: Fillup): DetailPeekData {
+    const badges: DetailPeekData['badges'] = [];
+    if (f.isPartialFill) badges.push({ label: 'Partial Fill', variant: 'outline' });
+    if (f.isBusiness) badges.push({ label: 'Business', variant: 'secondary' });
+
+    const extras: DetailPeekData['extras'] = [];
+    if (f.costPerMile != null) extras.push({ label: 'Cost / Mile', value: `$${f.costPerMile.toFixed(2)}` });
+    if (f.milesSinceLastFillup != null) extras.push({ label: 'Miles Driven', value: f.milesSinceLastFillup.toLocaleString() });
+    if (f.daysSinceLastFillup != null) extras.push({ label: 'Days Between', value: String(f.daysSinceLastFillup) });
+
+    return {
+      title: `Fillup — ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`,
+      notes: f.notes,
+      stationName: f.stationName,
+      address: f.address,
+      locationLat: f.locationLat,
+      locationLng: f.locationLng,
+      badges,
+      extras: extras.length > 0 ? extras : undefined,
+    };
+  }
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -101,6 +126,17 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
                 <TableCell className="text-right tabular-nums">{f.pricePerGallon != null ? `${f.pricePerGallon.toFixed(2)}` : '—'}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
+                    {hasDetails(f) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setPeekingFillup(f)}
+                        aria-label={`View details for fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+                      >
+                        <FileText className="size-4" />
+                      </Button>
+                    )}
                     {f.receiptPhotoKey && (
                       <Button
                         variant="ghost"
@@ -152,6 +188,12 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
           isSaving={isEditing}
         />
       )}
+
+      <DetailPeekDialog
+        data={peekingFillup ? buildPeekData(peekingFillup) : null}
+        open={!!peekingFillup}
+        onOpenChange={(open) => { if (!open) setPeekingFillup(null); }}
+      />
     </>
   );
 }
