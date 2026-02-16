@@ -33,7 +33,7 @@ export function VehicleCard({ vehicle, className }: VehicleCardProps) {
         <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
           {vehicle.photoKey ? (
             <img
-              src={`${import.meta.env.VITE_PHOTOS_URL ?? ''}/${vehicle.photoKey}`}
+              src={`/photos/${vehicle.photoKey}`}
               alt={vehicle.nickname}
               className="size-full object-cover"
             />
