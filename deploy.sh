@@ -107,7 +107,9 @@ set +a
 # Validate required environment variables
 MISSING_VARS=()
 [[ -z "${GOOGLE_CLIENT_ID:-}" || "$GOOGLE_CLIENT_ID" == "your-google-client-id"* ]]   && MISSING_VARS+=("GOOGLE_CLIENT_ID")
-[[ -z "${GOOGLE_CLIENT_SECRET:-}" || "$GOOGLE_CLIENT_SECRET" == "your-google-client"* ]] && MISSING_VARS+=("GOOGLE_CLIENT_SECRET")
+[[ -z "${GOOGLE_CLIENT_SECRET_ARN_TEST:-}" || "$GOOGLE_CLIENT_SECRET_ARN_TEST" == "your-"* ]]             && MISSING_VARS+=("GOOGLE_CLIENT_SECRET_ARN_TEST")
+[[ -z "${GOOGLE_CLIENT_SECRET_ARN_STAGING:-}" || "$GOOGLE_CLIENT_SECRET_ARN_STAGING" == "your-"* ]]       && MISSING_VARS+=("GOOGLE_CLIENT_SECRET_ARN_STAGING")
+[[ -z "${GOOGLE_CLIENT_SECRET_ARN_PRODUCTION:-}" || "$GOOGLE_CLIENT_SECRET_ARN_PRODUCTION" == "your-"* ]] && MISSING_VARS+=("GOOGLE_CLIENT_SECRET_ARN_PRODUCTION")
 [[ -z "${ACM_CERTIFICATE_ARN:-}" || "$ACM_CERTIFICATE_ARN" == *"your-certificate-id"* ]] && MISSING_VARS+=("ACM_CERTIFICATE_ARN")
 [[ -z "${RESOURCE_PREFIX:-}" ]]                                                          && MISSING_VARS+=("RESOURCE_PREFIX")
 [[ -z "${COGNITO_DOMAIN_PREFIX:-}" ]]                                                      && MISSING_VARS+=("COGNITO_DOMAIN_PREFIX")
@@ -246,6 +248,7 @@ for dir in api web infra; do
     (cd "$dir" && npm install --yes --silent 2>&1) || fail "npm install failed in ${dir}/"
   fi
   ok "${dir}/ dependencies installed"
+  (cd "$dir" && npm audit --audit-level=high 2>/dev/null) || warn "npm audit found vulnerabilities in ${dir}/"
 done
 
 # ── Step 3: Build API ───────────────────────────────────────────────────────
@@ -285,8 +288,10 @@ CDK_ENV="${DEPLOY_ENV:-test}"
 CDK_ENV_UPPER=$(echo "$CDK_ENV" | tr '[:lower:]' '[:upper:]')
 FRONTEND_DOMAIN_VAR="FRONTEND_DOMAIN_${CDK_ENV_UPPER}"
 API_DOMAIN_VAR="API_DOMAIN_${CDK_ENV_UPPER}"
+GOOGLE_SECRET_ARN_VAR="GOOGLE_CLIENT_SECRET_ARN_${CDK_ENV_UPPER}"
 FRONTEND_DOMAIN="${!FRONTEND_DOMAIN_VAR}"
 API_DOMAIN="${!API_DOMAIN_VAR}"
+GOOGLE_CLIENT_SECRET_ARN="${!GOOGLE_SECRET_ARN_VAR}"
 
 # Build CDK context flags (all values validated from .env above)
 CDK_CONTEXT=(
@@ -294,7 +299,7 @@ CDK_CONTEXT=(
   -c apiCertificateArn="$ACM_CERTIFICATE_ARN"
   -c frontendCertificateArn="$ACM_CERTIFICATE_ARN"
   -c googleClientId="$GOOGLE_CLIENT_ID"
-  -c googleClientSecret="$GOOGLE_CLIENT_SECRET"
+  -c googleClientSecretArn="$GOOGLE_CLIENT_SECRET_ARN"
   -c frontendDomain="$FRONTEND_DOMAIN"
   -c apiDomain="$API_DOMAIN"
   -c resourcePrefix="${RESOURCE_PREFIX}-${CDK_ENV}"
@@ -325,12 +330,19 @@ fi
 
 step "Deploying to ${DEPLOY_ENV}"
 
-info "Running: cdk deploy --all --require-approval never -c environment=${DEPLOY_ENV}"
+# Production deployments require approval for security-broadening changes (IAM, security groups)
+if [[ "$DEPLOY_ENV" == "production" ]]; then
+  APPROVAL_FLAG="--require-approval broadening"
+else
+  APPROVAL_FLAG="--require-approval never"
+fi
+
+info "Running: cdk deploy --all ${APPROVAL_FLAG} -c environment=${DEPLOY_ENV}"
 
 if [[ "$VERBOSE" == true ]]; then
-  (cd infra && npx cdk deploy --all --require-approval never "${CDK_CONTEXT[@]}")
+  (cd infra && npx cdk deploy --all ${APPROVAL_FLAG} "${CDK_CONTEXT[@]}")
 else
-  (cd infra && npx cdk deploy --all --require-approval never "${CDK_CONTEXT[@]}") || fail "CDK deploy failed"
+  (cd infra && npx cdk deploy --all ${APPROVAL_FLAG} "${CDK_CONTEXT[@]}") || fail "CDK deploy failed"
 fi
 
 ok "All stacks deployed to ${DEPLOY_ENV}"

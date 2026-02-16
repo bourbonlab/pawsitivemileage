@@ -2,7 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import { ulid } from 'ulid';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired } from '../lib/validation.js';
+import { parseBody, validateRequired, sanitizeFilename } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import { buildS3Key, getPresignedUploadUrl } from '../lib/s3.js';
 
@@ -10,6 +10,8 @@ const logger = createLogger('presignUrl');
 
 const ALLOWED_UPLOAD_TYPES = ['vehicle-photo', 'receipt-photo'] as const;
 type UploadType = (typeof ALLOWED_UPLOAD_TYPES)[number];
+
+const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'] as const;
 
 const PRESIGN_EXPIRATION_SECONDS = 900; // 15 minutes
 
@@ -50,6 +52,17 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('VALIDATION_ERROR', `uploadType must be one of: ${ALLOWED_UPLOAD_TYPES.join(', ')}`, requestId);
     }
 
+    // Validate content type against whitelist
+    if (!ALLOWED_CONTENT_TYPES.includes(contentType as typeof ALLOWED_CONTENT_TYPES[number])) {
+      return error('VALIDATION_ERROR', `contentType must be one of: ${ALLOWED_CONTENT_TYPES.join(', ')}`, requestId);
+    }
+
+    // Sanitize filename to prevent path traversal and malformed S3 keys
+    const sanitizedFilename = sanitizeFilename(filename);
+    if (!sanitizedFilename) {
+      return error('VALIDATION_ERROR', 'filename contains no valid characters', requestId);
+    }
+
     const bucket = process.env.PHOTOS_BUCKET;
     if (!bucket) {
       logger.error('PHOTOS_BUCKET environment variable not set', requestId, userId);
@@ -57,7 +70,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     }
 
     // Build user-scoped S3 key: {userId}/{vehicleId}/{type}/{filename}
-    const key = buildS3Key(userId, vehicleId, uploadType, filename);
+    const key = buildS3Key(userId, vehicleId, uploadType, sanitizedFilename);
 
     logger.info(`Generating presigned URL for ${uploadType}`, requestId, userId);
 

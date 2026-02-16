@@ -5,6 +5,7 @@ export interface EnvironmentConfig {
   frontendDomain: string;
   apiDomain: string;
   resourcePrefix: string;
+  cognitoDomainPrefix: string;
   tags: Record<string, string>;
 }
 
@@ -15,18 +16,21 @@ const defaults: Record<string, Omit<EnvironmentConfig, 'tags'>> = {
     frontendDomain: 'pawsitivemileagetest.bourbonlab.net',
     apiDomain: 'pawsitivemileageapitest.bourbonlab.net',
     resourcePrefix: 'pawsitivemileage-test',
+    cognitoDomainPrefix: 'pmileage-test',
   },
   staging: {
     envName: 'staging',
     frontendDomain: 'pawsitivemileagestaging.bourbonlab.net',
     apiDomain: 'pawsitivemileageapistaging.bourbonlab.net',
     resourcePrefix: 'pawsitivemileage-staging',
+    cognitoDomainPrefix: 'pmileage-staging',
   },
   production: {
     envName: 'production',
     frontendDomain: 'pawsitivemileage.bourbonlab.net',
     apiDomain: 'pawsitivemileageapi.bourbonlab.net',
     resourcePrefix: 'pawsitivemileage-production',
+    cognitoDomainPrefix: 'pmileage-production',
   },
 };
 
@@ -45,6 +49,7 @@ export function getEnvironmentConfig(app: cdk.App, envName: string): Environment
     frontendDomain: app.node.tryGetContext('frontendDomain') ?? base.frontendDomain,
     apiDomain: app.node.tryGetContext('apiDomain') ?? base.apiDomain,
     resourcePrefix: app.node.tryGetContext('resourcePrefix') ?? base.resourcePrefix,
+    cognitoDomainPrefix: app.node.tryGetContext('cognitoDomainPrefix') ?? base.cognitoDomainPrefix,
     tags: { Environment: envName, Project: 'PawsitiveMileage', ManagedBy: 'CDK' },
   };
 }

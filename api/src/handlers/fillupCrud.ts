@@ -4,7 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange } from '../lib/validation.js';
+import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import { calculateDerivedMetrics, recalculateAllMetrics } from '../lib/metrics.js';
 import type { Fillup } from '../types/fillup.js';
@@ -13,7 +13,7 @@ const logger = createLogger('fillupCrud');
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const requestId = event.requestContext?.requestId ?? ulid();
-  const userId = getUserId(event);
+  const userId = getUserId(event as unknown as Parameters<typeof getUserId>[0]);
 
   if (!userId) {
     return error('UNAUTHORIZED', 'Missing authentication', requestId);
@@ -171,6 +171,22 @@ async function createFillup(
     return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
   }
 
+  // Validate string field lengths (Req 3.3)
+  const lengthErrors = validateStringLength(body, {
+    stationName: 255,
+    address: 1000,
+    notes: 1000,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
+  }
+
+  // Validate coordinate ranges (Req 4.1, 4.2, 4.3)
+  const coordErrors = validateCoordinates(body);
+  if (coordErrors.length > 0) {
+    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join(', '), requestId);
+  }
+
   const date = body.date as string;
   const currencySpent = body.currencySpent as number;
   const gallonsAdded = body.gallonsAdded as number;
@@ -314,6 +330,22 @@ async function updateFillup(
     if (rangeErrors.length > 0) {
       return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
     }
+  }
+
+  // Validate string field lengths (Req 3.3)
+  const lengthErrors = validateStringLength(body, {
+    stationName: 255,
+    address: 1000,
+    notes: 1000,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
+  }
+
+  // Validate coordinate ranges (Req 4.1, 4.2, 4.3)
+  const coordErrors = validateCoordinates(body);
+  if (coordErrors.length > 0) {
+    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join(', '), requestId);
   }
 
   const now = new Date().toISOString();

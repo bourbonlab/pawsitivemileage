@@ -4,7 +4,7 @@ import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/c
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody } from '../lib/validation.js';
+import { parseBody, validateStringLength } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import type { User } from '../types/user.js';
 
@@ -69,7 +69,7 @@ async function getProfile(
   }
 
   // Auto-create profile from JWT claims
-  const claims = event.requestContext?.authorizer?.jwt?.claims;
+  const claims = (event.requestContext as unknown as { authorizer?: { jwt?: { claims?: Record<string, string> } } })?.authorizer?.jwt?.claims;
   const email = (claims?.email as string) ?? '';
   const displayName = (claims?.name as string) ?? (claims?.email as string) ?? '';
 
@@ -110,6 +110,13 @@ async function updateProfile(
 
   if (typeof body.displayName !== 'string' || body.displayName.trim() === '') {
     return error('VALIDATION_ERROR', 'displayName is required and must be a non-empty string', requestId);
+  }
+
+  const lengthErrors = validateStringLength(body, {
+    displayName: 255,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
   }
 
   const docClient = getDocClient();
@@ -267,7 +274,7 @@ async function batchDeleteItems(
       })),
     };
 
-    let unprocessed = requestItems;
+    let unprocessed: Record<string, Record<string, unknown>[]> = requestItems;
     do {
       const result = await docClient.send(
         new BatchWriteCommand({ RequestItems: unprocessed }),

@@ -29,6 +29,7 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 - [Monitoring](#monitoring)
 - [Cost Estimate](#cost-estimate)
 - [Sample Data](#sample-data)
+- [Security](#security)
 - [License](#license)
 
 ---
@@ -227,7 +228,8 @@ pawsitive-mileage/
 │   └── FuelEfficency.csv   # 19 real-world fillup records (Aug 2024 – Feb 2026)
 │
 ├── docs/
-│   └── cost.md             # Detailed AWS cost estimate breakdown
+│   ├── cost.md             # Detailed AWS cost estimate breakdown
+│   └── security.md         # Security assessment with remediation status
 │
 ├── .kiro/
 │   ├── specs/              # Feature specifications (requirements, design, tasks)
@@ -303,12 +305,43 @@ cd infra && npm install && cd ..
 
 ```bash
 cp .env.example .env
-# Edit .env with your Google OAuth credentials, ACM certificate ARN, and domain names
+# Edit .env with your Google OAuth Client ID, ACM certificate ARN, and domain names
 ```
 
 See [Environment Variables](#environment-variables) for the full list of required values.
 
-### 3. Deploy infrastructure (first time)
+### 3. Store Google OAuth secret in Secrets Manager
+
+The Google OAuth client secret must be stored in AWS Secrets Manager — it is never passed as plaintext through CDK context or CLI arguments. The CDK Auth stack reads it at deploy time via `cdk.SecretValue.secretsManager()`.
+
+```bash
+# Create the secret (use your actual Google client secret value)
+aws secretsmanager create-secret \
+  --name pawsitivemileage/google-oauth-client-secret \
+  --description "Google OAuth client secret for PawsitiveMileage Cognito integration" \
+  --secret-string "YOUR_GOOGLE_CLIENT_SECRET" \
+  --region us-east-1
+```
+
+Copy the full ARN from the output (e.g. `arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf`) and set it in `.env`:
+
+```env
+# All three can point to the same secret, or use separate secrets per environment
+GOOGLE_CLIENT_SECRET_ARN_TEST=arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf
+GOOGLE_CLIENT_SECRET_ARN_STAGING=arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf
+GOOGLE_CLIENT_SECRET_ARN_PRODUCTION=arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf
+```
+
+To update the secret value later:
+
+```bash
+aws secretsmanager put-secret-value \
+  --secret-id pawsitivemileage/google-oauth-client-secret \
+  --secret-string "NEW_SECRET_VALUE" \
+  --region us-east-1
+```
+
+### 4. Deploy infrastructure (first time)
 
 ```bash
 ./deploy.sh --test    # Full pipeline: install → build → test → synth → deploy
@@ -316,7 +349,7 @@ See [Environment Variables](#environment-variables) for the full list of require
 
 The deploy script automatically fetches Cognito outputs after deployment and builds the frontend with the correct `VITE_*` environment variables baked in.
 
-### 4. Local frontend development
+### 5. Local frontend development
 
 After your first deployment, create `web/.env.local` with the Cognito values from CDK stack outputs:
 
@@ -336,7 +369,7 @@ cd web && npm run dev
 
 API calls go to the deployed test environment. The Cognito app client includes `http://localhost:5173` in its callback URLs for non-production environments.
 
-### 5. Build and test API locally
+### 6. Build and test API locally
 
 ```bash
 cd api && npm run build    # esbuild bundle → api/dist/
@@ -354,7 +387,9 @@ All deployment configuration lives in a single `.env` file. The `deploy.sh` scri
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Client ID | `123456789-abc.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth 2.0 Client Secret | `GOCSPX-xxxxxxxxxxxx` |
+| `GOOGLE_CLIENT_SECRET_ARN_TEST` | Secrets Manager ARN for Google OAuth secret (test) | `arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret-AbCdEf` |
+| `GOOGLE_CLIENT_SECRET_ARN_STAGING` | Secrets Manager ARN for Google OAuth secret (staging) | `arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret-AbCdEf` |
+| `GOOGLE_CLIENT_SECRET_ARN_PRODUCTION` | Secrets Manager ARN for Google OAuth secret (production) | `arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret-AbCdEf` |
 | `ACM_CERTIFICATE_ARN` | ACM certificate ARN (us-east-1) | `arn:aws:acm:us-east-1:...` |
 | `FRONTEND_DOMAIN_TEST` | Frontend domain for test | `pawsitivemileagetest.bourbonlab.net` |
 | `FRONTEND_DOMAIN_STAGING` | Frontend domain for staging | `pawsitivemileagestaging.bourbonlab.net` |
@@ -419,11 +454,11 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 1. Prerequisite checks (Node.js 24+, npm, AWS CLI, CDK)
 2. AWS credential verification (`sts get-caller-identity`)
 3. Load and validate `.env` (all required variables present, no placeholders)
-4. `npm install` in api/, web/, infra/
+4. `npm install` in api/, web/, infra/ + `npm audit --audit-level=high` after each
 5. API build (esbuild → `api/dist/`)
 6. API tests (vitest, skippable with `--skip-tests`)
-7. CDK synth with environment context variables
-8. CDK deploy all stacks (if environment flag provided)
+7. CDK synth with environment context variables (per-environment secret ARN, domains)
+8. CDK deploy all stacks (if environment flag provided; production uses `--require-approval broadening`)
 9. Fetch Cognito outputs from CloudFormation stack
 10. Build frontend with `VITE_*` env vars baked in
 11. S3 sync of `web/dist/` to frontend bucket
@@ -447,7 +482,7 @@ The deploy script passes all configuration to CDK via context flags:
 npx cdk deploy --all \
   -c environment=test \
   -c googleClientId="..." \
-  -c googleClientSecret="..." \
+  -c googleClientSecretArn="arn:aws:secretsmanager:..." \
   -c apiCertificateArn="..." \
   -c frontendCertificateArn="..." \
   -c frontendDomain="..." \
@@ -481,7 +516,8 @@ npx cdk deploy --all \
 | Production | `https://pmileage-production.auth.us-east-1.amazoncognito.com` | `https://pmileage-production.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
 | Local dev | `http://localhost:5173` | (handled by Cognito callback URLs) |
 
-4. Save Client ID and Secret to `.env`
+4. Save the Client ID to `.env` as `GOOGLE_CLIENT_ID`
+5. Store the Client Secret in AWS Secrets Manager (see [step 3 in Getting Started](#3-store-google-oauth-secret-in-secrets-manager)) and set the ARN in `.env`
 
 ---
 
@@ -732,7 +768,7 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 - **`dynamo.ts`** — Singleton `DynamoDBDocumentClient` (reused across warm invocations), `getTableName()` helper
 - **`auth.ts`** — `getUserId()` extracts Cognito `sub` claim from API Gateway JWT authorizer event
 - **`response.ts`** — `success(data, requestId)` and `error(code, message, requestId)` response builders
-- **`validation.ts`** — `validateRequired()`, `validateTypes()`, `validateRange()`, `parseBody()` for request validation
+- **`validation.ts`** — `validateRequired()`, `validateTypes()`, `validateRange()`, `validateStringLength()`, `validateCoordinates()`, `sanitizeFilename()`, `parseBody()` (with 64 KB size limit) for request validation
 - **`logger.ts`** — `createLogger(handler)` returns structured JSON logger with `info()`, `warn()`, `error()` methods
 - **`metrics.ts`** — `calculateDerivedMetrics()` for single fillup, `recalculateAllMetrics()` for full sequence recalculation with partial fill accumulation
 - **`reminders.ts`** — `calculateReminder()` with 500-mile and 30-day thresholds
@@ -905,6 +941,32 @@ Date, Spend, Gallons, Odometer, Miles, MPG, Price Per Gallon
 ```
 
 Useful for development seeding and testing metric calculations.
+
+---
+
+## Security
+
+A full security assessment is documented in [docs/security.md](docs/security.md). 12 of 14 findings have been remediated.
+
+### Key security measures
+
+- Google OAuth client secret stored in AWS Secrets Manager (never passed as plaintext via CDK context or CLI args). The CDK Auth stack reads it at deploy time via `cdk.SecretValue.secretsManager()`
+- Per-environment Secrets Manager ARN variables (`GOOGLE_CLIENT_SECRET_ARN_TEST`, `_STAGING`, `_PRODUCTION`) allow environment isolation
+- API request body size limit (64 KB) enforced at the application level via `parseBody()`
+- String length validation on all user-supplied text fields across all handlers
+- Location coordinate range validation (lat: -90 to 90, lng: -180 to 180)
+- CSV export formula injection protection (prefixes dangerous characters with single quote)
+- Presigned URL filename sanitization and content type whitelist (JPEG, PNG, WebP, HEIC only)
+- API Gateway throttling (100 burst / 50 requests per second)
+- CloudFront security response headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
+- Production stack trace suppression in Lambda logs
+- Production CDK deployments require approval for IAM/security-broadening changes (`--require-approval broadening`)
+- `npm audit --audit-level=high` runs after each `npm install` in the deploy pipeline
+
+### Remaining items (not yet addressed)
+
+- F-08: Dedicated admin action audit trail (new feature, deferred)
+- F-14: DynamoDB table name prefix uses hardcoded value instead of `config.resourcePrefix` (breaking change, requires data migration)
 
 ---
 

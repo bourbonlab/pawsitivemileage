@@ -7,7 +7,7 @@ interface LogEntry {
   userId: string;
   handler: string;
   timestamp: string;
-  error?: { name: string; message: string; stack: string };
+  error?: { name: string; message: string; stack?: string };
 }
 
 export function createLogger(handler: string) {
@@ -22,7 +22,12 @@ export function createLogger(handler: string) {
     };
 
     if (err instanceof Error) {
-      entry.error = { name: err.name, message: err.message, stack: err.stack ?? '' };
+      const isProduction = process.env.ENVIRONMENT === 'production';
+      entry.error = {
+        name: err.name,
+        message: err.message,
+        ...(isProduction ? {} : { stack: err.stack ?? '' }),
+      };
     }
 
     // Structured JSON to stdout — CloudWatch picks it up automatically

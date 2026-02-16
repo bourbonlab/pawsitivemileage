@@ -4,7 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes } from '../lib/validation.js';
+import { parseBody, validateRequired, validateTypes, validateStringLength } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import type { MaintenanceSchema } from '../types/schema.js';
 
@@ -126,6 +126,15 @@ async function createSchema(
     return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
   }
 
+  // Validate string field lengths (Req 3.6)
+  const lengthErrors = validateStringLength(body, {
+    name: 255,
+    description: 1000,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
+  }
+
   // Validate optional numeric fields
   if (body.defaultMileageInterval !== undefined && body.defaultMileageInterval !== null) {
     if (typeof body.defaultMileageInterval !== 'number' || body.defaultMileageInterval <= 0) {
@@ -205,6 +214,15 @@ async function updateSchema(
   });
   if (typeErrors.length > 0) {
     return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
+  }
+
+  // Validate string field lengths (Req 3.6)
+  const lengthErrors = validateStringLength(body, {
+    name: 255,
+    description: 1000,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
   }
 
   // Validate optional numeric fields

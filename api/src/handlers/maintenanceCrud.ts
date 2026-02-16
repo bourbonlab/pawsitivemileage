@@ -4,7 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange } from '../lib/validation.js';
+import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import { calculateReminder } from '../lib/reminders.js';
 import type { MaintenanceRecord } from '../types/maintenance.js';
@@ -154,6 +154,15 @@ async function createMaintenance(
     return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
   }
 
+  // Validate string field lengths
+  const lengthErrors = validateStringLength(body, {
+    notes: 1000,
+    customTypeName: 255,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
+  }
+
   // Must provide either schemaId or customTypeName
   const schemaId = body.schemaId as string | undefined;
   const customTypeName = body.customTypeName as string | undefined;
@@ -259,6 +268,15 @@ async function updateMaintenance(
     if (rangeErrors.length > 0) {
       return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
     }
+  }
+
+  // Validate string field lengths
+  const lengthErrors = validateStringLength(body, {
+    notes: 1000,
+    customTypeName: 255,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
   }
 
   // If schemaId is being changed, look up the new schema
