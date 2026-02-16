@@ -1,21 +1,50 @@
+import { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import { AdminRoute } from './auth/AdminRoute';
 import { Layout } from './components/Layout';
+
+// Eager-load the login page (first thing users see)
 import LoginPage from './pages/LoginPage';
-import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
-import TermsOfServicePage from './pages/TermsOfServicePage';
-import GaragePage from './pages/GaragePage';
-import VehicleDetailPage from './pages/VehicleDetailPage';
-import AddFillupPage from './pages/AddFillupPage';
-import AddMaintenancePage from './pages/AddMaintenancePage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import ExportPage from './pages/ExportPage';
-import AdminUsersPage from './pages/AdminUsersPage';
-import AdminSchemasPage from './pages/AdminSchemasPage';
-import AdminStatsPage from './pages/AdminStatsPage';
-import AccountPage from './pages/AccountPage';
-import NotFoundPage from './pages/NotFoundPage';
+
+// Lazy-load everything else
+const GaragePage = lazy(() => import('./pages/GaragePage'));
+const VehicleDetailPage = lazy(() => import('./pages/VehicleDetailPage'));
+const AddFillupPage = lazy(() => import('./pages/AddFillupPage'));
+const AddMaintenancePage = lazy(() => import('./pages/AddMaintenancePage'));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage'));
+const ExportPage = lazy(() => import('./pages/ExportPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
+const AdminSchemasPage = lazy(() => import('./pages/AdminSchemasPage'));
+const AdminStatsPage = lazy(() => import('./pages/AdminStatsPage'));
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'));
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
+
+function SuspenseLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <Layout>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh] text-muted-foreground">Loading…</div>}>
+          {children}
+        </Suspense>
+      </Layout>
+    </ProtectedRoute>
+  );
+}
+
+function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AdminRoute>
+      <Layout>
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh] text-muted-foreground">Loading…</div>}>
+          {children}
+        </Suspense>
+      </Layout>
+    </AdminRoute>
+  );
+}
 
 export const router = createBrowserRouter([
   {
@@ -32,114 +61,66 @@ export const router = createBrowserRouter([
   },
   {
     path: '/privacy',
-    element: <PrivacyPolicyPage />,
+    element: (
+      <Suspense fallback={null}>
+        <PrivacyPolicyPage />
+      </Suspense>
+    ),
   },
   {
     path: '/terms',
-    element: <TermsOfServicePage />,
+    element: (
+      <Suspense fallback={null}>
+        <TermsOfServicePage />
+      </Suspense>
+    ),
   },
   {
     path: '/garage',
-    element: (
-      <ProtectedRoute>
-        <Layout>
-          <GaragePage />
-        </Layout>
-      </ProtectedRoute>
-    ),
+    element: <SuspenseLayout><GaragePage /></SuspenseLayout>,
   },
   {
     path: '/vehicles/:vehicleId',
-    element: (
-      <ProtectedRoute>
-        <Layout>
-          <VehicleDetailPage />
-        </Layout>
-      </ProtectedRoute>
-    ),
+    element: <SuspenseLayout><VehicleDetailPage /></SuspenseLayout>,
   },
   {
     path: '/vehicles/:vehicleId/fillups/new',
-    element: (
-      <ProtectedRoute>
-        <Layout>
-          <AddFillupPage />
-        </Layout>
-      </ProtectedRoute>
-    ),
+    element: <SuspenseLayout><AddFillupPage /></SuspenseLayout>,
   },
   {
     path: '/vehicles/:vehicleId/maintenance/new',
-    element: (
-      <ProtectedRoute>
-        <Layout>
-          <AddMaintenancePage />
-        </Layout>
-      </ProtectedRoute>
-    ),
+    element: <SuspenseLayout><AddMaintenancePage /></SuspenseLayout>,
   },
   {
     path: '/vehicles/:vehicleId/analytics',
-    element: (
-      <ProtectedRoute>
-        <Layout>
-          <AnalyticsPage />
-        </Layout>
-      </ProtectedRoute>
-    ),
+    element: <SuspenseLayout><AnalyticsPage /></SuspenseLayout>,
   },
   {
     path: '/vehicles/:vehicleId/export',
-    element: (
-      <ProtectedRoute>
-        <Layout>
-          <ExportPage />
-        </Layout>
-      </ProtectedRoute>
-    ),
+    element: <SuspenseLayout><ExportPage /></SuspenseLayout>,
   },
   {
     path: '/admin/users',
-    element: (
-      <AdminRoute>
-        <Layout>
-          <AdminUsersPage />
-        </Layout>
-      </AdminRoute>
-    ),
+    element: <AdminLayout><AdminUsersPage /></AdminLayout>,
   },
   {
     path: '/admin/schemas',
-    element: (
-      <AdminRoute>
-        <Layout>
-          <AdminSchemasPage />
-        </Layout>
-      </AdminRoute>
-    ),
+    element: <AdminLayout><AdminSchemasPage /></AdminLayout>,
   },
   {
     path: '/admin/stats',
-    element: (
-      <AdminRoute>
-        <Layout>
-          <AdminStatsPage />
-        </Layout>
-      </AdminRoute>
-    ),
+    element: <AdminLayout><AdminStatsPage /></AdminLayout>,
   },
   {
     path: '/account',
-    element: (
-      <ProtectedRoute>
-        <Layout>
-          <AccountPage />
-        </Layout>
-      </ProtectedRoute>
-    ),
+    element: <SuspenseLayout><AccountPage /></SuspenseLayout>,
   },
   {
     path: '*',
-    element: <NotFoundPage />,
+    element: (
+      <Suspense fallback={null}>
+        <NotFoundPage />
+      </Suspense>
+    ),
   },
 ]);
