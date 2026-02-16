@@ -208,7 +208,7 @@ export class ApiStack extends cdk.Stack {
     addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/maintenance', 'maintenanceCrud');
     addRoute(apigwv2.HttpMethod.PUT, '/v1/vehicles/{vehicleId}/maintenance/{recordId}', 'maintenanceCrud');
     addRoute(apigwv2.HttpMethod.DELETE, '/v1/vehicles/{vehicleId}/maintenance/{recordId}', 'maintenanceCrud');
-    addRoute(apigwv2.HttpMethod.GET, '/v1/vehicles/{vehicleId}/reminders', 'maintenanceCrud');
+    addRoute(apigwv2.HttpMethod.GET, '/v1/vehicles/{vehicleId}/maintenance/reminders', 'maintenanceCrud');
 
     // Analytics routes
     addRoute(apigwv2.HttpMethod.GET, '/v1/vehicles/{vehicleId}/analytics', 'analytics');
