@@ -173,7 +173,7 @@ web/
 | POST | `/v1/vehicles/{vehicleId}/maintenance` | maintenanceCrud | Create maintenance record |
 | PUT | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | maintenanceCrud | Update maintenance record |
 | DELETE | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | maintenanceCrud | Delete maintenance record |
-| GET | `/v1/vehicles/{vehicleId}/reminders` | maintenanceCrud | Get upcoming reminders |
+| GET | `/v1/vehicles/{vehicleId}/maintenance/reminders` | maintenanceCrud | Get upcoming reminders |
 | GET | `/v1/vehicles/{vehicleId}/analytics` | analytics | Get analytics data |
 | GET | `/v1/vehicles/{vehicleId}/analytics/yoy` | analytics | Year-over-year comparison |
 | POST | `/v1/vehicles/{vehicleId}/summary-card` | analytics | Generate summary card image |

@@ -569,7 +569,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 | POST | `/v1/vehicles/{vehicleId}/maintenance` | Create record (schemaId or customTypeName, datePerformed, odometerAtService, cost) |
 | PUT | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Update record |
 | DELETE | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Delete record |
-| GET | `/v1/vehicles/{vehicleId}/reminders` | Get upcoming maintenance reminders based on intervals and current odometer |
+| GET | `/v1/vehicles/{vehicleId}/maintenance/reminders` | Get upcoming maintenance reminders based on intervals and current odometer |
 
 ### Analytics
 

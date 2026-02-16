@@ -37,7 +37,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('NOT_FOUND', 'Vehicle not found', requestId);
     }
 
-    // Route: GET /v1/vehicles/{vehicleId}/reminders
+    // Route: GET /v1/vehicles/{vehicleId}/maintenance/reminders
     if (method === 'GET' && path.endsWith('/reminders')) {
       return await getReminders(vehicle, requestId, userId);
     }
@@ -364,7 +364,7 @@ async function deleteMaintenance(
 
 
 /**
- * GET /v1/vehicles/{vehicleId}/reminders — Get upcoming maintenance reminders.
+ * GET /v1/vehicles/{vehicleId}/maintenance/reminders — Get upcoming maintenance reminders.
  *
  * For each active schema, finds the most recent maintenance record for this vehicle,
  * then calculates reminders using the design's calculateReminder logic.

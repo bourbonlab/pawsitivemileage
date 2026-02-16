@@ -65,7 +65,7 @@ All routes under `/v1/`, JWT-authorized via API Gateway v2.
 | `/v1/user/profile` | `userProfile.ts` | GET, PUT, DELETE |
 | `/v1/vehicles`, `/v1/vehicles/{vehicleId}`, `/v1/vehicles/{vehicleId}/archive` | `vehicleCrud.ts` | GET, POST, PUT, PATCH |
 | `/v1/vehicles/{vehicleId}/fillups`, `/v1/vehicles/{vehicleId}/fillups/{fillupId}` | `fillupCrud.ts` | GET, POST, PUT, DELETE |
-| `/v1/vehicles/{vehicleId}/maintenance`, `/v1/vehicles/{vehicleId}/maintenance/{recordId}`, `/v1/vehicles/{vehicleId}/reminders` | `maintenanceCrud.ts` | GET, POST, PUT, DELETE |
+| `/v1/vehicles/{vehicleId}/maintenance`, `/v1/vehicles/{vehicleId}/maintenance/{recordId}`, `/v1/vehicles/{vehicleId}/maintenance/reminders` | `maintenanceCrud.ts` | GET, POST, PUT, DELETE |
 | `/v1/vehicles/{vehicleId}/analytics`, `/v1/vehicles/{vehicleId}/analytics/yoy`, `/v1/vehicles/{vehicleId}/summary-card` | `analytics.ts` | GET, POST |
 | `/v1/vehicles/{vehicleId}/export/fillups`, `/v1/vehicles/{vehicleId}/export/maintenance`, `/v1/vehicles/{vehicleId}/export/pdf` | `exportData.ts` | GET, POST |
 | `/v1/upload/presign` | `presignUrl.ts` | POST |
