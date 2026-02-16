@@ -283,7 +283,7 @@ pawsitive-mileage/
 | Routing | React Router | v7.13.x | `createBrowserRouter` with element-based routes |
 | Server State | TanStack Query | v5.90.x | 5-min stale time, single retry |
 | UI Components | shadcn/ui + Radix | v4 | Mobile-first, Tailwind CSS v4 |
-| Charts | Recharts | 2.15.x | MPG, spending, cost per mile, cost per gallon |
+| Charts | Recharts | 3.7.x | MPG, spending, cost per mile, cost per gallon |
 | Maps | Leaflet + react-leaflet | 1.9.x / 5.x | Fillup location picker and map view |
 | Icons | Lucide React | 0.564.x | |
 | Styling | Tailwind CSS | 4.1.x | With tailwind-merge + clsx via `cn()` |
@@ -730,7 +730,7 @@ The sign-out flow manually constructs the Cognito logout URL to work around an A
 - **TanStack Query v5** for server state (5-minute stale time, single retry, no refetch on window focus)
 - **Tailwind CSS v4** with the Vite plugin (`@tailwindcss/vite`)
 - **shadcn/ui** components built on Radix primitives (alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
-- **Recharts 2.x** for analytics charts
+- **Recharts 3.x** for analytics charts
 - **Leaflet + react-leaflet** for fillup location maps and location picker
 
 ### App Structure

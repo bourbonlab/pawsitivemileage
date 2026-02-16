@@ -39,9 +39,9 @@ export function MpgChart({ data }: MpgChartProps) {
               domain={['auto', 'auto']}
             />
             <Tooltip
-              formatter={(value: number) => [`${value.toFixed(1)} mpg`, 'MPG']}
-              labelFormatter={(label: string) =>
-                new Date(label).toLocaleDateString('en-US', {
+              formatter={(value: number | undefined) => [`${(value ?? 0).toFixed(1)} mpg`, 'MPG']}
+              labelFormatter={(label) =>
+                new Date(String(label)).toLocaleDateString('en-US', {
                   month: 'short', day: 'numeric', year: 'numeric',
                 })
               }
