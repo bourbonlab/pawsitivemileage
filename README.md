@@ -610,7 +610,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 |--------|------|-------------|
 | POST | `/v1/upload/presign` | Get S3 presigned upload URL. Body: `{ vehicleId, type, filename, contentType }`. Returns `{ uploadUrl, key }` |
 
-S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type is `receipt`, `vehicle`, etc.
+S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type is `receipt`, `vehicle`, etc. Presigned upload URLs enforce a 10 MB maximum file size via `Content-Length` header signing.
 
 ### Admin (requires `isAdmin: true`)
 
