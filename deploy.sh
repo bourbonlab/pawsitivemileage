@@ -371,8 +371,6 @@ if [[ -n "${CLOUDFLARE_ZONE_ID:-}" && -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
       info "Response: ${CF_RESPONSE}"
     fi
   fi
-else
-  info "CloudFlare cache purge skipped (CLOUDFLARE_ZONE_ID / CLOUDFLARE_API_TOKEN not set in .env)"
 fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────
