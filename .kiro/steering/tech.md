@@ -6,7 +6,7 @@
 - React Router v7.13.x (`createBrowserRouter`, element-based routes)
 - TanStack Query v5.90.x (5-min stale time, single retry, no refetch on window focus)
 - shadcn/ui + Radix v1.4.x (mobile-first components: alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
-- Recharts 2.15.x (MPG, spending, cost per mile, cost per gallon charts)
+- Recharts 3.7.x (MPG, spending, cost per mile, cost per gallon charts)
 - Leaflet 1.9.x + react-leaflet 5.x (fillup location maps and picker)
 - Lucide React 0.564.x (icons)
 - Tailwind CSS 4.1.x with tailwind-merge 3.4.x + clsx 2.1.x via `cn()` helper

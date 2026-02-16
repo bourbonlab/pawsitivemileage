@@ -39,9 +39,9 @@ export function SpendingChart({ data }: SpendingChartProps) {
               tickFormatter={(v: number) => `$${v}`}
             />
             <Tooltip
-              formatter={(value: number) => [`$${value.toFixed(2)}`, 'Spent']}
-              labelFormatter={(label: string) => {
-                const d = new Date(label + '-01');
+              formatter={(value: number | undefined) => [`$${(value ?? 0).toFixed(2)}`, 'Spent']}
+              labelFormatter={(label) => {
+                const d = new Date(String(label) + '-01');
                 return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
               }}
             />
