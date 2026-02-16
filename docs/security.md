@@ -1,0 +1,287 @@
+# PawsitiveMileage — Security Assessment
+
+**Date:** 2026-02-15
+**Scope:** Full codebase review — frontend (`web/`), backend (`api/`), infrastructure (`infra/`), CLI (`cli/`), and deployment pipeline (`deploy.sh`)
+
+---
+
+## Executive Summary
+
+PawsitiveMileage has a solid security foundation. Authentication is handled by Cognito with JWT validation at the API Gateway level, IAM permissions follow least-privilege per Lambda function, S3 buckets block public access, DynamoDB has PITR enabled, and all Lambda functions use X-Ray tracing with structured logging. The codebase demonstrates consistent authorization checks and input validation patterns.
+
+That said, the review identified 14 findings across critical, high, medium, and low severity. The most impactful are missing input validation on several fields, no API rate limiting, a Google OAuth secret stored as plaintext in CDK context, and CSV formula injection risk in exports.
+
+---
+
+## Findings
+
+### F-01 — Google OAuth Client Secret Passed as Plaintext CDK Context (HIGH)
+
+**File:** `infra/lib/stacks/auth-stack.ts:44`
+**File:** `deploy.sh:236`
+
+The Google OAuth client secret is passed via CDK context (`-c googleClientSecret=...`) and consumed with `cdk.SecretValue.unsafePlainText()`. This means:
+- The secret appears in `cdk.context.json`, CloudFormation template parameters, and CloudFormation console
+- `deploy.sh` passes it as a CLI argument, which is visible in process listings (`ps aux`)
+- The CDK explicitly names this method "unsafe" for a reason
+
+**Recommendation:** Store the Google client secret in AWS Secrets Manager or SSM Parameter Store (SecureString) and reference it via `cdk.SecretValue.secretsManagerValue()` or `cdk.SecretValue.ssmSecure()`. Remove it from `.env` and CDK context.
+
+---
+
+### F-02 — No Request Body Size Limit (HIGH)
+
+**Files:** All handlers via `parseBody()` in `api/src/lib/validation.ts:63`
+
+`parseBody()` calls `JSON.parse(body)` on the raw event body with no size check. API Gateway v2 has a 10 MB payload limit by default, but there's no application-level enforcement. A 10 MB JSON payload could:
+- Consume significant Lambda memory (256 MB configured)
+- Create oversized DynamoDB items (400 KB limit) causing silent failures
+- Enable denial-of-service via repeated large payloads
+
+**Recommendation:** Add a body size check before parsing:
+```typescript
+export function parseBody(body: string | null | undefined, maxBytes = 65536): Record<string, unknown> | null {
+  if (!body || body.length > maxBytes) return null;
+  try { return JSON.parse(body); } catch { return null; }
+}
+```
+
+---
+
+### F-03 — No String Length Validation on User-Supplied Text Fields (HIGH)
+
+**Files:** `fillupCrud.ts`, `vehicleCrud.ts`, `maintenanceCrud.ts`, `userProfile.ts`, `adminSchemas.ts`
+
+Fields like `stationName`, `address`, `notes`, `displayName`, `make`, `model`, `trim`, `color`, `vin`, `licensePlate`, and schema `name`/`description` have no maximum length enforcement. Combined with F-02, this allows storing arbitrarily large strings in DynamoDB.
+
+**Recommendation:** Add `validateStringLength()` to `validation.ts` and apply it to all text fields with sensible limits (e.g., 255 for names, 1000 for notes/addresses).
+
+---
+
+### F-04 — Missing Location Coordinate Validation (MEDIUM)
+
+**File:** `api/src/handlers/fillupCrud.ts:240-242`
+
+`locationLat` and `locationLng` are accepted without type or range validation. They're cast directly with `as number` and stored. Invalid values (NaN, Infinity, out-of-range) would be persisted and could cause frontend map rendering issues.
+
+**Recommendation:** Add coordinate validation:
+```typescript
+const coordErrors = validateRange(body, {
+  locationLat: { min: -90, max: 90 },
+  locationLng: { min: -180, max: 180 },
+});
+```
+
+---
+
+### F-05 — No API Gateway Throttling or Rate Limiting (MEDIUM)
+
+**File:** `infra/lib/stacks/api-stack.ts:155-175`
+
+The HTTP API has no throttle configuration. API Gateway v2 defaults to 10,000 requests/second with a 5,000 burst, which is far above what a <1,000 MAU app needs. This leaves the API open to:
+- Credential stuffing (though mitigated by Cognito)
+- DynamoDB cost amplification via rapid authenticated requests
+- Abuse of export/PDF generation endpoints
+
+**Recommendation:** Set explicit throttle limits on the HTTP API stage:
+```typescript
+const stage = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage;
+stage.addPropertyOverride('DefaultRouteSettings', {
+  ThrottlingBurstLimit: 100,
+  ThrottlingRateLimit: 50,
+});
+```
+
+---
+
+### F-06 — CSV Export Vulnerable to Formula Injection (MEDIUM)
+
+**File:** `api/src/handlers/exportData.ts:142-149`
+
+The `escapeCsvField()` function handles commas, quotes, and newlines but does not guard against CSV formula injection. If a user stores `=CMD("calc")` in a notes field, it would be exported verbatim. When opened in Excel, this could execute arbitrary commands.
+
+**Recommendation:** Prefix fields starting with `=`, `+`, `-`, `@`, `\t`, or `\r` with a single quote:
+```typescript
+function escapeCsvField(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  let str = String(value);
+  if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+```
+
+---
+
+### F-07 — No Content Security Policy Headers on CloudFront (MEDIUM)
+
+**File:** `infra/lib/stacks/frontend-stack.ts`
+
+The CloudFront distribution does not set security response headers (CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy). This leaves the SPA vulnerable to:
+- XSS via injected scripts (no CSP)
+- Clickjacking (no X-Frame-Options)
+- MIME-type sniffing attacks
+
+**Recommendation:** Add a `ResponseHeadersPolicy` to the CloudFront distribution:
+```typescript
+const securityHeaders = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeaders', {
+  securityHeadersBehavior: {
+    contentSecurityPolicy: {
+      contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://*.amazoncognito.com https://*.amazonaws.com",
+      override: true,
+    },
+    frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
+    contentTypeOptions: { override: true },
+    referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN, override: true },
+    strictTransportSecurity: { accessControlMaxAge: cdk.Duration.days(365), includeSubdomains: true, override: true },
+  },
+});
+```
+
+---
+
+### F-08 — No Audit Trail for Admin Actions (MEDIUM)
+
+**Files:** `api/src/handlers/adminUsers.ts`, `adminSchemas.ts`
+
+Admin operations (granting/revoking admin privileges, creating/modifying/activating maintenance schemas) are logged to CloudWatch via the structured logger, but there is no dedicated audit trail. CloudWatch logs can be deleted or expire (1 week in non-prod). There is no record of who changed what, when, and from what previous value.
+
+**Recommendation:** Create a dedicated audit log — either a DynamoDB audit table or CloudWatch Logs with a longer retention policy. Log the actor, action, target, previous value, new value, and timestamp for every admin mutation.
+
+---
+
+### F-09 — Presigned URL Filename Not Sanitized (MEDIUM)
+
+**File:** `api/src/handlers/presignUrl.ts:52`, `api/src/lib/s3.ts:17`
+
+The `filename` parameter from the request body is used directly in the S3 key via `buildS3Key()`. While the key is scoped to `{userId}/{vehicleId}/{type}/`, the filename itself is not sanitized. A filename like `../../../other-user/data` would be neutralized by S3's flat key namespace, but filenames with special characters, extremely long names, or null bytes could cause issues.
+
+**Recommendation:** Sanitize the filename — strip path separators, limit length, and restrict to alphanumeric + common file characters:
+```typescript
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 255);
+}
+```
+
+---
+
+### F-10 — `contentType` Not Validated on Presigned Upload (MEDIUM)
+
+**File:** `api/src/handlers/presignUrl.ts:53`
+
+The `contentType` from the request body is passed directly to the S3 `PutObjectCommand`. There is no validation that it's an image MIME type. A user could upload arbitrary content types (e.g., `text/html`, `application/javascript`) which, if served via CloudFront's `/photos/*` behavior, could enable stored XSS.
+
+**Recommendation:** Whitelist allowed content types:
+```typescript
+const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
+  return error('VALIDATION_ERROR', 'Unsupported content type', requestId);
+}
+```
+
+---
+
+### F-11 — Error Stack Traces Logged in All Environments (LOW)
+
+**File:** `api/src/lib/logger.ts:24`
+
+The logger includes full error stack traces in structured log output across all environments. While this is useful for debugging, stack traces can reveal internal file paths, dependency versions, and code structure.
+
+**Recommendation:** Consider omitting or truncating stack traces in production logs, or ensure CloudWatch log access is tightly controlled via IAM.
+
+---
+
+### F-12 — `--require-approval never` in Deploy Script (LOW)
+
+**File:** `deploy.sh:262`
+
+The deploy script uses `--require-approval never` for CDK deployments, which auto-approves IAM and security group changes without human review. While acceptable for test/staging, this is risky for production.
+
+**Recommendation:** Use `--require-approval broadening` for production deployments to require approval for IAM/security changes:
+```bash
+APPROVAL_FLAG="--require-approval never"
+if [[ "$DEPLOY_ENV" == "production" ]]; then
+  APPROVAL_FLAG="--require-approval broadening"
+fi
+```
+
+---
+
+### F-13 — No `npm audit` in CI/CD Pipeline (LOW)
+
+**File:** `deploy.sh`
+
+The deploy pipeline installs dependencies, builds, tests, and deploys but never runs `npm audit` to check for known vulnerabilities in dependencies. Supply chain attacks are an increasing risk.
+
+**Recommendation:** Add `npm audit --audit-level=high` after `npm install` for each package directory. Fail the pipeline on high/critical vulnerabilities.
+
+---
+
+### F-14 — DynamoDB Table Names Hardcoded with Prefix (LOW)
+
+**File:** `infra/lib/stacks/database-stack.ts`
+
+Table names use the pattern `pawsitivemileage-{entity}-{env}` with a hardcoded `pawsitivemileage` prefix instead of using `config.resourcePrefix`. This means the `RESOURCE_PREFIX` env var doesn't fully control resource naming, which could cause conflicts if multiple deployments share an account.
+
+**Recommendation:** Use `${config.resourcePrefix}-{entity}` consistently for all table names.
+
+---
+
+## Strengths
+
+The following security practices are well-implemented:
+
+- **Authentication:** Cognito JWT validation at the API Gateway level — handlers never see unauthenticated requests
+- **Authorization:** Every handler extracts `userId` from JWT claims and scopes data access accordingly. Admin handlers verify `isAdmin` from DynamoDB before processing
+- **Vehicle ownership:** `fillupCrud`, `maintenanceCrud`, `analytics`, and `exportData` all verify vehicle ownership before operating on data
+- **S3 access control:** All buckets use `BlockPublicAccess.BLOCK_ALL`, CloudFront uses OAC (not OAI), presigned URLs are scoped to `{userId}/{vehicleId}/`
+- **IAM least privilege:** Each Lambda function is granted only the specific DynamoDB tables and S3 buckets it needs (read-only where possible)
+- **CORS:** Properly scoped to the frontend domain in production, with localhost only in non-prod
+- **Encryption:** S3 buckets use server-side encryption, CloudFront enforces TLS 1.2+, API Gateway uses HTTPS
+- **Data protection:** Cascading account deletion properly removes all user data (DynamoDB records + S3 objects)
+- **Secrets in `.env`:** `.env` is in `.gitignore`, `.env.example` contains only placeholder values
+- **Production safeguards:** Termination protection on stateful stacks, RETAIN removal policies, production deploy requires `--yes` flag
+- **Monitoring:** CloudWatch dashboard with API latency percentiles, Lambda errors, DynamoDB capacity metrics
+- **Structured logging:** JSON logs with requestId, userId, handler, and timestamp — no sensitive data (tokens, passwords) logged
+
+---
+
+## Risk Summary
+
+| ID | Severity | Finding | OWASP Category |
+|----|----------|---------|----------------|
+| F-01 | HIGH | OAuth secret in plaintext CDK context | A02: Cryptographic Failures |
+| F-02 | HIGH | No request body size limit | A03: Injection |
+| F-03 | HIGH | No string length validation | A03: Injection |
+| F-04 | MEDIUM | Missing coordinate validation | A03: Injection |
+| F-05 | MEDIUM | No API rate limiting | A04: Insecure Design |
+| F-06 | MEDIUM | CSV formula injection | A03: Injection |
+| F-07 | MEDIUM | No CSP headers on CloudFront | A05: Security Misconfiguration |
+| F-08 | MEDIUM | No admin action audit trail | A09: Security Logging Failures |
+| F-09 | MEDIUM | Presigned URL filename not sanitized | A03: Injection |
+| F-10 | MEDIUM | Upload content type not validated | A04: Insecure Design |
+| F-11 | LOW | Stack traces in production logs | A09: Security Logging Failures |
+| F-12 | LOW | Auto-approve IAM changes in prod | A05: Security Misconfiguration |
+| F-13 | LOW | No `npm audit` in pipeline | A06: Vulnerable Components |
+| F-14 | LOW | Hardcoded table name prefix | A05: Security Misconfiguration |
+
+---
+
+## Recommended Remediation Priority
+
+1. **F-01** — Move OAuth secret to Secrets Manager (HIGH, quick win)
+2. **F-02** — Add body size limit to `parseBody()` (HIGH, one-line fix)
+3. **F-03** — Add string length validation across handlers (HIGH, moderate effort)
+4. **F-10** — Whitelist upload content types (MEDIUM, quick win)
+5. **F-06** — Fix CSV formula injection (MEDIUM, quick win)
+6. **F-09** — Sanitize presigned URL filenames (MEDIUM, quick win)
+7. **F-05** — Add API Gateway throttling (MEDIUM, CDK change)
+8. **F-07** — Add CSP headers via CloudFront response headers policy (MEDIUM, CDK change)
+9. **F-04** — Add coordinate range validation (MEDIUM, quick win)
+10. **F-08** — Implement admin audit logging (MEDIUM, new feature)
+11. **F-12** — Use `--require-approval broadening` for prod (LOW, one-line fix)
+12. **F-13** — Add `npm audit` to pipeline (LOW, quick win)
+13. **F-11** — Truncate stack traces in production (LOW, minor change)
+14. **F-14** — Use `config.resourcePrefix` for table names (LOW, breaking change — requires migration)
