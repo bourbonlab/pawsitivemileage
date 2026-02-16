@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { LocationPicker } from '@/components/LocationPicker';
 import { useCreateFillup } from '@/api/fillups';
 import { useFillups } from '@/api/fillups';
 import { previewMetrics } from '@/lib/metrics';
@@ -40,6 +41,10 @@ export default function AddFillupPage() {
   const [isBusiness, setIsBusiness] = useState(false);
   const [notes, setNotes] = useState('');
   const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | undefined>();
+  const [locationLat, setLocationLat] = useState<number | undefined>();
+  const [locationLng, setLocationLng] = useState<number | undefined>();
+  const [stationName, setStationName] = useState<string | undefined>();
+  const [address, setAddress] = useState<string | undefined>();
 
   // Derive previous fillup (most recent by date/odometer)
   const previousFillup = useMemo(() => {
@@ -104,6 +109,10 @@ export default function AddFillupPage() {
         odometerReading: odometer,
         isPartialFill: isPartialFill || undefined,
         isBusiness: isBusiness || undefined,
+        locationLat,
+        locationLng,
+        stationName,
+        address,
         receiptPhotoKey,
         notes: notes.trim() || undefined,
       },
@@ -245,6 +254,16 @@ export default function AddFillupPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Location (optional) */}
+        <LocationPicker
+          onLocationChange={(loc) => {
+            setLocationLat(loc.locationLat);
+            setLocationLng(loc.locationLng);
+            setStationName(loc.stationName);
+            setAddress(loc.address);
+          }}
+        />
 
         {/* Metrics preview */}
         <MetricsPreview

@@ -10,6 +10,10 @@ type MaintenanceCreate = {
   odometerAtService: number;
   cost: number;
   location?: string;
+  locationLat?: number;
+  locationLng?: number;
+  stationName?: string;
+  address?: string;
   notes?: string;
   receiptPhotoKey?: string;
 };

@@ -15,17 +15,20 @@ interface LocationData {
 
 interface LocationPickerProps {
   onLocationChange: (location: LocationData) => void;
+  initialData?: LocationData;
   className?: string;
 }
 
 type GeoStatus = 'idle' | 'loading' | 'success' | 'denied' | 'unavailable' | 'error';
 
-export function LocationPicker({ onLocationChange, className }: LocationPickerProps) {
-  const [geoStatus, setGeoStatus] = useState<GeoStatus>('idle');
-  const [lat, setLat] = useState<number | undefined>();
-  const [lng, setLng] = useState<number | undefined>();
-  const [stationName, setStationName] = useState('');
-  const [address, setAddress] = useState('');
+export function LocationPicker({ onLocationChange, initialData, className }: LocationPickerProps) {
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>(
+    initialData?.locationLat != null ? 'success' : 'idle',
+  );
+  const [lat, setLat] = useState<number | undefined>(initialData?.locationLat);
+  const [lng, setLng] = useState<number | undefined>(initialData?.locationLng);
+  const [stationName, setStationName] = useState(initialData?.stationName ?? '');
+  const [address, setAddress] = useState(initialData?.address ?? '');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const emitChange = useCallback(

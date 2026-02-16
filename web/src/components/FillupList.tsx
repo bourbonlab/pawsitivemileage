@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { LocationPicker } from '@/components/LocationPicker';
 import type { Fillup } from '@/types';
 
 type SortField = 'date' | 'odometerReading' | 'gallonsAdded' | 'currencySpent' | 'mpg' | 'pricePerGallon';
@@ -33,6 +34,10 @@ export interface FillupEditData {
   odometerReading: number;
   isPartialFill?: boolean;
   isBusiness?: boolean;
+  locationLat?: number;
+  locationLng?: number;
+  stationName?: string;
+  address?: string;
   receiptPhotoKey?: string | null;
   notes?: string;
 }
@@ -190,6 +195,10 @@ function EditFillupDialog({
   const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | null | undefined>(
     fillup.receiptPhotoKey,
   );
+  const [locationLat, setLocationLat] = useState<number | undefined>(fillup.locationLat);
+  const [locationLng, setLocationLng] = useState<number | undefined>(fillup.locationLng);
+  const [stationName, setStationName] = useState<string | undefined>(fillup.stationName);
+  const [address, setAddress] = useState<string | undefined>(fillup.address);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -205,12 +214,12 @@ function EditFillupDialog({
 
     if (!date || isNaN(currencySpent) || isNaN(gallonsAdded) || isNaN(odometerReading)) return;
 
-    onSave({ date, currencySpent, gallonsAdded, odometerReading, isPartialFill, isBusiness, receiptPhotoKey, notes });
+    onSave({ date, currencySpent, gallonsAdded, odometerReading, isPartialFill, isBusiness, locationLat, locationLng, stationName, address, receiptPhotoKey, notes });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Fillup</DialogTitle>
           <DialogDescription>
@@ -314,6 +323,21 @@ function EditFillupDialog({
               currentPhotoKey={receiptPhotoKey ?? undefined}
             />
           </div>
+
+          <LocationPicker
+            initialData={{
+              locationLat: fillup.locationLat,
+              locationLng: fillup.locationLng,
+              stationName: fillup.stationName,
+              address: fillup.address,
+            }}
+            onLocationChange={(loc) => {
+              setLocationLat(loc.locationLat);
+              setLocationLng(loc.locationLng);
+              setStationName(loc.stationName);
+              setAddress(loc.address);
+            }}
+          />
         </form>
 
         <DialogFooter>

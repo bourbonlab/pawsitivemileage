@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { LocationPicker } from '@/components/LocationPicker';
 import { useCreateMaintenance } from '@/api/maintenance';
 import { useAdminSchemas } from '@/api/admin';
 
@@ -49,9 +50,12 @@ export default function AddMaintenancePage() {
   const [cost, setCost] = useState('');
 
   // Optional fields
-  const [location, setLocation] = useState('');
   const [notes, setNotes] = useState('');
   const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | undefined>();
+  const [locationLat, setLocationLat] = useState<number | undefined>();
+  const [locationLng, setLocationLng] = useState<number | undefined>();
+  const [stationName, setStationName] = useState<string | undefined>();
+  const [address, setAddress] = useState<string | undefined>();
 
   function handleSchemaChange(value: string) {
     setSelectedSchemaId(value);
@@ -78,7 +82,10 @@ export default function AddMaintenancePage() {
         datePerformed: date,
         odometerAtService: odometer,
         cost: costVal,
-        location: location.trim() || undefined,
+        locationLat,
+        locationLng,
+        stationName,
+        address,
         notes: notes.trim() || undefined,
         receiptPhotoKey,
       },
@@ -209,16 +216,6 @@ export default function AddMaintenancePage() {
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid gap-1.5">
-              <Label htmlFor="maint-location">Location</Label>
-              <Input
-                id="maint-location"
-                placeholder="Shop name or address"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-              />
-            </div>
-
-            <div className="grid gap-1.5">
               <Label htmlFor="maint-notes">Notes</Label>
               <Textarea
                 id="maint-notes"
@@ -241,6 +238,16 @@ export default function AddMaintenancePage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Location (optional) */}
+        <LocationPicker
+          onLocationChange={(loc) => {
+            setLocationLat(loc.locationLat);
+            setLocationLng(loc.locationLng);
+            setStationName(loc.stationName);
+            setAddress(loc.address);
+          }}
+        />
 
         {/* Error display */}
         {createMaintenance.isError && (

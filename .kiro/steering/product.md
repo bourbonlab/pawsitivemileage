@@ -38,6 +38,7 @@ DNS managed in CloudFlare (proxied, Full Strict SSL). ACM wildcard certificate i
 - Mileage-based (500-mile threshold) and time-based (30-day threshold) reminder calculations
 - Custom one-off maintenance entries not tied to a schema
 - Per-vehicle interval overrides for global schemas
+- Optional location tagging (browser geolocation, Leaflet map picker, or manual entry)
 
 **Analytics & Reporting**
 - MPG over time, monthly spending, cost per mile, cost per gallon trend charts (Recharts)

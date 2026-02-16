@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { LocationPicker } from '@/components/LocationPicker';
 import type { MaintenanceRecord } from '@/types';
 
 type SortField = 'datePerformed' | 'odometerAtService' | 'cost';
@@ -21,6 +22,10 @@ export interface MaintenanceEditData {
   odometerAtService: number;
   cost: number;
   location?: string;
+  locationLat?: number;
+  locationLng?: number;
+  stationName?: string;
+  address?: string;
   notes?: string;
   receiptPhotoKey?: string | null;
 }
@@ -180,6 +185,10 @@ function EditMaintenanceDialog({
   const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | null | undefined>(
     record.receiptPhotoKey,
   );
+  const [locationLat, setLocationLat] = useState<number | undefined>(record.locationLat);
+  const [locationLng, setLocationLng] = useState<number | undefined>(record.locationLng);
+  const [stationName, setStationName] = useState<string | undefined>(record.stationName);
+  const [locationAddress, setLocationAddress] = useState<string | undefined>(record.address);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -188,17 +197,16 @@ function EditMaintenanceDialog({
     const datePerformed = (fd.get('datePerformed') as string).trim();
     const odometerAtService = parseFloat(fd.get('odometerAtService') as string);
     const cost = parseFloat(fd.get('cost') as string);
-    const location = (fd.get('location') as string)?.trim() || undefined;
     const notes = (fd.get('notes') as string)?.trim() || undefined;
 
     if (!datePerformed || isNaN(odometerAtService) || isNaN(cost)) return;
 
-    onSave({ datePerformed, odometerAtService, cost, location, notes, receiptPhotoKey });
+    onSave({ datePerformed, odometerAtService, cost, locationLat, locationLng, stationName, address: locationAddress, notes, receiptPhotoKey });
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Maintenance</DialogTitle>
           <DialogDescription>
@@ -246,16 +254,6 @@ function EditMaintenanceDialog({
           </div>
 
           <div className="grid gap-1.5">
-            <Label htmlFor="edit-maint-location">Location</Label>
-            <Input
-              id="edit-maint-location"
-              name="location"
-              defaultValue={record.location ?? ''}
-              placeholder="Shop name or address"
-            />
-          </div>
-
-          <div className="grid gap-1.5">
             <Label htmlFor="edit-maint-notes">Notes</Label>
             <Textarea
               id="edit-maint-notes"
@@ -275,6 +273,21 @@ function EditMaintenanceDialog({
               currentPhotoKey={receiptPhotoKey ?? undefined}
             />
           </div>
+
+          <LocationPicker
+            initialData={{
+              locationLat: record.locationLat,
+              locationLng: record.locationLng,
+              stationName: record.stationName,
+              address: record.address,
+            }}
+            onLocationChange={(loc) => {
+              setLocationLat(loc.locationLat);
+              setLocationLng(loc.locationLng);
+              setStationName(loc.stationName);
+              setLocationAddress(loc.address);
+            }}
+          />
         </form>
 
         <DialogFooter>

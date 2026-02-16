@@ -4,7 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength } from '../lib/validation.js';
+import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import { deleteObject } from '../lib/s3.js';
 import { calculateReminder } from '../lib/reminders.js';
@@ -164,6 +164,12 @@ async function createMaintenance(
     return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
   }
 
+  // Validate location coordinates if provided
+  const coordErrors = validateCoordinates(body);
+  if (coordErrors.length > 0) {
+    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join('; '), requestId);
+  }
+
   // Must provide either schemaId or customTypeName
   const schemaId = body.schemaId as string | undefined;
   const customTypeName = body.customTypeName as string | undefined;
@@ -201,6 +207,10 @@ async function createMaintenance(
     odometerAtService: body.odometerAtService as number,
     cost: body.cost as number,
     ...(body.location !== undefined && { location: body.location as string }),
+    ...(body.locationLat !== undefined && { locationLat: body.locationLat as number }),
+    ...(body.locationLng !== undefined && { locationLng: body.locationLng as number }),
+    ...(body.stationName !== undefined && { stationName: body.stationName as string }),
+    ...(body.address !== undefined && { address: body.address as string }),
     ...(body.notes !== undefined && { notes: body.notes as string }),
     ...(body.receiptPhotoKey !== undefined && { receiptPhotoKey: body.receiptPhotoKey as string }),
     createdAt: now,
@@ -280,6 +290,12 @@ async function updateMaintenance(
     return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
   }
 
+  // Validate location coordinates if provided
+  const coordErrors = validateCoordinates(body);
+  if (coordErrors.length > 0) {
+    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join('; '), requestId);
+  }
+
   // If schemaId is being changed, look up the new schema
   let schemaName = existing.schemaName;
   if (body.schemaId !== undefined) {
@@ -316,6 +332,10 @@ async function updateMaintenance(
     odometerAtService: (body.odometerAtService as number) ?? existing.odometerAtService,
     cost: (body.cost as number) ?? existing.cost,
     ...(body.location !== undefined && { location: body.location as string }),
+    ...(body.locationLat !== undefined && { locationLat: body.locationLat as number }),
+    ...(body.locationLng !== undefined && { locationLng: body.locationLng as number }),
+    ...(body.stationName !== undefined && { stationName: body.stationName as string }),
+    ...(body.address !== undefined && { address: body.address as string }),
     ...(body.notes !== undefined && { notes: body.notes as string }),
     // receiptPhotoKey: null means "remove photo"; string means "set new photo"
     ...(body.receiptPhotoKey !== undefined && body.receiptPhotoKey !== null && { receiptPhotoKey: body.receiptPhotoKey as string }),
