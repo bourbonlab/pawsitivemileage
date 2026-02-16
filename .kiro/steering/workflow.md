@@ -30,6 +30,7 @@ All work happens on feature branches. Never commit directly to `main`.
    - Format: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:` prefix
    - Summary line under 72 chars, body with bullet points for multi-file changes
    - Example: `feat: add isBusiness field to fillups`
+   - Always include related files that are automatically updated (e.g. `README.md`, `docs/cost.md`) in the same commit
 
 6. Push the branch to origin:
    ```bash
