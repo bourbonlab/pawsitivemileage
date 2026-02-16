@@ -7,6 +7,7 @@ interface PresignRequest {
   fillupId?: string;
   contentType: string;
   fileName: string;
+  fileSize: number;
 }
 
 interface PresignResponse {
@@ -25,6 +26,7 @@ export function usePresignedUpload() {
           vehicleId: data.vehicleId,
           filename: data.fileName,
           contentType: data.contentType,
+          fileSize: data.fileSize,
         }),
       }),
   });

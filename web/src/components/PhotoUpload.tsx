@@ -15,6 +15,8 @@ interface PhotoUploadProps {
   className?: string;
 }
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
 export function PhotoUpload({
   uploadType,
   vehicleId,
@@ -40,6 +42,13 @@ export function PhotoUpload({
       const file = e.target.files?.[0];
       if (!file) return;
 
+      // Enforce 10 MB file size limit
+      if (file.size > MAX_FILE_SIZE) {
+        setUploadState('error');
+        setErrorMessage('File is too large. Maximum size is 10 MB.');
+        return;
+      }
+
       // Show local preview immediately
       setPreview(URL.createObjectURL(file));
       setUploadState('uploading');
@@ -52,6 +61,7 @@ export function PhotoUpload({
           fillupId,
           contentType: file.type,
           fileName: file.name,
+          fileSize: file.size,
         });
 
         await uploadFileToS3(url, file);

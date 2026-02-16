@@ -14,6 +14,7 @@ type UploadType = (typeof ALLOWED_UPLOAD_TYPES)[number];
 const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'] as const;
 
 const PRESIGN_EXPIRATION_SECONDS = 900; // 15 minutes
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const requestId = event.requestContext?.requestId ?? ulid();
@@ -55,6 +56,17 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     // Validate content type against whitelist
     if (!ALLOWED_CONTENT_TYPES.includes(contentType as typeof ALLOWED_CONTENT_TYPES[number])) {
       return error('VALIDATION_ERROR', `contentType must be one of: ${ALLOWED_CONTENT_TYPES.join(', ')}`, requestId);
+    }
+
+    // Validate file size if provided
+    const fileSize = body.fileSize;
+    if (fileSize !== undefined) {
+      if (typeof fileSize !== 'number' || !Number.isFinite(fileSize) || fileSize <= 0) {
+        return error('VALIDATION_ERROR', 'fileSize must be a positive number', requestId);
+      }
+      if (fileSize > MAX_FILE_SIZE) {
+        return error('VALIDATION_ERROR', `File size exceeds maximum of ${MAX_FILE_SIZE / (1024 * 1024)} MB`, requestId);
+      }
     }
 
     // Sanitize filename to prevent path traversal and malformed S3 keys

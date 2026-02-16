@@ -165,6 +165,7 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
             vehicleId: vehicle.vehicleId,
             contentType: pendingFile.type,
             fileName: pendingFile.name,
+            fileSize: pendingFile.size,
           });
           await uploadFileToS3(url, pendingFile);
 
