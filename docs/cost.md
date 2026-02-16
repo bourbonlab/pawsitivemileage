@@ -154,7 +154,7 @@ Free tier: 5 GB logs ingestion, 5 GB logs storage, 3 dashboards (basic) → part
 ## Key Observations
 
 - **Cognito is the largest cost** at $5.50/month without free tier, but the 10K MAU free tier covers this workload entirely.
-- **CloudWatch Dashboard** at $3/month is the single largest fixed cost. Consider removing it in non-production environments.
+- **CloudWatch Dashboard** at $3/month is the single largest fixed cost. The Monitoring stack is optional — enable via CDK context (`-c enableMonitoring=true`). Omitting it in non-production environments saves $3/month per environment.
 - **DynamoDB PITR** adds ~$1/month across 5 tables. Could be disabled in non-prod to save costs.
 - **CloudFront** always-free tier (1 TB transfer + 10M requests) covers this workload indefinitely, not just year 1.
 - At ~1,000 users, the entire stack runs for **under $2/month** with free tier benefits, or **under $12/month** at full price.

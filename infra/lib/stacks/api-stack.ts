@@ -237,6 +237,7 @@ export class ApiStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ApiId', { value: this.httpApi.httpApiId });
     if (domainName) {
       new cdk.CfnOutput(this, 'ApiDomain', { value: config.apiDomain });
+      new cdk.CfnOutput(this, 'ApiDomainRegionalDomainName', { value: domainName.regionalDomainName });
     }
   }
 }

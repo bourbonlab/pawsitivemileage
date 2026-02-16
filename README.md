@@ -505,7 +505,8 @@ npx cdk deploy --all \
   -c frontendDomain="..." \
   -c apiDomain="..." \
   -c resourcePrefix="pawsitivemileage-test" \
-  -c cognitoDomainPrefix="pmileage-test"
+  -c cognitoDomainPrefix="pmileage-test" \
+  -c enableMonitoring=true
 ```
 
 ### Custom Domains
@@ -531,7 +532,6 @@ npx cdk deploy --all \
 | Test | `https://pmileage-test.auth.us-east-1.amazoncognito.com` | `https://pmileage-test.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
 | Staging | `https://pmileage-staging.auth.us-east-1.amazoncognito.com` | `https://pmileage-staging.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
 | Production | `https://pmileage-production.auth.us-east-1.amazoncognito.com` | `https://pmileage-production.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
-| Local dev | `http://localhost:5173` | (handled by Cognito callback URLs) |
 
 4. Save the Client ID to `.env` as `GOOGLE_CLIENT_ID`
 5. Store the Client Secret in AWS Secrets Manager (see [step 3 in Getting Started](#3-store-google-oauth-secret-in-secrets-manager)) and set the ARN in `.env`
@@ -797,12 +797,12 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 
 ### CDK Stacks
 
-6 stacks deployed per environment with explicit dependency ordering:
+5 core stacks deployed per environment with explicit dependency ordering, plus an optional Monitoring stack:
 
 ```
 Auth ─────────┐
 Database ─────┼──▶ API ──▶ Frontend
-Storage ──────┘         ──▶ Monitoring
+Storage ──────┘         ──▶ Monitoring (optional)
 ```
 
 | Stack | ID Pattern | Resources |
@@ -812,7 +812,7 @@ Storage ──────┘         ──▶ Monitoring
 | Storage | `PawsitiveMileage-{env}-Storage` | S3 Photos bucket (CORS, presigned uploads), S3 Exports bucket (7-day lifecycle). Production: termination protection + RETAIN |
 | API | `PawsitiveMileage-{env}-Api` | API Gateway v2 HTTP API, 10 Lambda functions (AppFunction construct), JWT authorizer, custom domain, 30+ routes |
 | Frontend | `PawsitiveMileage-{env}-Frontend` | S3 frontend bucket, CloudFront distribution (OAC, TLS 1.2, SPA 403/404 → index.html), custom domain |
-| Monitoring | `PawsitiveMileage-{env}-Monitoring` | CloudWatch Dashboard with API latency (p50/p95/p99), request count, 4xx/5xx errors, Lambda duration/errors, DynamoDB read/write capacity |
+| Monitoring | `PawsitiveMileage-{env}-Monitoring` | CloudWatch Dashboard with API latency (p50/p95/p99), request count, 4xx/5xx errors, Lambda duration/errors, DynamoDB read/write capacity. **Optional** — enable via CDK context: `-c enableMonitoring=true` |
 
 ### Resource Tagging
 
@@ -902,7 +902,7 @@ API coverage includes `src/**/*.ts` but excludes `src/handlers/**/*.ts` (handler
 
 ### CloudWatch Dashboard
 
-Each environment gets a CloudWatch dashboard (`{prefix}-dashboard`) with:
+The Monitoring stack is optional and must be explicitly enabled via CDK context (`-c enableMonitoring=true`). When enabled, each environment gets a CloudWatch dashboard (`{prefix}-dashboard`) with:
 
 - **API Latency** — p50, p95, p99 latency from API Gateway (5-minute periods)
 - **API Request Count & Errors** — Total requests, 4xx errors, 5xx errors

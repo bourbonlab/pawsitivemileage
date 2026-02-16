@@ -34,12 +34,6 @@ const frontendStack = new FrontendStack(app, `${stackPrefix}-Frontend`, {
   config,
 });
 
-const monitoringStack = new MonitoringStack(app, `${stackPrefix}-Monitoring`, {
-  config,
-  apiStack,
-  databaseStack,
-});
-
 // Explicit deploy ordering
 // Auth, Database, Storage have no inter-dependencies — deploy in parallel
 // API depends on Auth + Database + Storage (implicit via props, but be explicit)
@@ -49,13 +43,22 @@ apiStack.addDependency(storageStack);
 // Frontend depends on API (needs API Gateway endpoint for CORS/config) and Storage (photos bucket must exist first)
 frontendStack.addDependency(apiStack);
 frontendStack.addDependency(storageStack);
-// Monitoring depends on API + Database
-monitoringStack.addDependency(apiStack);
-monitoringStack.addDependency(databaseStack);
+
+const allStacks: cdk.Stack[] = [authStack, databaseStack, storageStack, apiStack, frontendStack];
+
+// Monitoring is optional — enable via CDK context: -c enableMonitoring=true
+if (config.enableMonitoring) {
+  const monitoringStack = new MonitoringStack(app, `${stackPrefix}-Monitoring`, {
+    config,
+    apiStack,
+    databaseStack,
+  });
+  monitoringStack.addDependency(apiStack);
+  monitoringStack.addDependency(databaseStack);
+  allStacks.push(monitoringStack);
+}
 
 // Apply tags to all stacks
-[authStack, databaseStack, storageStack, apiStack, frontendStack, monitoringStack].forEach(
-  (stack) => applyTags(stack, config),
-);
+allStacks.forEach((stack) => applyTags(stack, config));
 
 app.synth();

@@ -6,11 +6,12 @@ export interface EnvironmentConfig {
   apiDomain: string;
   resourcePrefix: string;
   cognitoDomainPrefix: string;
+  enableMonitoring: boolean;
   tags: Record<string, string>;
 }
 
 /** Default domain configuration — overridable via CDK context */
-const defaults: Record<string, Omit<EnvironmentConfig, 'tags'>> = {
+const defaults: Record<string, Omit<EnvironmentConfig, 'tags' | 'enableMonitoring'>> = {
   test: {
     envName: 'test',
     frontendDomain: 'pawsitivemileagetest.bourbonlab.net',
@@ -50,6 +51,7 @@ export function getEnvironmentConfig(app: cdk.App, envName: string): Environment
     apiDomain: app.node.tryGetContext('apiDomain') ?? base.apiDomain,
     resourcePrefix: app.node.tryGetContext('resourcePrefix') ?? base.resourcePrefix,
     cognitoDomainPrefix: app.node.tryGetContext('cognitoDomainPrefix') ?? base.cognitoDomainPrefix,
+    enableMonitoring: app.node.tryGetContext('enableMonitoring') === 'true',
     tags: { Environment: envName, Project: 'PawsitiveMileage', ManagedBy: 'CDK' },
   };
 }

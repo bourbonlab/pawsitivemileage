@@ -449,8 +449,30 @@ echo ""
 
 case "$DEPLOY_ENV" in
   test|staging|production)
-    info "Frontend: https://${FRONTEND_DOMAIN}"
-    info "API:      https://${API_DOMAIN}"
+    # Fetch CNAME targets from stack outputs
+    CF_DOMAIN_NAME=$(aws cloudformation describe-stacks \
+      --stack-name "$FRONTEND_STACK_NAME" \
+      --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \
+      --output text 2>/dev/null || echo "unknown")
+
+    API_STACK_NAME="PawsitiveMileage-${CDK_ENV}-Api"
+    API_CNAME_TARGET=$(aws cloudformation describe-stacks \
+      --stack-name "$API_STACK_NAME" \
+      --query "Stacks[0].Outputs[?OutputKey=='ApiDomainRegionalDomainName'].OutputValue" \
+      --output text 2>/dev/null || echo "unknown")
+
+    echo -e "  ${CYAN}Endpoints${NC}"
+    info "Frontend: https://${FRONTEND_DOMAIN}  (CNAME → ${CF_DOMAIN_NAME})"
+    info "API:      https://${API_DOMAIN}  (CNAME → ${API_CNAME_TARGET})"
+
+    # Google OAuth configuration reminder
+    COGNITO_HOSTED_UI="https://${COGNITO_DOMAIN}"
+    echo ""
+    echo -e "  ${CYAN}Google OAuth Console Settings${NC}"
+    echo -e "  ${YELLOW}Authorized JavaScript Origins:${NC}"
+    info "${COGNITO_HOSTED_UI}"
+    echo -e "  ${YELLOW}Authorized Redirect URIs:${NC}"
+    info "${COGNITO_HOSTED_UI}/oauth2/idpresponse"
     ;;
 esac
 
