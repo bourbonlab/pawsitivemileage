@@ -102,7 +102,6 @@ export function PhotoUpload({
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileSelect}
         className="hidden"
         aria-label={`Upload ${label}`}
