@@ -1,10 +1,22 @@
 import { useState, useRef, useCallback } from 'react';
-import { Camera, Upload, Check, X, Loader2 } from 'lucide-react';
+import { Upload, Check, X, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePresignedUpload, uploadFileToS3 } from '@/api/upload';
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error';
+
+const ACCEPTED_FILE_TYPES = 'image/*,.pdf,.doc,.docx';
+
+function isImageFile(file: File | null, url: string | null): boolean {
+  if (file) return file.type.startsWith('image/');
+  if (url) return !url.endsWith('.pdf') && !url.endsWith('.doc') && !url.endsWith('.docx');
+  return false;
+}
+
+function getFileDisplayName(file: File): string {
+  return file.name.length > 30 ? file.name.slice(0, 27) + '...' : file.name;
+}
 
 interface PhotoUploadProps {
   uploadType: 'vehicle-photo' | 'receipt-photo';
@@ -29,6 +41,7 @@ export function PhotoUpload({
 }: PhotoUploadProps) {
   const [uploadState, setUploadState] = useState<UploadState>('idle');
   const [preview, setPreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const presignMutation = usePresignedUpload();
@@ -51,8 +64,15 @@ export function PhotoUpload({
         return;
       }
 
-      // Show local preview immediately
-      setPreview(URL.createObjectURL(file));
+      setSelectedFile(file);
+
+      // Show local preview for images only
+      if (file.type.startsWith('image/')) {
+        setPreview(URL.createObjectURL(file));
+      } else {
+        setPreview(null);
+      }
+
       setUploadState('uploading');
       setErrorMessage(null);
 
@@ -82,6 +102,7 @@ export function PhotoUpload({
 
   const handleClear = useCallback(() => {
     setPreview(null);
+    setSelectedFile(null);
     setUploadState('idle');
     setErrorMessage(null);
     if (fileInputRef.current) {
@@ -94,49 +115,80 @@ export function PhotoUpload({
   }, [currentPhotoKey, onPhotoRemoved]);
 
   const label =
-    uploadType === 'vehicle-photo' ? 'Vehicle Photo' : 'Receipt Photo';
+    uploadType === 'vehicle-photo' ? 'Vehicle Photo' : 'Receipt';
+
+  const hasFile = preview || selectedFile || existingPhotoUrl;
 
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={uploadType === 'receipt-photo' ? ACCEPTED_FILE_TYPES : 'image/*'}
         onChange={handleFileSelect}
         className="hidden"
         aria-label={`Upload ${label}`}
       />
 
-      {displayImage ? (
-        <div className="relative">
-          <img
-            src={displayImage}
-            alt={label}
-            className="h-40 w-full rounded-md border object-cover"
-          />
-          {uploadState !== 'uploading' && (
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon-xs"
-              className="absolute top-1 right-1"
-              onClick={handleClear}
-              aria-label="Remove photo"
-            >
-              <X />
-            </Button>
-          )}
-          {uploadState === 'uploading' && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/40">
-              <Loader2 className="size-6 animate-spin text-white" />
-            </div>
-          )}
-          {uploadState === 'success' && (
-            <div className="absolute bottom-1 right-1 rounded-full bg-green-600 p-1">
-              <Check className="size-3 text-white" />
-            </div>
-          )}
-        </div>
+      {hasFile ? (
+        isImageFile(selectedFile, existingPhotoUrl) && displayImage ? (
+          <div className="relative">
+            <img
+              src={displayImage}
+              alt={label}
+              className="h-40 w-full rounded-md border object-cover"
+            />
+            {uploadState !== 'uploading' && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon-xs"
+                className="absolute top-1 right-1"
+                onClick={handleClear}
+                aria-label="Remove file"
+              >
+                <X />
+              </Button>
+            )}
+            {uploadState === 'uploading' && (
+              <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/40">
+                <Loader2 className="size-6 animate-spin text-white" />
+              </div>
+            )}
+            {uploadState === 'success' && (
+              <div className="absolute bottom-1 right-1 rounded-full bg-green-600 p-1">
+                <Check className="size-3 text-white" />
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="relative flex h-28 w-full items-center justify-center gap-2 rounded-md border bg-muted/50">
+            <FileText className="size-8 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {selectedFile ? getFileDisplayName(selectedFile) : currentPhotoKey?.split('/').pop() ?? 'Document'}
+            </span>
+            {uploadState !== 'uploading' && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon-xs"
+                className="absolute top-1 right-1"
+                onClick={handleClear}
+                aria-label="Remove file"
+              >
+                <X />
+              </Button>
+            )}
+            {uploadState === 'uploading' && (
+              <Loader2 className="absolute size-5 animate-spin text-muted-foreground" />
+            )}
+            {uploadState === 'success' && (
+              <div className="absolute bottom-1 right-1 rounded-full bg-green-600 p-1">
+                <Check className="size-3 text-white" />
+              </div>
+            )}
+          </div>
+        )
       ) : (
         <Button
           type="button"
@@ -145,7 +197,7 @@ export function PhotoUpload({
           onClick={() => fileInputRef.current?.click()}
         >
           {uploadType === 'receipt-photo' ? (
-            <Camera className="size-6 text-muted-foreground" />
+            <Upload className="size-6 text-muted-foreground" />
           ) : (
             <Upload className="size-6 text-muted-foreground" />
           )}
@@ -153,15 +205,15 @@ export function PhotoUpload({
         </Button>
       )}
 
-      {displayImage && uploadState !== 'uploading' && (
+      {hasFile && uploadState !== 'uploading' && (
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => fileInputRef.current?.click()}
         >
-          <Camera className="mr-1 size-3" />
-          Change Photo
+          <Upload className="mr-1 size-3" />
+          Change File
         </Button>
       )}
 
