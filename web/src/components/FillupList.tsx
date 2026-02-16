@@ -33,7 +33,7 @@ export interface FillupEditData {
   odometerReading: number;
   isPartialFill?: boolean;
   isBusiness?: boolean;
-  receiptPhotoKey?: string;
+  receiptPhotoKey?: string | null;
   notes?: string;
 }
 
@@ -187,7 +187,7 @@ function EditFillupDialog({
   onSave: (data: FillupEditData) => void;
   isSaving?: boolean;
 }) {
-  const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | undefined>(
+  const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | null | undefined>(
     fillup.receiptPhotoKey,
   );
 
@@ -310,7 +310,8 @@ function EditFillupDialog({
               vehicleId={vehicleId}
               fillupId={fillup.fillupId}
               onUploadComplete={setReceiptPhotoKey}
-              currentPhotoKey={receiptPhotoKey}
+              onPhotoRemoved={() => setReceiptPhotoKey(null)}
+              currentPhotoKey={receiptPhotoKey ?? undefined}
             />
           </div>
         </form>

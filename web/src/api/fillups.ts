@@ -17,7 +17,9 @@ type FillupCreate = {
   notes?: string;
 };
 
-type FillupUpdate = Partial<FillupCreate>;
+type FillupUpdate = Partial<FillupCreate> & {
+  receiptPhotoKey?: string | null;
+};
 
 export function useFillups(vehicleId: string | undefined) {
   return useQuery({

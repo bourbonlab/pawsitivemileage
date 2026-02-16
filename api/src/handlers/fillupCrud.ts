@@ -7,6 +7,7 @@ import { success, error } from '../lib/response.js';
 import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import { calculateDerivedMetrics, recalculateAllMetrics } from '../lib/metrics.js';
+import { deleteObject } from '../lib/s3.js';
 import type { Fillup } from '../types/fillup.js';
 
 const logger = createLogger('fillupCrud');
@@ -366,7 +367,8 @@ async function updateFillup(
     ...(body.locationLng !== undefined && { locationLng: body.locationLng as number }),
     ...(body.stationName !== undefined && { stationName: body.stationName as string }),
     ...(body.address !== undefined && { address: body.address as string }),
-    ...(body.receiptPhotoKey !== undefined && { receiptPhotoKey: body.receiptPhotoKey as string }),
+    // receiptPhotoKey: null means "remove photo"; string means "set new photo"
+    ...(body.receiptPhotoKey !== undefined && body.receiptPhotoKey !== null && { receiptPhotoKey: body.receiptPhotoKey as string }),
     ...(body.notes !== undefined && { notes: body.notes as string }),
     // Metrics will be recalculated below
     pricePerGallon: null,
@@ -376,6 +378,21 @@ async function updateFillup(
     daysSinceLastFillup: null,
     updatedAt: now,
   };
+
+  // If receiptPhotoKey is explicitly null, remove the photo from S3 and strip the field
+  if (body.receiptPhotoKey === null && existing.receiptPhotoKey) {
+    const photosBucket = process.env.PHOTOS_BUCKET;
+    if (photosBucket) {
+      try {
+        await deleteObject(photosBucket, existing.receiptPhotoKey);
+        logger.info(`Deleted receipt photo ${existing.receiptPhotoKey} from S3`, requestId, userId);
+      } catch (s3Err) {
+        logger.error('Failed to delete receipt photo from S3', requestId, userId, s3Err);
+        // Continue — don't fail the update if S3 delete fails
+      }
+    }
+    delete (updatedFillup as unknown as Record<string, unknown>).receiptPhotoKey;
+  }
 
   // Delete old item if sort key changed
   if (oldSortKey !== newSortKey) {

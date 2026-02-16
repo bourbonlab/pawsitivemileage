@@ -178,7 +178,7 @@ export default function VehicleDetailPage() {
                 fillups={fillupsQuery.data ?? []}
                 vehicleId={vehicleId!}
                 onDelete={(id) => deleteFillup.mutate(id)}
-                onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data })}
+                onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data: data as Parameters<typeof editFillup.mutate>[0]['data'] })}
                 isDeleting={deleteFillup.isPending}
                 isEditing={editFillup.isPending}
               />

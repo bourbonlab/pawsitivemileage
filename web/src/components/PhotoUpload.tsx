@@ -11,6 +11,7 @@ interface PhotoUploadProps {
   vehicleId: string;
   fillupId?: string;
   onUploadComplete: (s3Key: string) => void;
+  onPhotoRemoved?: () => void;
   currentPhotoKey?: string;
   className?: string;
 }
@@ -22,6 +23,7 @@ export function PhotoUpload({
   vehicleId,
   fillupId,
   onUploadComplete,
+  onPhotoRemoved,
   currentPhotoKey,
   className,
 }: PhotoUploadProps) {
@@ -85,7 +87,11 @@ export function PhotoUpload({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  }, []);
+    // Notify parent that the existing photo was removed
+    if (currentPhotoKey && onPhotoRemoved) {
+      onPhotoRemoved();
+    }
+  }, [currentPhotoKey, onPhotoRemoved]);
 
   const label =
     uploadType === 'vehicle-photo' ? 'Vehicle Photo' : 'Receipt Photo';
