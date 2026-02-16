@@ -10,8 +10,10 @@ set -euo pipefail
 #   ./deploy.sh --stage      # Deploy to staging environment
 #   ./deploy.sh --prod       # Deploy to production (requires --yes)
 #   ./deploy.sh --prod --yes # Deploy to production (skip confirmation)
+#   ./deploy.sh --test --clear-cache  # Purge CloudFront + CloudFlare caches only
 #
 # Options:
+#   --clear-cache  Skip build/deploy, just purge caches for the target environment
 #   --skip-tests   Skip running tests
 #   --verbose      Show detailed command output
 ###############################################################################
@@ -46,6 +48,7 @@ DEPLOY_ENV=""
 SKIP_TESTS=false
 VERBOSE=false
 CONFIRM_PROD=false
+CLEAR_CACHE=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -54,17 +57,19 @@ for arg in "$@"; do
     --prod)       DEPLOY_ENV="production" ;;
     --yes)        CONFIRM_PROD=true ;;
     --skip-tests) SKIP_TESTS=true ;;
+    --clear-cache) CLEAR_CACHE=true ;;
     --verbose)    VERBOSE=true ;;
     --help|-h)
-      echo "Usage: ./deploy.sh [--test|--stage|--prod] [--yes] [--skip-tests] [--verbose]"
+      echo "Usage: ./deploy.sh [--test|--stage|--prod] [--yes] [--skip-tests] [--clear-cache] [--verbose]"
       echo ""
-      echo "  (no flag)    Install, build, test, and CDK synth only"
-      echo "  --test       Deploy to test environment"
-      echo "  --stage      Deploy to staging environment"
-      echo "  --prod       Deploy to production (requires --yes to confirm)"
-      echo "  --yes        Skip production confirmation prompt"
-      echo "  --skip-tests Skip running test suites"
-      echo "  --verbose    Show detailed command output"
+      echo "  (no flag)      Install, build, test, and CDK synth only"
+      echo "  --test         Deploy to test environment"
+      echo "  --stage        Deploy to staging environment"
+      echo "  --prod         Deploy to production (requires --yes to confirm)"
+      echo "  --yes          Skip production confirmation prompt"
+      echo "  --skip-tests   Skip running test suites"
+      echo "  --clear-cache  Purge CloudFront + CloudFlare caches only (requires env flag)"
+      echo "  --verbose      Show detailed command output"
       exit 0
       ;;
     *) fail "Unknown argument: $arg. Use --help for usage." ;;
@@ -135,6 +140,55 @@ if [[ -n "$DEPLOY_ENV" ]]; then
   info "Target environment: ${YELLOW}${DEPLOY_ENV}${NC}"
 else
   info "Mode: ${YELLOW}synth only${NC} (no deploy flag provided)"
+fi
+
+# ── Clear-cache shortcut ────────────────────────────────────────────────────
+# Skips the entire build/deploy pipeline — just purges caches and exits.
+
+if [[ "$CLEAR_CACHE" == true ]]; then
+  if [[ -z "$DEPLOY_ENV" ]]; then
+    fail "--clear-cache requires an environment flag (--test, --stage, or --prod)"
+  fi
+
+  step "Clearing caches for ${DEPLOY_ENV}"
+
+  # Resolve CloudFront distribution ID
+  FRONTEND_STACK_NAME="PawsitiveMileage-${DEPLOY_ENV}-Frontend"
+  CF_DIST_ID=$(aws cloudformation describe-stacks \
+    --stack-name "$FRONTEND_STACK_NAME" \
+    --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+    --output text 2>/dev/null || true)
+
+  if [[ -n "$CF_DIST_ID" && "$CF_DIST_ID" != "None" ]]; then
+    info "Invalidating CloudFront distribution ${CF_DIST_ID}"
+    aws cloudfront create-invalidation --distribution-id "$CF_DIST_ID" --paths "/*" > /dev/null 2>&1 || warn "CloudFront invalidation failed (non-fatal)"
+    ok "CloudFront cache invalidation requested"
+  else
+    warn "Could not find CloudFront distribution ID — skipping"
+  fi
+
+  if [[ -n "${CLOUDFLARE_ZONE_ID:-}" && -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+    info "Purging CloudFlare cache for zone ${CLOUDFLARE_ZONE_ID}"
+    CF_RESPONSE=$(curl -s -X POST \
+      "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data '{"purge_everything":true}' 2>/dev/null || true)
+
+    if echo "$CF_RESPONSE" | grep -q '"success":true'; then
+      ok "CloudFlare cache purged"
+    else
+      warn "CloudFlare cache purge failed (non-fatal)"
+      if [[ "$VERBOSE" == true ]]; then
+        info "Response: ${CF_RESPONSE}"
+      fi
+    fi
+  fi
+
+  echo ""
+  echo -e "${GREEN}  Cache clear complete for ${DEPLOY_ENV}${NC}"
+  echo ""
+  exit 0
 fi
 
 
