@@ -45,6 +45,10 @@ export function validateRange(
   for (const [field, { min, max }] of Object.entries(ranges)) {
     const value = body[field];
     if (typeof value !== 'number') continue;
+    if (!Number.isFinite(value)) {
+      errors.push({ field, message: `${field} must be a finite number` });
+      continue;
+    }
     if (min !== undefined && value < min) {
       errors.push({ field, message: `${field} must be at least ${min}` });
     }
