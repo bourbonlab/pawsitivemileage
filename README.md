@@ -466,6 +466,8 @@ npx cdk deploy --all \
 
 > **CloudFlare note:** ACM certificate DNS validation requires either temporarily disabling the proxy or using CNAME validation records that work through the proxy.
 
+> **CloudFlare caching note:** CloudFlare's proxy adds its own caching layer on top of CloudFront. After deploying changes that affect CloudFront behaviors or error responses, you may need to purge the CloudFlare cache as well (Caching → Configuration → Purge Cache in the CloudFlare dashboard). CloudFront cache invalidations alone won't clear stale responses cached by CloudFlare.
+
 ### Google OAuth Setup
 
 1. Go to [Google Cloud Console → APIs & Services → Credentials](https://console.cloud.google.com/apis/credentials)
