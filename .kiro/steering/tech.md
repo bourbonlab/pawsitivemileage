@@ -18,7 +18,7 @@
 - esbuild 0.27.x for bundling (ESM output, tree-shaking, minified, source maps, `@aws-sdk/*` externalized)
 - API Gateway v2 (HTTP API), JWT authorizer (Cognito)
 - All routes prefixed `/v1/`
-- Single-purpose Lambda per route group (10 handlers total)
+- Single-purpose Lambda per route group (11 handlers total)
 - AWS SDK v3: `@aws-sdk/client-dynamodb` ^3.990, `@aws-sdk/lib-dynamodb` ^3.990, `@aws-sdk/client-s3` ^3.990, `@aws-sdk/s3-request-presigner` ^3.990
 - ULID 3.x for sortable unique IDs
 

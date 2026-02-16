@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from './client';
 
 interface PresignRequest {
-  uploadType: 'vehicle-photo' | 'receipt-photo';
+  uploadType: 'vehicle-photo' | 'receipt-photo' | 'csv-import';
   vehicleId: string;
   fillupId?: string;
   contentType: string;

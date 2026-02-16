@@ -46,6 +46,11 @@ DNS managed in CloudFlare (proxied, Full Strict SSL). ACM wildcard certificate i
 - CSV export for fillups and maintenance with date range filtering
 - PDF report generation (uploaded to S3 exports bucket, returns presigned download URL)
 
+**Data Import & Recalculation**
+- Import Fuelly CSV exports (fuelups and maintenance) via S3 presigned upload
+- Duplicate detection prevents re-importing existing records
+- Bulk metrics recalculation for all fillups on a vehicle
+
 **Admin Panel**
 - User management with admin role assignment
 - Maintenance schema CRUD with activate/deactivate

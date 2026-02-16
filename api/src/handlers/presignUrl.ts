@@ -8,10 +8,10 @@ import { buildS3Key, getPresignedUploadUrl } from '../lib/s3.js';
 
 const logger = createLogger('presignUrl');
 
-const ALLOWED_UPLOAD_TYPES = ['vehicle-photo', 'receipt-photo'] as const;
+const ALLOWED_UPLOAD_TYPES = ['vehicle-photo', 'receipt-photo', 'csv-import'] as const;
 type UploadType = (typeof ALLOWED_UPLOAD_TYPES)[number];
 
-const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic'] as const;
+const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'text/csv'] as const;
 
 const PRESIGN_EXPIRATION_SECONDS = 900; // 15 minutes
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB

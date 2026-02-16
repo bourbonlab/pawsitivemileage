@@ -63,6 +63,13 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 - CSV export for fillups and maintenance with date range filtering
 - PDF report generation
 
+**Data Import & Recalculation**
+- Import Fuelly CSV exports (fuelups and maintenance) via S3 presigned upload
+- CSV parsing with field mapping, validation, and skip logic for invalid rows
+- Duplicate detection prevents re-importing existing records
+- Bulk metrics recalculation for all fillups on a vehicle
+- Import result summary (imported, skipped, duplicates, errors)
+
 **Admin Panel**
 - User management with admin role assignment
 - Maintenance schema CRUD with activate/deactivate
@@ -136,7 +143,8 @@ pawsitive-mileage/
 │   │   │   ├── fillups.ts  # Fillup CRUD calls
 │   │   │   ├── maintenance.ts
 │   │   │   ├── analytics.ts
-│   │   │   ├── upload.ts   # Presigned URL upload
+│   │   │   ├── upload.ts   # Presigned URL upload (photos + CSV import)
+│   │   │   ├── import.ts   # CSV import + metrics recalculation mutations
 │   │   │   └── admin.ts    # Admin API calls
 │   │   ├── auth/           # Amplify config, AuthProvider, route guards
 │   │   │   ├── amplify-config.ts  # Cognito configuration from VITE_ env vars
@@ -152,6 +160,7 @@ pawsitive-mileage/
 │   │   │   ├── ReminderBanner.tsx  # Upcoming maintenance alerts
 │   │   │   ├── SummaryCard.tsx     # Shareable annual stats card
 │   │   │   ├── PhotoUpload.tsx     # S3 presigned URL photo upload
+│   │   │   ├── ImportDialog.tsx   # Fuelly CSV import dialog (upload + import flow)
 │   │   │   ├── LocationPicker.tsx  # Leaflet map picker for fillup location
 │   │   │   ├── charts/            # Recharts chart components
 │   │   │   │   ├── MpgChart.tsx
@@ -186,13 +195,14 @@ pawsitive-mileage/
 │
 ├── api/                    # Lambda handlers (Node.js 24.x + esbuild)
 │   ├── src/
-│   │   ├── handlers/       # One handler per API route group (10 total)
+│   │   ├── handlers/       # One handler per API route group (11 total)
 │   │   │   ├── userProfile.ts
 │   │   │   ├── vehicleCrud.ts
 │   │   │   ├── fillupCrud.ts
 │   │   │   ├── maintenanceCrud.ts
 │   │   │   ├── analytics.ts
 │   │   │   ├── exportData.ts
+│   │   │   ├── importData.ts
 │   │   │   ├── presignUrl.ts
 │   │   │   ├── adminUsers.ts
 │   │   │   ├── adminSchemas.ts
@@ -205,6 +215,7 @@ pawsitive-mileage/
 │   │   │   ├── logger.ts   # Structured JSON logger (INFO/WARN/ERROR to stdout)
 │   │   │   ├── metrics.ts  # Fillup derived metric calculations + recalculation
 │   │   │   ├── reminders.ts # Maintenance reminder calculation
+│   │   │   ├── csv-parser.ts # Fuelly CSV import parser (fuelups + maintenance)
 │   │   │   └── s3.ts       # S3 presigned URL generation + direct upload
 │   │   └── types/          # Shared TypeScript types
 │   │       ├── index.ts    # Re-exports all types
@@ -610,7 +621,14 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 |--------|------|-------------|
 | POST | `/v1/upload/presign` | Get S3 presigned upload URL. Body: `{ vehicleId, type, filename, contentType }`. Returns `{ uploadUrl, key }` |
 
-S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type is `receipt`, `vehicle`, etc. Presigned upload URLs enforce a 10 MB maximum file size via `Content-Length` header signing.
+S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type is `receipt`, `vehicle`, `csv-import`, etc. Presigned upload URLs enforce a 10 MB maximum file size via `Content-Length` header signing.
+
+### Import & Recalculate
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/v1/vehicles/{vehicleId}/import/{type}` | Import Fuelly CSV (type: `fuelups` or `maintenance`). Body: `{ s3Key }`. Returns import result with counts |
+| POST | `/v1/vehicles/{vehicleId}/recalculate` | Recalculate all derived metrics for a vehicle's fillups. Returns `{ recalculatedCount }` |
 
 ### Admin (requires `isAdmin: true`)
 
@@ -764,6 +782,7 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 | maintenanceCrud | `maintenanceCrud.ts` | Maintenance CRUD, reminder calculation | Maintenance (RW), Vehicles (R), Schemas (R) | Photos (RW) |
 | analytics | `analytics.ts` | Dashboard metrics, YoY comparison, summary cards | Fillups (R), Maintenance (R), Vehicles (R) | — |
 | exportData | `exportData.ts` | CSV/PDF export generation | Fillups (R), Maintenance (R), Vehicles (R) | Exports (RW) |
+| importData | `importData.ts` | Fuelly CSV import (fuelups + maintenance), metrics recalculation | Fillups (RW), Maintenance (RW), Vehicles (R) | Photos (R) |
 | presignUrl | `presignUrl.ts` | S3 presigned URL generation for uploads | — | Photos (R/Put) |
 | adminUsers | `adminUsers.ts` | User listing, admin role toggle | Users (RW), Vehicles (R), Fillups (R) | — |
 | adminSchemas | `adminSchemas.ts` | Maintenance schema CRUD | Schemas (RW) | — |
@@ -789,6 +808,7 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 - **`logger.ts`** — `createLogger(handler)` returns structured JSON logger with `info()`, `warn()`, `error()` methods
 - **`metrics.ts`** — `calculateDerivedMetrics()` for single fillup, `recalculateAllMetrics()` for full sequence recalculation with partial fill accumulation
 - **`reminders.ts`** — `calculateReminder()` with 500-mile and 30-day thresholds
+- **`csv-parser.ts`** — `parseFuelupsCsv()` and `parseMaintenanceCsv()` for Fuelly CSV import with field mapping, validation, and skip logic
 - **`s3.ts`** — `getPresignedUploadUrl()`, `getPresignedDownloadUrl()`, `uploadObject()`, `buildS3Key()`
 
 ---
@@ -810,7 +830,7 @@ Storage ──────┘         ──▶ Monitoring (optional)
 | Auth | `PawsitiveMileage-{env}-Auth` | Cognito User Pool, Google IdP, App Client, Hosted UI Domain |
 | Database | `PawsitiveMileage-{env}-Database` | 5 DynamoDB TableV2 (on-demand, PITR), 6 GSIs. Production: termination protection + RETAIN |
 | Storage | `PawsitiveMileage-{env}-Storage` | S3 Photos bucket (CORS, presigned uploads), S3 Exports bucket (7-day lifecycle). Production: termination protection + RETAIN |
-| API | `PawsitiveMileage-{env}-Api` | API Gateway v2 HTTP API, 10 Lambda functions (AppFunction construct), JWT authorizer, custom domain, 30+ routes |
+| API | `PawsitiveMileage-{env}-Api` | API Gateway v2 HTTP API, 11 Lambda functions (AppFunction construct), JWT authorizer, custom domain, 30+ routes |
 | Frontend | `PawsitiveMileage-{env}-Frontend` | S3 frontend bucket, CloudFront distribution (OAC, TLS 1.2, SPA 403/404 → index.html), custom domain |
 | Monitoring | `PawsitiveMileage-{env}-Monitoring` | CloudWatch Dashboard with API latency (p50/p95/p99), request count, 4xx/5xx errors, Lambda duration/errors, DynamoDB read/write capacity. **Optional** — enable via CDK context: `-c enableMonitoring=true` |
 
