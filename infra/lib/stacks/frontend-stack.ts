@@ -59,6 +59,9 @@ export class FrontendStack extends cdk.Stack {
       functionName: `${config.resourcePrefix}-strip-photos-prefix`,
     });
 
+    // Cognito domain prefix for CSP connect-src (resolved from config, which reads CDK context with defaults)
+    const cognitoDomainPrefix = config.cognitoDomainPrefix;
+
     // Security response headers policy (CSP, HSTS, X-Frame-Options, etc.)
     const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
       responseHeadersPolicyName: `${config.resourcePrefix}-security-headers`,
@@ -70,7 +73,7 @@ export class FrontendStack extends cdk.Stack {
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data: https://*.tile.openstreetmap.org",
             "font-src 'self'",
-            `connect-src 'self' https://${config.apiDomain} https://cognito-idp.*.amazonaws.com`,
+            `connect-src 'self' https://${config.apiDomain} https://cognito-idp.us-east-1.amazonaws.com https://${cognitoDomainPrefix}.auth.us-east-1.amazoncognito.com`,
             "frame-ancestors 'none'",
           ].join('; '),
           override: true,
