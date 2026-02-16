@@ -45,16 +45,16 @@ The repo is hosted on Gitea at `https://gitea.bourbonlab.net/bourbonlab/Pawsitiv
    tea pr create --title "feat: description" --head feat/branch-name --base main
    ```
 
-2. Merge the PR:
+2. Merge the PR and clean up branches:
    ```bash
    tea pr merge <PR_INDEX>
+   tea pr clean <PR_INDEX>
    ```
 
 3. Sync local after merge:
    ```bash
    git checkout main
    git pull origin main
-   git branch -d feat/short-description
    ```
 
 ## Production Deployment
