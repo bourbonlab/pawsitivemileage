@@ -34,14 +34,18 @@ export class AuthStack extends cdk.Stack {
         : cdk.RemovalPolicy.DESTROY,
     });
 
-    // Google identity provider — client ID/secret from context or SSM
+    // Google identity provider — client ID from context, secret from Secrets Manager
     const googleClientId = this.node.tryGetContext('googleClientId') ?? 'PLACEHOLDER_GOOGLE_CLIENT_ID';
-    const googleClientSecret = this.node.tryGetContext('googleClientSecret') ?? 'PLACEHOLDER_GOOGLE_CLIENT_SECRET';
+    const googleSecretName = this.node.tryGetContext('googleClientSecretArn');
+    if (!googleSecretName) {
+      throw new Error('CDK context parameter "googleClientSecretArn" is required. Pass it via -c googleClientSecretArn=<secret-name-or-arn>');
+    }
+    const clientSecretValue = cdk.SecretValue.secretsManager(googleSecretName);
 
     const googleProvider = new cognito.UserPoolIdentityProviderGoogle(this, 'GoogleProvider', {
       userPool: this.userPool,
       clientId: googleClientId,
-      clientSecretValue: cdk.SecretValue.unsafePlainText(googleClientSecret),
+      clientSecretValue,
       scopes: ['profile', 'email', 'openid'],
       attributeMapping: {
         email: cognito.ProviderAttribute.GOOGLE_EMAIL,

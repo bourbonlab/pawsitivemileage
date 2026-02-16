@@ -4,7 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange } from '../lib/validation.js';
+import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import type { Vehicle } from '../types/vehicle.js';
 
@@ -141,6 +141,20 @@ async function createVehicle(
     return error('VALIDATION_ERROR', rangeErrors.map((e) => e.message).join(', '), requestId);
   }
 
+  // Validate string field lengths (Req 3.4)
+  const lengthErrors = validateStringLength(body, {
+    make: 100,
+    model: 100,
+    trim: 100,
+    color: 50,
+    vin: 17,
+    licensePlate: 20,
+    notes: 1000,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
+  }
+
   const now = new Date().toISOString();
   const vehicleId = ulid();
 
@@ -273,6 +287,20 @@ async function updateVehicle(
     if (rangeErrors.length > 0) {
       return error('VALIDATION_ERROR', rangeErrors.map((e) => e.message).join(', '), requestId);
     }
+  }
+
+  // Validate string field lengths (Req 3.4)
+  const lengthErrors = validateStringLength(body, {
+    make: 100,
+    model: 100,
+    trim: 100,
+    color: 50,
+    vin: 17,
+    licensePlate: 20,
+    notes: 1000,
+  });
+  if (lengthErrors.length > 0) {
+    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
   }
 
   // Build update expression from allowed fields

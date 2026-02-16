@@ -90,9 +90,6 @@ export function recalculateAllMetrics(fillups: Fillup[]): Fillup[] {
 
   let accumulatedGallons = 0;
   let accumulatedMiles = 0;
-  // Track the last full (non-partial) fillup for accumulation reference
-  let lastFullFillupIndex: number | null = null;
-
   return fillups.map((fillup, index) => {
     const previous: FillupInput | null = index > 0 ? fillups[index - 1] : null;
 
@@ -113,7 +110,6 @@ export function recalculateAllMetrics(fillups: Fillup[]): Fillup[] {
       // Reset accumulators after a full fill
       accumulatedGallons = 0;
       accumulatedMiles = 0;
-      lastFullFillupIndex = index;
     }
 
     return {

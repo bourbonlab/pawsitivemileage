@@ -59,6 +59,41 @@ export class FrontendStack extends cdk.Stack {
       functionName: `${config.resourcePrefix}-strip-photos-prefix`,
     });
 
+    // Security response headers policy (CSP, HSTS, X-Frame-Options, etc.)
+    const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeadersPolicy', {
+      responseHeadersPolicyName: `${config.resourcePrefix}-security-headers`,
+      securityHeadersBehavior: {
+        contentSecurityPolicy: {
+          contentSecurityPolicy: [
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            "img-src 'self' data: https://*.tile.openstreetmap.org",
+            "font-src 'self'",
+            `connect-src 'self' https://${config.apiDomain} https://cognito-idp.*.amazonaws.com`,
+            "frame-ancestors 'none'",
+          ].join('; '),
+          override: true,
+        },
+        frameOptions: {
+          frameOption: cloudfront.HeadersFrameOption.DENY,
+          override: true,
+        },
+        contentTypeOptions: {
+          override: true,
+        },
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+          override: true,
+        },
+        strictTransportSecurity: {
+          accessControlMaxAge: cdk.Duration.seconds(31536000),
+          includeSubdomains: true,
+          override: true,
+        },
+      },
+    });
+
     // CloudFront distribution using Origin Access Control
     this.distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment: `PawsitiveMileage Frontend (${config.envName})`,
@@ -67,6 +102,7 @@ export class FrontendStack extends cdk.Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        responseHeadersPolicy,
       },
       additionalBehaviors: {
         '/photos/*': {
@@ -74,6 +110,7 @@ export class FrontendStack extends cdk.Stack {
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+          responseHeadersPolicy,
           functionAssociations: [{
             function: stripPhotosPrefix,
             eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,

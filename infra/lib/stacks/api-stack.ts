@@ -165,6 +165,13 @@ export class ApiStack extends cdk.Stack {
       defaultDomainMapping: domainName ? { domainName } : undefined,
     });
 
+    // API Gateway throttling (L1 escape hatch — L2 doesn't expose throttle settings)
+    const stage = this.httpApi.defaultStage?.node.defaultChild as apigwv2.CfnStage;
+    stage.defaultRouteSettings = {
+      throttlingBurstLimit: 100,
+      throttlingRateLimit: 50,
+    };
+
     // Helper to create integration + route
     const addRoute = (method: apigwv2.HttpMethod, path: string, fnName: string, auth = true) => {
       const integration = new HttpLambdaIntegration(`${fnName}-${method}-${path.replace(/[\/{}]/g, '-')}`, this.lambdaFunctions[fnName].function);

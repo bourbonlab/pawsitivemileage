@@ -13,6 +13,17 @@ That said, the review identified 14 findings across critical, high, medium, and 
 
 ---
 
+## Remediation Status
+
+**12 of 14 findings remediated** as part of the `feat/security-hardening` branch (spec: `.kiro/specs/security-hardening/`).
+
+| Status | Count | Findings |
+|--------|-------|----------|
+| ✅ Remediated | 12 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-09, F-10, F-11, F-12, F-13 |
+| ⬚ Not addressed | 2 | F-08 (admin audit trail — new feature, deferred), F-14 (table name prefix — breaking change, requires migration) |
+
+---
+
 ## Findings
 
 ### F-01 — Google OAuth Client Secret Passed as Plaintext CDK Context (HIGH)
@@ -250,22 +261,22 @@ The following security practices are well-implemented:
 
 ## Risk Summary
 
-| ID | Severity | Finding | OWASP Category |
-|----|----------|---------|----------------|
-| F-01 | HIGH | OAuth secret in plaintext CDK context | A02: Cryptographic Failures |
-| F-02 | HIGH | No request body size limit | A03: Injection |
-| F-03 | HIGH | No string length validation | A03: Injection |
-| F-04 | MEDIUM | Missing coordinate validation | A03: Injection |
-| F-05 | MEDIUM | No API rate limiting | A04: Insecure Design |
-| F-06 | MEDIUM | CSV formula injection | A03: Injection |
-| F-07 | MEDIUM | No CSP headers on CloudFront | A05: Security Misconfiguration |
-| F-08 | MEDIUM | No admin action audit trail | A09: Security Logging Failures |
-| F-09 | MEDIUM | Presigned URL filename not sanitized | A03: Injection |
-| F-10 | MEDIUM | Upload content type not validated | A04: Insecure Design |
-| F-11 | LOW | Stack traces in production logs | A09: Security Logging Failures |
-| F-12 | LOW | Auto-approve IAM changes in prod | A05: Security Misconfiguration |
-| F-13 | LOW | No `npm audit` in pipeline | A06: Vulnerable Components |
-| F-14 | LOW | Hardcoded table name prefix | A05: Security Misconfiguration |
+| ID | Severity | Finding | OWASP Category | Status |
+|----|----------|---------|----------------|--------|
+| F-01 | HIGH | OAuth secret in plaintext CDK context | A02: Cryptographic Failures | ✅ Remediated |
+| F-02 | HIGH | No request body size limit | A03: Injection | ✅ Remediated |
+| F-03 | HIGH | No string length validation | A03: Injection | ✅ Remediated |
+| F-04 | MEDIUM | Missing coordinate validation | A03: Injection | ✅ Remediated |
+| F-05 | MEDIUM | No API rate limiting | A04: Insecure Design | ✅ Remediated |
+| F-06 | MEDIUM | CSV formula injection | A03: Injection | ✅ Remediated |
+| F-07 | MEDIUM | No CSP headers on CloudFront | A05: Security Misconfiguration | ✅ Remediated |
+| F-08 | MEDIUM | No admin action audit trail | A09: Security Logging Failures | ⬚ Not addressed |
+| F-09 | MEDIUM | Presigned URL filename not sanitized | A03: Injection | ✅ Remediated |
+| F-10 | MEDIUM | Upload content type not validated | A04: Insecure Design | ✅ Remediated |
+| F-11 | LOW | Stack traces in production logs | A09: Security Logging Failures | ✅ Remediated |
+| F-12 | LOW | Auto-approve IAM changes in prod | A05: Security Misconfiguration | ✅ Remediated |
+| F-13 | LOW | No `npm audit` in pipeline | A06: Vulnerable Components | ✅ Remediated |
+| F-14 | LOW | Hardcoded table name prefix | A05: Security Misconfiguration | ⬚ Not addressed |
 
 ---
 
