@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { ArrowUpDown, Trash2, Pencil, Wrench, Loader2, ImageIcon } from 'lucide-react';
+import { ArrowUpDown, Trash2, Pencil, Wrench, Loader2, ImageIcon, FileText } from 'lucide-react';
+import { DetailPeekDialog, hasDetails } from '@/components/DetailPeekDialog';
+import type { DetailPeekData } from '@/components/DetailPeekDialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
@@ -43,6 +45,18 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
   const [sortField, setSortField] = useState<SortField>('datePerformed');
   const [sortAsc, setSortAsc] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
+  const [peekingRecord, setPeekingRecord] = useState<MaintenanceRecord | null>(null);
+
+  function buildPeekData(r: MaintenanceRecord): DetailPeekData {
+    return {
+      title: `${r.schemaName || r.customTypeName || 'Maintenance'} — ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`,
+      notes: r.notes,
+      stationName: r.stationName,
+      address: r.address,
+      locationLat: r.locationLat,
+      locationLng: r.locationLng,
+    };
+  }
 
   function toggleSort(field: SortField) {
     if (sortField === field) {
@@ -91,6 +105,17 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
                 <TableCell className="text-right tabular-nums">${r.cost.toFixed(2)}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
+                    {hasDetails(r) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setPeekingRecord(r)}
+                        aria-label={`View details for maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
+                      >
+                        <FileText className="size-4" />
+                      </Button>
+                    )}
                     {r.receiptPhotoKey && (
                       <Button
                         variant="ghost"
@@ -142,6 +167,12 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
           isSaving={isEditing}
         />
       )}
+
+      <DetailPeekDialog
+        data={peekingRecord ? buildPeekData(peekingRecord) : null}
+        open={!!peekingRecord}
+        onOpenChange={(open) => { if (!open) setPeekingRecord(null); }}
+      />
     </>
   );
 }
