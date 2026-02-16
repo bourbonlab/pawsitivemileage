@@ -23,6 +23,7 @@ import type { FillupEditData } from '@/components/FillupList';
 import { FillupMap } from '@/components/FillupMap';
 import { MaintenanceList } from '@/components/MaintenanceList';
 import { ReminderBanner } from '@/components/ReminderBanner';
+import { PhotoUpload } from '@/components/PhotoUpload';
 import type { Vehicle } from '@/types';
 
 export default function VehicleDetailPage() {
@@ -88,7 +89,7 @@ export default function VehicleDetailPage() {
           <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
             {vehicle.photoKey ? (
               <img
-                src={`${import.meta.env.VITE_PHOTOS_URL ?? ''}/${vehicle.photoKey}`}
+                src={`/photos/${vehicle.photoKey}`}
                 alt={vehicle.nickname}
                 className="size-full object-cover"
               />
@@ -244,6 +245,7 @@ function EditVehicleDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const updateVehicle = useUpdateVehicle(vehicle.vehicleId);
+  const [photoKey, setPhotoKey] = useState<string | undefined>(vehicle.photoKey);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -257,7 +259,7 @@ function EditVehicleDialog({
     if (!nickname || !make || !model || !yearStr) return;
 
     updateVehicle.mutate(
-      { nickname, make, model, year: Number(yearStr) },
+      { nickname, make, model, year: Number(yearStr), photoKey },
       { onSuccess: () => onOpenChange(false) },
     );
   }
@@ -271,6 +273,17 @@ function EditVehicleDialog({
         </DialogHeader>
 
         <form id="edit-vehicle-form" onSubmit={handleSubmit} className="grid gap-4 py-2">
+          {/* Vehicle photo */}
+          <div className="grid gap-1.5">
+            <Label>Vehicle Photo</Label>
+            <PhotoUpload
+              uploadType="vehicle-photo"
+              vehicleId={vehicle.vehicleId}
+              onUploadComplete={(key) => setPhotoKey(key)}
+              currentPhotoKey={vehicle.photoKey}
+            />
+          </div>
+
           <div className="grid gap-1.5">
             <Label htmlFor="edit-nickname">Nickname</Label>
             <Input id="edit-nickname" name="nickname" defaultValue={vehicle.nickname} required />

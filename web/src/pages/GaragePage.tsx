@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Loader2, Car } from 'lucide-react';
+import { useState, useRef, useCallback } from 'react';
+import { Plus, Loader2, Car, Upload, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { VehicleCard } from '@/components/VehicleCard';
 import { useVehicles, useCreateVehicle } from '@/api/vehicles';
+import { usePresignedUpload, uploadFileToS3 } from '@/api/upload';
 
 export default function GaragePage() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -120,8 +121,26 @@ function VehicleGrid({ vehicles, isLoading, isError, emptyMessage }: VehicleGrid
 
 function AddVehicleDialog({ onClose }: { onClose: () => void }) {
   const createVehicle = useCreateVehicle();
+  const presignMutation = usePresignedUpload();
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPendingFile(file);
+    setPreview(URL.createObjectURL(file));
+  }, []);
+
+  const handleClearPhoto = useCallback(() => {
+    setPendingFile(null);
+    setPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
 
@@ -132,10 +151,41 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
 
     if (!nickname || !make || !model || !yearStr) return;
 
-    createVehicle.mutate(
-      { nickname, make, model, year: Number(yearStr) },
-      { onSuccess: () => onClose() },
-    );
+    setIsSaving(true);
+    try {
+      const vehicle = await createVehicle.mutateAsync(
+        { nickname, make, model, year: Number(yearStr) },
+      );
+
+      // If a photo was selected, upload it and update the vehicle
+      if (pendingFile && vehicle.vehicleId) {
+        try {
+          const { url, key } = await presignMutation.mutateAsync({
+            uploadType: 'vehicle-photo',
+            vehicleId: vehicle.vehicleId,
+            contentType: pendingFile.type,
+            fileName: pendingFile.name,
+          });
+          await uploadFileToS3(url, pendingFile);
+
+          // Fire-and-forget update — vehicle is already created
+          const { apiClient } = await import('@/api/client');
+          await apiClient(`/v1/vehicles/${vehicle.vehicleId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ photoKey: key }),
+          });
+        } catch {
+          // Vehicle created successfully, photo upload failed — not blocking
+          console.warn('Vehicle photo upload failed, vehicle was still created');
+        }
+      }
+
+      onClose();
+    } catch {
+      // createVehicle error is handled by TanStack Query
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -148,6 +198,49 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
       </DialogHeader>
 
       <form id="add-vehicle-form" onSubmit={handleSubmit} className="grid gap-4 py-2">
+        {/* Vehicle photo */}
+        <div className="grid gap-1.5">
+          <Label>Vehicle Photo</Label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+            aria-label="Upload vehicle photo"
+          />
+          {preview ? (
+            <div className="relative">
+              <img
+                src={preview}
+                alt="Vehicle preview"
+                className="h-40 w-full rounded-md border object-cover"
+              />
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon-xs"
+                className="absolute top-1 right-1"
+                onClick={handleClearPhoto}
+                aria-label="Remove photo"
+              >
+                <X />
+              </Button>
+            </div>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-28 w-full flex-col gap-1"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="size-6 text-muted-foreground" />
+              <span className="text-xs text-muted-foreground">Vehicle Photo</span>
+            </Button>
+          )}
+        </div>
+
         <div className="grid gap-1.5">
           <Label htmlFor="nickname">Nickname</Label>
           <Input id="nickname" name="nickname" placeholder="e.g. Daily Driver" required />
@@ -178,10 +271,10 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
         <Button
           type="submit"
           form="add-vehicle-form"
-          disabled={createVehicle.isPending}
+          disabled={isSaving}
         >
-          {createVehicle.isPending && <Loader2 className="animate-spin" />}
-          {createVehicle.isPending ? 'Adding…' : 'Add Vehicle'}
+          {isSaving && <Loader2 className="animate-spin" />}
+          {isSaving ? 'Adding…' : 'Add Vehicle'}
         </Button>
       </DialogFooter>
     </DialogContent>
