@@ -11,6 +11,7 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 ## Table of Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Architecture](#architecture)
 - [Project Structure](#project-structure)
 - [Tech Stack](#tech-stack)
@@ -72,6 +73,22 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 - Google OAuth 2.0 via AWS Cognito Hosted UI
 - JWT-based API authorization (API Gateway v2 JWT authorizer)
 - Role-based access control (user vs admin, admin flag stored in DynamoDB)
+
+---
+
+## Screenshots
+
+### Garage
+![Garage](docs/Garage.png)
+
+### Fillups
+![Fillups](docs/Fillups.png)
+
+### Analytics
+![Analytics](docs/Analytics.png)
+
+### Admin Dashboard
+![Admin Dashboard](docs/AdminDashboard.png)
 
 ---
 
