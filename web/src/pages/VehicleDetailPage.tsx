@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft, Car, Loader2, Archive, ArchiveRestore,
-  BarChart3, Download, Plus, Pencil,
+  BarChart3, Download, Plus, Pencil, Upload, RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +24,8 @@ import { FillupMap } from '@/components/FillupMap';
 import { MaintenanceList } from '@/components/MaintenanceList';
 import { ReminderBanner } from '@/components/ReminderBanner';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { ImportDialog } from '@/components/ImportDialog';
+import { useRecalculateMetrics } from '@/api/import';
 import type { Vehicle } from '@/types';
 
 export default function VehicleDetailPage() {
@@ -41,6 +43,10 @@ export default function VehicleDetailPage() {
   const archiveVehicle = useArchiveVehicle(vehicleId ?? '');
 
   const [editOpen, setEditOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [recalcMessage, setRecalcMessage] = useState('');
+
+  const recalculate = useRecalculateMetrics(vehicleId ?? '');
 
   if (vehicleQuery.isLoading) {
     return (
@@ -139,7 +145,42 @@ export default function VehicleDetailPage() {
             <Download className="size-4" /> Export
           </Link>
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+          <Upload className="size-4" /> Import Data
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={recalculate.isPending}
+          onClick={() => {
+            setRecalcMessage('');
+            recalculate.mutate(undefined, {
+              onSuccess: (data) => {
+                setRecalcMessage(`Recalculated ${data.recalculatedCount} fillups`);
+                setTimeout(() => setRecalcMessage(''), 5000);
+              },
+              onError: () => {
+                setRecalcMessage('Recalculation failed. Please try again.');
+                setTimeout(() => setRecalcMessage(''), 5000);
+              },
+            });
+          }}
+        >
+          {recalculate.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <RefreshCw className="size-4" />
+          )}
+          Recalculate Metrics
+        </Button>
       </div>
+
+      {/* Recalculate feedback */}
+      {recalcMessage && (
+        <p className={`text-sm font-medium ${recalcMessage.includes('failed') ? 'text-destructive' : 'text-green-600'}`}>
+          {recalcMessage}
+        </p>
+      )}
 
       {/* Reminder banner */}
       {remindersQuery.data && remindersQuery.data.length > 0 && (
@@ -219,6 +260,18 @@ export default function VehicleDetailPage() {
           />
         )}
       </section>
+
+      {/* Import dialog */}
+      <ImportDialog
+        vehicleId={vehicleId!}
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImportComplete={() => {
+          fillupsQuery.refetch();
+          maintenanceQuery.refetch();
+          remindersQuery.refetch();
+        }}
+      />
 
       {/* Edit dialog */}
       <EditVehicleDialog

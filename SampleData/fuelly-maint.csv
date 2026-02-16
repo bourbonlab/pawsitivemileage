@@ -1,0 +1,86 @@
+car_name, model, odometer, price, service_date, date_added, tags, service_type, sub_service_types, notes, latitude, longitude
+"Pro4X","Nissan Xterra",119235.0,47.04,2026-02-10,2026-02-10 04:52:41,"","service","","Oil change 5w30 semi-syn",,
+"Pro4X","Nissan Xterra",119235.0,57.31,2026-02-10,2026-02-10 04:51:15,"","service","","Serpentine belt",,
+"Pro4X","Nissan Xterra",119235.0,,2026-02-10,2026-02-10 04:50:47,"","service","","Tire Rotation",,
+"Pro4X","Nissan Xterra",119235.0,1578.62,2026-02-10,2026-02-10 04:49:49,"","service","","Coolant pressure test
+Heater core outlet hose
+Water pump
+Timing chain tensioner
+Coolant flush and fill",,
+"Pro4X","Nissan Xterra",119235.0,569.29,2026-02-10,2026-02-10 04:47:50,"","service","","Rear Brake line and brake fluid flush
+Allen Automotive",,
+"Pro4X","Nissan Xterra",117225.0,40.00,2025-12-04,2026-02-05 20:53:41,"","service","oil_filter,engine_oil","Bouche Nissan Oil Change",,
+"Pro4X","Nissan Xterra",114000.0,150.00,2025-01-28,2025-02-06 03:11:46,"","service","differential_fluid","",,
+"Pro4X","Nissan Xterra",114000.0,1100.00,2025-01-28,2025-02-06 03:11:20,"","service","tire_a,tire_b,tire_c,tire_d","Tires Plus Moreland Ave
+All 4 + 1 spare
+Firestone Destination A/T2",,
+"Pro4X","Nissan Xterra",112375.0,95.98,2024-10-24,2024-10-24 21:15:36,"","service","engine_oil","BMS Auto
+Full Syn",,
+"Pro4X","Nissan Xterra",112000.0,123.23,2024-07-03,2024-07-10 04:24:28,"","note","","Crankshaft and camshaft (bank1 + bank2) position sensors
+
+RockAuto Order Confirmation
+Order 278406971
+Saturday, June 29, 2024 10:27 PM Central Time
+
+Part Number	Part Type	Price EA	Core EA	Quantity	Total
+2014 NISSAN XTERRA 4.0L V6
+HITACHI	CPS0017	Crankshaft Position Sensor	$ 25.79	$ 0.00	1	$ 25.79
+HITACHI	CPS0008	Camshaft Position Sensor	$ 40.79	$ 0.00	1	$ 40.79
+HITACHI	CPS0005	Camshaft Position Sensor	$ 40.79	$ 0.00	1	$ 40.79
+
+Order Total	 	$ 123.23",,
+"Pro4X","Nissan Xterra",110520.0,90.00,2024-03-01,2024-10-24 21:17:46,"","service","engine_oil","Amport auto
+full syn",,
+"Pro4X","Nissan Xterra",110512.0,200.65,2024-02-27,2024-02-27 00:42:35,"","service","","PARTS (rockauto.com) Order 265789519
+
+ULTRA-POWER	5S13302	ABS Wheel Speed Sensor	$ 15.56	
+GATES	90K38378A (90K-38378A)	Belt Tensioner	$ 76.79
+GATES	38378	[Kit Component] Belt Tensioner	$ 43.61	
+GATES	36222	[Kit Component] Idler Pulley	$ 17.17	
+GATES	7PK2217	[Kit Component] Belt	$ 16.01	
+STRONGARM	6137 (D6137)	Lift Support	$ 13.46(x2)	$ 26.92
+Order Total	 	$ 143.07
+
+TOUCHUP PAINT (automotivetouchup.com)
+-------------------------------------------------
+Order ID: 12895280
+Subtotal: 45.93
+Shipping: $11.65
+Total Taxes: $0.00
+GrandTotal: $57.58
+
+ITEMS ORDERED
+-------------------------------------------------
+Item Num: 2BTL-BC 
+Description: 2 oz Touch-Up Bottle, 2014 Nissan Xterra: Blizzard QAK
+Item Total: $19.55
+
+Item Num: 2BTL-CC 
+Description: 2 oz High-Gloss Clear Coat Bottle
+Item Total: $10.95
+
+Item Num: 2BTL-PR
+Description: 2 oz Grey Primer Bottle
+Item Total: $8.95
+
+Item Num: PSOLV
+Description: 2 oz Prep Solvent
+Item Total: $2.99
+
+Item Num: SNDP
+Description: Touch-Up Sandpaper Pack
+Item Total: $3.49",,
+"Pro4X","Nissan Xterra",107400.0,200.00,2023-02-08,2023-02-13 20:05:49,"","service","engine_oil,belts","Oil change full syn and serpentine belt BMS Auto",,
+"Pro4X","Nissan Xterra",107350.0,110.00,2023-02-03,2023-02-03 22:26:08,"","service","battery","New battery at Challenger Battery on Sunset",,
+"Pro4X","Nissan Xterra",105400.0,,2022-07-11,2022-07-26 14:41:14,"","service","engine_oil","Oil change full synthetic BMS Auto",,
+"Pro4X","Nissan Xterra",102715.0,86.33,2021-10-04,2021-10-04 02:34:05,"","service","engine_oil,tire_rotation","Boucher nissan full synthetic",,
+"Pro4X","Nissan Xterra",102715.0,86.33,2021-09-27,2022-02-06 03:03:55,"","service","engine_oil","full synthetic and filter
+nissan bouche",,
+"Pro4X","Nissan Xterra",102070.0,,2021-05-30,2021-05-31 01:48:36,"","service","spark_plugs","NGK Spark plugs and intake manifold + throttle body gaskets",,
+"Pro4X","Nissan Xterra",102070.0,,2021-05-30,2021-05-31 01:47:40,"","service","engine_oil,oil_filter","KN Filter + 5w30 Full Synthetic Pennzoil high mileage",,
+"Pro4X","Nissan Xterra",102070.0,,2021-05-30,2021-05-31 01:49:53,"","note","","Checked front brake pad/rotors - very thick lots of material left.",,
+"Pro4X","Nissan Xterra",102010.0,1665.00,2021-05-10,2021-05-18 20:00:50,"","service","","ABS actuator replaced by Nissan Boucher Waukesha",,
+"Pro4X","Nissan Xterra",101600.0,,2021-02-27,2021-03-01 18:47:46,"","service","brakes_rear","Rear Pads/Rotors",,
+"Pro4X","Nissan Xterra",101300.0,980.00,2021-02-17,2021-02-17 23:28:26,"","service","engine_oil,tire_rotation,suspension_system","Oil change / tire rotation / front lower ball joints - Jerrys Auto Waukesha",,
+"Pro4X","Nissan Xterra",,420.00,2020-08-05,2020-10-08 16:03:52,"","note","","Rear hatch paint/rust repair",,
+"Pro4X","Nissan Xterra",99732.0,,2020-06-23,2020-10-08 16:07:05,"","service","oil_filter,engine_oil,transmission_fluid,differential_fluid","Oil, Trans, Diff fluids new from purchase at dealer",,

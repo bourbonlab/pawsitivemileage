@@ -52,6 +52,7 @@ export class ApiStack extends cdk.Stack {
       { name: 'adminUsers', description: 'Admin user management' },
       { name: 'adminSchemas', description: 'Admin maintenance schema CRUD' },
       { name: 'adminStats', description: 'Admin platform statistics' },
+      { name: 'importData', description: 'Fuelly CSV import and metrics recalculation' },
     ];
 
     for (const def of functionDefs) {
@@ -117,6 +118,12 @@ export class ApiStack extends cdk.Stack {
     // adminSchemas needs Schemas table + Users table (for checkIsAdmin)
     databaseStack.schemasTable.grantReadWriteData(this.lambdaFunctions['adminSchemas'].function);
     databaseStack.usersTable.grantReadData(this.lambdaFunctions['adminSchemas'].function);
+
+    // importData needs Fillups, Maintenance (read/write), Vehicles (read), Photos bucket (read)
+    databaseStack.fillupsTable.grantReadWriteData(this.lambdaFunctions['importData'].function);
+    databaseStack.maintenanceTable.grantReadWriteData(this.lambdaFunctions['importData'].function);
+    databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['importData'].function);
+    storageStack.photosBucket.grantRead(this.lambdaFunctions['importData'].function);
 
     // adminStats needs read access to all tables for aggregation
     for (const table of allTables) {
@@ -231,6 +238,10 @@ export class ApiStack extends cdk.Stack {
     addRoute(apigwv2.HttpMethod.PUT, '/v1/admin/schemas/{schemaId}', 'adminSchemas');
     addRoute(apigwv2.HttpMethod.PATCH, '/v1/admin/schemas/{schemaId}/active', 'adminSchemas');
     addRoute(apigwv2.HttpMethod.GET, '/v1/admin/stats', 'adminStats');
+
+    // Import and recalculate routes
+    addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/import/{type}', 'importData');
+    addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/recalculate', 'importData');
 
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl', { value: this.httpApi.apiEndpoint });

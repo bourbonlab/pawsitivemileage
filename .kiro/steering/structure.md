@@ -4,9 +4,9 @@
 pawsitive-mileage/
 ├── web/                    # React frontend (Vite + TypeScript)
 │   ├── src/
-│   │   ├── api/            # Typed fetch wrappers (client.ts, vehicles.ts, fillups.ts, maintenance.ts, analytics.ts, upload.ts, admin.ts)
+│   │   ├── api/            # Typed fetch wrappers (client.ts, vehicles.ts, fillups.ts, maintenance.ts, analytics.ts, upload.ts, import.ts, admin.ts)
 │   │   ├── auth/           # Amplify config, AuthProvider, ProtectedRoute, AdminRoute
-│   │   ├── components/     # UI components (Layout, VehicleCard, FillupList, FillupMap, MaintenanceList, ReminderBanner, SummaryCard, PhotoUpload, LocationPicker)
+│   │   ├── components/     # UI components (Layout, VehicleCard, FillupList, FillupMap, MaintenanceList, ReminderBanner, SummaryCard, PhotoUpload, ImportDialog, LocationPicker)
 │   │   │   ├── charts/     # Recharts: MpgChart, SpendingChart, CostPerMileChart, CostPerGallonChart
 │   │   │   └── ui/         # shadcn/ui primitives (alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
 │   │   ├── lib/            # utils.ts (cn() helper), metrics.ts (client-side formatting)
@@ -20,8 +20,8 @@ pawsitive-mileage/
 │
 ├── api/                    # Lambda handlers (Node.js 24.x + esbuild)
 │   ├── src/
-│   │   ├── handlers/       # 10 handlers: userProfile, vehicleCrud, fillupCrud, maintenanceCrud, analytics, exportData, presignUrl, adminUsers, adminSchemas, adminStats
-│   │   ├── lib/            # Shared: dynamo.ts, auth.ts, response.ts, validation.ts, logger.ts, metrics.ts, reminders.ts, s3.ts
+│   │   ├── handlers/       # 11 handlers: userProfile, vehicleCrud, fillupCrud, maintenanceCrud, analytics, exportData, importData, presignUrl, adminUsers, adminSchemas, adminStats
+│   │   ├── lib/            # Shared: dynamo.ts, auth.ts, response.ts, validation.ts, logger.ts, metrics.ts, reminders.ts, csv-parser.ts, s3.ts
 │   │   └── types/          # Shared types: api.ts, user.ts, vehicle.ts, fillup.ts, maintenance.ts, schema.ts, config.ts, index.ts
 │   └── tests/unit/         # metrics.test.ts, reminders.test.ts, userProfile.test.ts
 │
@@ -69,6 +69,8 @@ All routes under `/v1/`, JWT-authorized via API Gateway v2.
 | `/v1/vehicles/{vehicleId}/analytics`, `/v1/vehicles/{vehicleId}/analytics/yoy`, `/v1/vehicles/{vehicleId}/summary-card` | `analytics.ts` | GET, POST |
 | `/v1/vehicles/{vehicleId}/export/fillups`, `/v1/vehicles/{vehicleId}/export/maintenance`, `/v1/vehicles/{vehicleId}/export/pdf` | `exportData.ts` | GET, POST |
 | `/v1/upload/presign` | `presignUrl.ts` | POST |
+| `/v1/vehicles/{vehicleId}/import/{type}` | `importData.ts` | POST |
+| `/v1/vehicles/{vehicleId}/recalculate` | `importData.ts` | POST |
 | `/v1/admin/users`, `/v1/admin/users/{userId}/admin` | `adminUsers.ts` | GET, PATCH |
 | `/v1/admin/schemas`, `/v1/admin/schemas/{schemaId}`, `/v1/admin/schemas/{schemaId}/active` | `adminSchemas.ts` | GET, POST, PUT, PATCH |
 | `/v1/admin/stats` | `adminStats.ts` | GET |
