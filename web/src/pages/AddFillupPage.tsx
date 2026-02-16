@@ -37,6 +37,7 @@ export default function AddFillupPage() {
 
   // Form state — optional fields
   const [isPartialFill, setIsPartialFill] = useState(false);
+  const [isBusiness, setIsBusiness] = useState(false);
   const [notes, setNotes] = useState('');
   const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | undefined>();
 
@@ -102,6 +103,7 @@ export default function AddFillupPage() {
         gallonsAdded: gallons,
         odometerReading: odometer,
         isPartialFill: isPartialFill || undefined,
+        isBusiness: isBusiness || undefined,
         receiptPhotoKey,
         notes: notes.trim() || undefined,
       },
@@ -206,6 +208,17 @@ export default function AddFillupPage() {
                 id="fillup-partial"
                 checked={isPartialFill}
                 onCheckedChange={setIsPartialFill}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="fillup-business" className="cursor-pointer">
+                Business
+              </Label>
+              <Switch
+                id="fillup-business"
+                checked={isBusiness}
+                onCheckedChange={setIsBusiness}
               />
             </div>
 

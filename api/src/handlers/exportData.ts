@@ -162,7 +162,7 @@ function getExportsBucket(): string {
 // ── Export Fillups CSV ───────────────────────────────────────────────────────
 
 const FILLUP_CSV_HEADERS = [
-  'date', 'currencySpent', 'gallonsAdded', 'odometerReading', 'isPartialFill',
+  'date', 'currencySpent', 'gallonsAdded', 'odometerReading', 'isPartialFill', 'isBusiness',
   'pricePerGallon', 'milesSinceLastFillup', 'mpg', 'costPerMile',
   'daysSinceLastFillup', 'stationName', 'address', 'notes',
 ];
@@ -181,7 +181,7 @@ async function handleExportFillups(
   const rows = [buildCsvRow(FILLUP_CSV_HEADERS)];
   for (const f of fillups) {
     rows.push(buildCsvRow([
-      f.date, f.currencySpent, f.gallonsAdded, f.odometerReading, f.isPartialFill,
+      f.date, f.currencySpent, f.gallonsAdded, f.odometerReading, f.isPartialFill, f.isBusiness ?? false,
       f.pricePerGallon, f.milesSinceLastFillup, f.mpg, f.costPerMile,
       f.daysSinceLastFillup, f.stationName ?? '', f.address ?? '', f.notes ?? '',
     ]));

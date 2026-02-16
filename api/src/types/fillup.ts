@@ -7,6 +7,7 @@ export interface Fillup {
   gallonsAdded: number;
   odometerReading: number;
   isPartialFill: boolean;
+  isBusiness: boolean;
   // Derived metrics
   pricePerGallon: number | null;
   milesSinceLastFillup: number | null;

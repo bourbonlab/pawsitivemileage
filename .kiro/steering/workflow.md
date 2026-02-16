@@ -1,4 +1,5 @@
 ---
+description: Commit conventions, lint/type-check steps, and deploy pipeline instructions for all environments.
 inclusion: auto
 ---
 
