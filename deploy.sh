@@ -175,7 +175,7 @@ if [[ "$CLEAR_CACHE" == true ]]; then
       -H "Content-Type: application/json" \
       --data '{"purge_everything":true}' 2>/dev/null || true)
 
-    if echo "$CF_RESPONSE" | grep -q '"success":true'; then
+    if echo "$CF_RESPONSE" | grep -q '"success":\s*true'; then
       ok "CloudFlare cache purged"
     else
       warn "CloudFlare cache purge failed (non-fatal)"
@@ -417,7 +417,7 @@ if [[ -n "${CLOUDFLARE_ZONE_ID:-}" && -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
     -H "Content-Type: application/json" \
     --data '{"purge_everything":true}' 2>/dev/null || true)
 
-  if echo "$CF_RESPONSE" | grep -q '"success":true'; then
+  if echo "$CF_RESPONSE" | grep -q '"success":\s*true'; then
     ok "CloudFlare cache purged"
   else
     warn "CloudFlare cache purge failed (non-fatal)"
