@@ -427,6 +427,8 @@ All deployment configuration lives in a single `.env` file. The `deploy.sh` scri
 | `API_DOMAIN_PRODUCTION` | API domain for production | `pawsitivemileageapi.bourbonlab.net` |
 | `RESOURCE_PREFIX` | Prefix for all AWS resource names | `pawsitivemileage` |
 | `COGNITO_DOMAIN_PREFIX` | Cognito hosted UI domain prefix | `pmileage` |
+| `SOURCE_CODE_URL` | Source code repository URL (leave blank to hide the link) | `https://gitea.example.com/org/PawsitiveMileage` |
+| `SUPPORT_EMAIL` | Support email shown on Privacy Policy and Terms of Service pages | `support@example.com` |
 
 The `.env` file is in `.gitignore` and should never be committed.
 
@@ -440,8 +442,10 @@ The `.env` file is in `.gitignore` and should never be committed.
 | `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID |
 | `VITE_COGNITO_APP_CLIENT_ID` | Cognito App Client ID |
 | `VITE_COGNITO_DOMAIN` | Cognito Hosted UI domain (e.g. `pmileage-test.auth.us-east-1.amazoncognito.com`) |
+| `VITE_SOURCE_CODE_URL` | Source code repository URL (optional; hides link if blank) |
+| `VITE_SUPPORT_EMAIL` | Support email shown on Privacy Policy and Terms of Service pages |
 
-These values come from CDK stack outputs after deployment. The deploy script automatically injects them during the frontend build step.
+The Cognito values come from CDK stack outputs after deployment. The branding values (`VITE_SOURCE_CODE_URL`, `VITE_SUPPORT_EMAIL`) are passed through from the root `.env` file by `deploy.sh`. The deploy script automatically injects them during the frontend build step.
 
 ### Lambda (set automatically by CDK)
 

@@ -31,6 +31,7 @@ All work happens on feature branches. Never commit directly to `main`.
    - Summary line under 72 chars, body with bullet points for multi-file changes
    - Example: `feat: add isBusiness field to fillups`
    - Always include related files that are automatically updated (e.g. `README.md`, `docs/cost.md`) in the same commit
+   - Always check `git status` for automated documentation changes (e.g. from Kiro agent hooks updating `README.md`) and include them in the commit
 
 6. Push the branch to origin:
    ```bash
