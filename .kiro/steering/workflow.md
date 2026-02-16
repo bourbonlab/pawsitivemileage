@@ -36,26 +36,18 @@ All work happens on feature branches. Never commit directly to `main`.
    git push -u origin feat/short-description
    ```
 
-## Pull Requests via Gitea API
+## Pull Requests via TEA CLI
 
-The repo is hosted on Gitea at `https://gitea.bourbonlab.net/bourbonlab/PawsitiveMileage`. Auth token is stored in `~/.git-credentials`.
+The repo is hosted on Gitea at `https://gitea.bourbonlab.net/bourbonlab/PawsitiveMileage`. The `tea` CLI is configured with login credentials.
 
 1. Create a PR:
    ```bash
-   curl -s -X POST \
-     "https://gitea.bourbonlab.net/api/v1/repos/bourbonlab/PawsitiveMileage/pulls" \
-     -H "Authorization: token <TOKEN>" \
-     -H "Content-Type: application/json" \
-     -d '{"title":"feat: description","head":"feat/branch-name","base":"main"}'
+   tea pr create --title "feat: description" --head feat/branch-name --base main
    ```
 
 2. Merge the PR:
    ```bash
-   curl -s -X POST \
-     "https://gitea.bourbonlab.net/api/v1/repos/bourbonlab/PawsitiveMileage/pulls/<PR_NUMBER>/merge" \
-     -H "Authorization: token <TOKEN>" \
-     -H "Content-Type: application/json" \
-     -d '{"Do":"merge","delete_branch_after_merge":true}'
+   tea pr merge <PR_INDEX>
    ```
 
 3. Sync local after merge:
