@@ -13,6 +13,7 @@ import { PhotoUpload } from '@/components/PhotoUpload';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useCreateFillup } from '@/api/fillups';
 import { useFillups } from '@/api/fillups';
+import { useSharedVehicles } from '@/api/sharing';
 import { previewMetrics } from '@/lib/metrics';
 
 function todayISO(): string {
@@ -29,6 +30,9 @@ export default function AddFillupPage() {
 
   const createFillup = useCreateFillup(vehicleId ?? '');
   const fillupsQuery = useFillups(vehicleId);
+  const sharedVehiclesQuery = useSharedVehicles();
+  const sharedEntry = sharedVehiclesQuery.data?.find(sv => sv.vehicle.vehicleId === vehicleId);
+  const isSharedUser = !!sharedEntry;
 
   // Form state — required fields
   const [date, setDate] = useState(todayISO());
@@ -124,6 +128,21 @@ export default function AddFillupPage() {
 
   const canSubmit =
     !!currencySpent && !!gallonsAdded && !!odometerReading && !!date && !createFillup.isPending;
+
+  if (isSharedUser && sharedEntry?.permission !== 'fuel' && sharedEntry?.permission !== 'full') {
+    return (
+      <div className="container mx-auto max-w-lg space-y-6 p-4">
+        <Button variant="ghost" size="sm" asChild>
+          <Link to={`/vehicles/${vehicleId}`}>
+            <ArrowLeft className="size-4" /> Back to Vehicle
+          </Link>
+        </Button>
+        <p className="py-16 text-center text-sm text-destructive" role="alert">
+          You don't have permission to add fillups to this vehicle.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-lg space-y-6 p-4">

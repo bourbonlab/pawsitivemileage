@@ -246,7 +246,7 @@ The following security practices are well-implemented:
 
 - **Authentication:** Cognito JWT validation at the API Gateway level — handlers never see unauthenticated requests
 - **Authorization:** Every handler extracts `userId` from JWT claims and scopes data access accordingly. Admin handlers verify `isAdmin` from DynamoDB before processing
-- **Vehicle ownership:** `fillupCrud`, `maintenanceCrud`, `analytics`, and `exportData` all verify vehicle ownership before operating on data
+- **Vehicle ownership:** `fillupCrud`, `maintenanceCrud`, `analytics`, `exportData`, and `importData` all verify vehicle ownership before operating on data. When ownership fails, handlers fall back to shared access checks via `authSharing.ts`, enforcing permission-based access (readonly, fuel, maintenance, full)
 - **S3 access control:** All buckets use `BlockPublicAccess.BLOCK_ALL`, CloudFront uses OAC (not OAI), presigned URLs are scoped to `{userId}/{vehicleId}/`
 - **IAM least privilege:** Each Lambda function is granted only the specific DynamoDB tables and S3 buckets it needs (read-only where possible)
 - **CORS:** Properly scoped to the frontend domain in production, with localhost only in non-prod

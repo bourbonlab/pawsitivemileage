@@ -187,7 +187,7 @@ Create a `ResponseHeadersPolicy` with:
 
 | Header | Value |
 |--------|-------|
-| Content-Security-Policy | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self' https://{apiDomain} https://cognito-idp.*.amazonaws.com; frame-ancestors 'none'` |
+| Content-Security-Policy | `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.tile.openstreetmap.org; font-src 'self'; connect-src 'self' https://{apiDomain} https://cognito-idp.*.amazonaws.com; frame-ancestors 'none'` |
 | X-Frame-Options | DENY |
 | X-Content-Type-Options | nosniff |
 | Referrer-Policy | strict-origin-when-cross-origin |

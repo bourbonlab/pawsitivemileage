@@ -27,6 +27,7 @@ interface FillupListProps {
   onEdit: (fillupId: string, data: FillupEditData) => void;
   isDeleting?: boolean;
   isEditing?: boolean;
+  readOnly?: boolean;
 }
 
 export interface FillupEditData {
@@ -44,7 +45,7 @@ export interface FillupEditData {
   notes?: string;
 }
 
-export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, isEditing }: FillupListProps) {
+export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, isEditing, readOnly }: FillupListProps) {
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortAsc, setSortAsc] = useState(false);
   const [editingFillup, setEditingFillup] = useState<Fillup | null>(null);
@@ -148,25 +149,29 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
                         <ImageIcon className="size-4" />
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      onClick={() => setEditingFillup(f)}
-                      aria-label={`Edit fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-destructive hover:text-destructive"
-                      onClick={() => onDelete(f.fillupId)}
-                      disabled={isDeleting}
-                      aria-label={`Delete fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-                    >
-                      {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                    </Button>
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setEditingFillup(f)}
+                        aria-label={`Edit fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive hover:text-destructive"
+                        onClick={() => onDelete(f.fillupId)}
+                        disabled={isDeleting}
+                        aria-label={`Delete fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+                      >
+                        {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>

@@ -70,6 +70,14 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 - Bulk metrics recalculation for all fillups on a vehicle
 - Import result summary (imported, skipped, errors)
 
+**Vehicle Sharing**
+- Share vehicles with other users by email address
+- Four permission levels: readonly, fuel-only, maintenance-only, and full access
+- Shared vehicles appear in a dedicated "Shared Garage" section on the Garage page
+- Permission-based UI controls — edit/delete buttons hidden based on access level
+- Email-based sharing without registration check (prevents user enumeration)
+- Owner-only sharing management dialog with add, update, and revoke controls
+
 **Admin Panel**
 - User management with admin role assignment
 - Maintenance schema CRUD with activate/deactivate
@@ -108,13 +116,13 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 └─────────────┘     └──────────────┘     └─────────────────┘
        │
        │            ┌──────────────┐     ┌─────────────────┐
-       └───────────▶│ API Gateway  │────▶│  Lambda (×10)    │
+       └───────────▶│ API Gateway  │────▶│  Lambda (×12)    │
                     │ HTTP API v2  │     │  Node.js 24.x    │
                     │ JWT Auth     │     └────────┬────────┘
                     └──────────────┘              │
                                                   ▼
                     ┌──────────────┐     ┌─────────────────┐
-                    │   Cognito    │     │   DynamoDB (×5)  │
+                    │   Cognito    │     │   DynamoDB (×6)  │
                     │  User Pool   │     │   On-Demand      │
                     │  Google IdP  │     │   + GSIs + PITR  │
                     └──────────────┘     └─────────────────┘
@@ -145,6 +153,7 @@ pawsitive-mileage/
 │   │   │   ├── analytics.ts
 │   │   │   ├── upload.ts   # Presigned URL upload (photos + CSV import)
 │   │   │   ├── import.ts   # CSV import + metrics recalculation mutations
+│   │   │   ├── sharing.ts  # Vehicle sharing CRUD + shared vehicles query
 │   │   │   └── admin.ts    # Admin API calls
 │   │   ├── auth/           # Amplify config, AuthProvider, route guards
 │   │   │   ├── amplify-config.ts  # Cognito configuration from VITE_ env vars
@@ -162,6 +171,8 @@ pawsitive-mileage/
 │   │   │   ├── PhotoUpload.tsx     # S3 presigned URL photo upload
 │   │   │   ├── ImportDialog.tsx   # Fuelly CSV import dialog (upload + import flow)
 │   │   │   ├── LocationPicker.tsx  # Leaflet map picker for fillup location
+│   │   │   ├── SharedGarageSection.tsx # Shared vehicles display with permission badges
+│   │   │   ├── SharingManagementDialog.tsx # Owner dialog to manage vehicle shares
 │   │   │   ├── charts/            # Recharts chart components
 │   │   │   │   ├── MpgChart.tsx
 │   │   │   │   ├── SpendingChart.tsx
@@ -195,7 +206,7 @@ pawsitive-mileage/
 │
 ├── api/                    # Lambda handlers (Node.js 24.x + esbuild)
 │   ├── src/
-│   │   ├── handlers/       # One handler per API route group (11 total)
+│   │   ├── handlers/       # One handler per API route group (12 total)
 │   │   │   ├── userProfile.ts
 │   │   │   ├── vehicleCrud.ts
 │   │   │   ├── fillupCrud.ts
@@ -204,12 +215,14 @@ pawsitive-mileage/
 │   │   │   ├── exportData.ts
 │   │   │   ├── importData.ts
 │   │   │   ├── presignUrl.ts
+│   │   │   ├── sharingCrud.ts
 │   │   │   ├── adminUsers.ts
 │   │   │   ├── adminSchemas.ts
 │   │   │   └── adminStats.ts
 │   │   ├── lib/            # Shared utilities
 │   │   │   ├── dynamo.ts   # Singleton DynamoDB Document Client + table name resolver
 │   │   │   ├── auth.ts     # getUserId() from JWT claims (Cognito sub)
+│   │   │   ├── authSharing.ts # Shared vehicle access authorization helpers
 │   │   │   ├── response.ts # Typed success/error response builders
 │   │   │   ├── validation.ts # Request body validation (required, types, ranges)
 │   │   │   ├── logger.ts   # Structured JSON logger (INFO/WARN/ERROR to stdout)
@@ -224,6 +237,7 @@ pawsitive-mileage/
 │   │       ├── vehicle.ts  # Vehicle + MaintenanceOverride interfaces
 │   │       ├── fillup.ts   # Fillup, FillupInput, DerivedMetrics
 │   │       ├── maintenance.ts # MaintenanceRecord, ReminderInput, Reminder
+│   │       ├── sharing.ts  # ShareRecord, SharePermission, SharedVehicle
 │   │       ├── schema.ts   # MaintenanceSchema interface
 │   │       └── config.ts   # EnvironmentConfig interface
 │   └── tests/              # API tests
@@ -456,6 +470,7 @@ The Cognito values come from CDK stack outputs after deployment. The branding va
 | `FILLUPS_TABLE` | DynamoDB Fillups table name |
 | `MAINTENANCE_TABLE` | DynamoDB Maintenance table name |
 | `SCHEMAS_TABLE` | DynamoDB Schemas table name |
+| `SHARING_TABLE` | DynamoDB Sharing table name |
 | `PHOTOS_BUCKET` | S3 photos bucket name |
 | `EXPORTS_BUCKET` | S3 exports bucket name |
 | `FRONTEND_DOMAIN` | Frontend domain (for CORS headers) |
@@ -634,6 +649,15 @@ S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type 
 | POST | `/v1/vehicles/{vehicleId}/import/{type}` | Import Fuelly CSV (type: `fuelups` or `maintenance`). Body: `{ s3Key }`. Returns import result with counts |
 | POST | `/v1/vehicles/{vehicleId}/recalculate` | Recalculate all derived metrics for a vehicle's fillups. Returns `{ recalculatedCount }` |
 
+### Sharing
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/vehicles/shared` | List vehicles shared with the current user (looks up by email) |
+| GET | `/v1/vehicles/{vehicleId}/sharing` | List all shares for a vehicle (owner only) |
+| POST | `/v1/vehicles/{vehicleId}/sharing` | Create or update a share. Body: `{ email, permission }`. Permission: `readonly`, `fuel`, `maintenance`, `full` |
+| DELETE | `/v1/vehicles/{vehicleId}/sharing/{shareId}` | Revoke a share (owner only) |
+
 ### Admin (requires `isAdmin: true`)
 
 | Method | Path | Description |
@@ -661,6 +685,7 @@ All tables use on-demand billing and have Point-in-Time Recovery (PITR) enabled.
 | `pawsitivemileage-fillups-{env}` | `vehicleId` (S) | `fillupDateId` (S) | GSI1: `GSI1PK` / `GSI1SK`, GSI2: `GSI2PK` / `GSI2SK` | Fillup records |
 | `pawsitivemileage-maintenance-{env}` | `vehicleId` (S) | `serviceDateId` (S) | GSI1: `GSI1PK` / `GSI1SK` | Maintenance records |
 | `pawsitivemileage-schemas-{env}` | `schemaId` (S) | — | — | Maintenance schemas (global) |
+| `pawsitivemileage-sharing-{env}` | `ownerUserId` (S) | `vehicleId#sharedEmail` (S) | GSI1: `GSI1PK` / `GSI1SK` | Vehicle sharing records |
 
 ### GSI Access Patterns
 
@@ -669,6 +694,7 @@ All tables use on-demand billing and have Point-in-Time Recovery (PITR) enabled.
 - **GSI1 (Fillups):** `GSI1PK=userId`, `GSI1SK=date` — All fillups for a user across vehicles
 - **GSI2 (Fillups):** `GSI2PK="FILLUPS"`, `GSI2SK=date` — Global fillup listing by date (admin stats)
 - **GSI1 (Maintenance):** `GSI1PK=userId`, `GSI1SK=datePerformed` — All maintenance for a user
+- **GSI1 (Sharing):** `GSI1PK=sharedEmail`, `GSI1SK=vehicleId` — All vehicles shared with an email address
 
 ### Key Data Types
 
@@ -781,13 +807,14 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 | Function | Handler File | Purpose | DynamoDB Access | S3 Access |
 |----------|-------------|---------|----------------|-----------|
 | userProfile | `userProfile.ts` | Profile CRUD, cascading account deletion | Users, Vehicles, Fillups, Maintenance (RW) | Photos (RW) |
-| vehicleCrud | `vehicleCrud.ts` | Vehicle CRUD, archive/unarchive | Vehicles (RW) | Photos (RW) |
-| fillupCrud | `fillupCrud.ts` | Fillup CRUD with derived metric calculation and recalculation | Fillups (RW), Vehicles (R) | Photos (RW) |
-| maintenanceCrud | `maintenanceCrud.ts` | Maintenance CRUD, reminder calculation | Maintenance (RW), Vehicles (R), Schemas (R) | Photos (RW) |
-| analytics | `analytics.ts` | Dashboard metrics, YoY comparison, summary cards | Fillups (R), Maintenance (R), Vehicles (R) | — |
-| exportData | `exportData.ts` | CSV/PDF export generation | Fillups (R), Maintenance (R), Vehicles (R) | Exports (RW) |
-| importData | `importData.ts` | Fuelly CSV import (fuelups + maintenance), metrics recalculation | Fillups (RW), Maintenance (RW), Vehicles (R) | Photos (R) |
+| vehicleCrud | `vehicleCrud.ts` | Vehicle CRUD, archive/unarchive | Vehicles (RW), Users (R), Sharing (R) | Photos (RW) |
+| fillupCrud | `fillupCrud.ts` | Fillup CRUD with derived metric calculation and recalculation | Fillups (RW), Vehicles (R), Users (R), Sharing (R) | Photos (RW) |
+| maintenanceCrud | `maintenanceCrud.ts` | Maintenance CRUD, reminder calculation | Maintenance (RW), Vehicles (R), Schemas (R), Users (R), Sharing (R) | Photos (RW) |
+| analytics | `analytics.ts` | Dashboard metrics, YoY comparison, summary cards | Fillups (R), Maintenance (R), Vehicles (R), Users (R), Sharing (R) | — |
+| exportData | `exportData.ts` | CSV/PDF export generation | Fillups (R), Maintenance (R), Vehicles (R), Users (R), Sharing (R) | Exports (RW) |
+| importData | `importData.ts` | Fuelly CSV import (fuelups + maintenance), metrics recalculation | Fillups (RW), Maintenance (RW), Vehicles (R), Users (R), Sharing (R) | Photos (R) |
 | presignUrl | `presignUrl.ts` | S3 presigned URL generation for uploads | — | Photos (R/Put) |
+| sharingCrud | `sharingCrud.ts` | Vehicle sharing CRUD, shared vehicle listing | Sharing (RW), Vehicles (R), Users (R) | — |
 | adminUsers | `adminUsers.ts` | User listing, admin role toggle | Users (RW), Vehicles (R), Fillups (R) | — |
 | adminSchemas | `adminSchemas.ts` | Maintenance schema CRUD | Schemas (RW) | — |
 | adminStats | `adminStats.ts` | Platform-wide statistics | All tables (R) | — |
@@ -807,6 +834,7 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 
 - **`dynamo.ts`** — Singleton `DynamoDBDocumentClient` (reused across warm invocations), `getTableName()` helper
 - **`auth.ts`** — `getUserId()` extracts Cognito `sub` claim from API Gateway JWT authorizer event
+- **`authSharing.ts`** — `getUserEmail()`, `getSharedPermission()`, `isOperationAllowed()`, `verifyAccess()` — shared vehicle authorization helpers used by all data handlers
 - **`response.ts`** — `success(data, requestId)` and `error(code, message, requestId)` response builders
 - **`validation.ts`** — `validateRequired()`, `validateTypes()`, `validateRange()`, `validateStringLength()`, `validateCoordinates()`, `sanitizeFilename()`, `parseBody()` (with 64 KB size limit) for request validation
 - **`logger.ts`** — `createLogger(handler)` returns structured JSON logger with `info()`, `warn()`, `error()` methods
@@ -832,9 +860,9 @@ Storage ──────┘         ──▶ Monitoring (optional)
 | Stack | ID Pattern | Resources |
 |-------|-----------|-----------|
 | Auth | `PawsitiveMileage-{env}-Auth` | Cognito User Pool, Google IdP, App Client, Hosted UI Domain |
-| Database | `PawsitiveMileage-{env}-Database` | 5 DynamoDB TableV2 (on-demand, PITR), 6 GSIs. Production: termination protection + RETAIN |
+| Database | `PawsitiveMileage-{env}-Database` | 6 DynamoDB TableV2 (on-demand, PITR), 7 GSIs. Production: termination protection + RETAIN |
 | Storage | `PawsitiveMileage-{env}-Storage` | S3 Photos bucket (CORS, presigned uploads), S3 Exports bucket (7-day lifecycle). Production: termination protection + RETAIN |
-| API | `PawsitiveMileage-{env}-Api` | API Gateway v2 HTTP API, 11 Lambda functions (AppFunction construct), JWT authorizer, custom domain, 30+ routes |
+| API | `PawsitiveMileage-{env}-Api` | API Gateway v2 HTTP API, 12 Lambda functions (AppFunction construct), JWT authorizer, custom domain, 30+ routes |
 | Frontend | `PawsitiveMileage-{env}-Frontend` | S3 frontend bucket, CloudFront distribution (OAC, TLS 1.2, SPA 403/404 → index.html), custom domain |
 | Monitoring | `PawsitiveMileage-{env}-Monitoring` | CloudWatch Dashboard with API latency (p50/p95/p99), request count, 4xx/5xx errors, Lambda duration/errors, DynamoDB read/write capacity. **Optional** — enable via CDK context: `-c enableMonitoring=true` |
 

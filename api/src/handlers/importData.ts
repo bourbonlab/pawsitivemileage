@@ -4,6 +4,7 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { ulid } from 'ulid';
 import { getUserId } from '../lib/auth.js';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
+import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { createLogger } from '../lib/logger.js';
 import { success, error } from '../lib/response.js';
 import { parseFuelupsCsv, parseMaintenanceCsv } from '../lib/csv-parser.js';
@@ -335,10 +336,18 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   try {
-    // Verify vehicle ownership before any operation
+    // Verify vehicle ownership or shared access before any operation
     const ownershipValid = await verifyVehicleOwnership(userId, vehicleId);
     if (!ownershipValid) {
-      return error('NOT_FOUND', 'Vehicle not found', requestId);
+      // Check shared access — only 'full' permission allows import/recalculate
+      const email = await getUserEmail(userId);
+      if (!email) {
+        return error('NOT_FOUND', 'Vehicle not found', requestId);
+      }
+      const shared = await getSharedPermission(email, vehicleId);
+      if (!shared || shared.permission !== 'full') {
+        return error('NOT_FOUND', 'Vehicle not found', requestId);
+      }
     }
 
     // POST /v1/vehicles/{vehicleId}/recalculate

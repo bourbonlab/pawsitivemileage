@@ -69,7 +69,7 @@ export class FrontendStack extends cdk.Stack {
         contentSecurityPolicy: {
           contentSecurityPolicy: [
             "default-src 'self'",
-            "script-src 'self'",
+            "script-src 'self' 'unsafe-inline'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' blob: data: https://*.tile.openstreetmap.org",
             "font-src 'self'",

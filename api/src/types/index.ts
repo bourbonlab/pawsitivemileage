@@ -5,3 +5,4 @@ export type { MaintenanceRecord, ReminderInput, Reminder } from './maintenance.j
 export type { MaintenanceSchema } from './schema.js';
 export type { ApiErrorResponse, ApiSuccessResponse, ApiErrorCode } from './api.js';
 export type { EnvironmentConfig } from './config.js';
+export type { SharePermission, ShareRecord, SharedVehicle } from './sharing.js';

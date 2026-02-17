@@ -4,3 +4,4 @@ export type { Fillup, FillupInput, DerivedMetrics } from './fillup.js';
 export type { MaintenanceRecord, ReminderInput, Reminder } from './maintenance.js';
 export type { MaintenanceSchema } from './schema.js';
 export type { ApiErrorResponse, ApiSuccessResponse, ApiErrorCode } from './api.js';
+export type { SharePermission, ShareRecord, SharedVehicle } from './sharing.js';

@@ -13,6 +13,7 @@ export class DatabaseStack extends cdk.Stack {
   public readonly fillupsTable: dynamodb.TableV2;
   public readonly maintenanceTable: dynamodb.TableV2;
   public readonly schemasTable: dynamodb.TableV2;
+  public readonly sharingTable: dynamodb.TableV2;
 
   constructor(scope: Construct, id: string, props: DatabaseStackProps) {
     super(scope, id, props);
@@ -110,11 +111,30 @@ export class DatabaseStack extends cdk.Stack {
       pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
     });
 
+    // Sharing Table — PK: ownerUserId, SK: vehicleId#sharedEmail
+    // GSI1: PK=sharedEmail, SK=vehicleId
+    this.sharingTable = new dynamodb.TableV2(this, 'SharingTable', {
+      tableName: `pawsitivemileage-sharing-${config.envName}`,
+      partitionKey: { name: 'ownerUserId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'vehicleEmailKey', type: dynamodb.AttributeType.STRING },
+      billing: dynamodb.Billing.onDemand(),
+      removalPolicy,
+      pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true },
+      globalSecondaryIndexes: [
+        {
+          indexName: 'GSI1',
+          partitionKey: { name: 'GSI1PK', type: dynamodb.AttributeType.STRING },
+          sortKey: { name: 'GSI1SK', type: dynamodb.AttributeType.STRING },
+        },
+      ],
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'UsersTableName', { value: this.usersTable.tableName });
     new cdk.CfnOutput(this, 'VehiclesTableName', { value: this.vehiclesTable.tableName });
     new cdk.CfnOutput(this, 'FillupsTableName', { value: this.fillupsTable.tableName });
     new cdk.CfnOutput(this, 'MaintenanceTableName', { value: this.maintenanceTable.tableName });
     new cdk.CfnOutput(this, 'SchemasTableName', { value: this.schemasTable.tableName });
+    new cdk.CfnOutput(this, 'SharingTableName', { value: this.sharingTable.tableName });
   }
 }

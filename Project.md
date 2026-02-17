@@ -336,7 +336,7 @@ DNS is hosted in CloudFlare and will be proxied through CloudFlare.
 - Users can delete their account and all associated data (GDPR-style right to deletion)
 - Vehicle archival preserves all historical data
 - S3 objects (photos) follow the same lifecycle as their parent records
-- No data shared between users (strict tenant isolation via userId in all queries)
+- No data shared between users unless explicitly granted via the Shared Garage feature (permission-based access control via Sharing table)
 
 ## 8. Future Considerations
 

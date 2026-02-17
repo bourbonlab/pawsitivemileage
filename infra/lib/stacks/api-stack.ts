@@ -33,6 +33,7 @@ export class ApiStack extends cdk.Stack {
       FILLUPS_TABLE: databaseStack.fillupsTable.tableName,
       MAINTENANCE_TABLE: databaseStack.maintenanceTable.tableName,
       SCHEMAS_TABLE: databaseStack.schemasTable.tableName,
+      SHARING_TABLE: databaseStack.sharingTable.tableName,
       PHOTOS_BUCKET: storageStack.photosBucket.bucketName,
       EXPORTS_BUCKET: storageStack.exportsBucket.bucketName,
       FRONTEND_DOMAIN: config.frontendDomain,
@@ -53,6 +54,7 @@ export class ApiStack extends cdk.Stack {
       { name: 'adminSchemas', description: 'Admin maintenance schema CRUD' },
       { name: 'adminStats', description: 'Admin platform statistics' },
       { name: 'importData', description: 'Fuelly CSV import and metrics recalculation' },
+      { name: 'sharingCrud', description: 'Vehicle sharing CRUD and shared vehicles listing' },
     ];
 
     for (const def of functionDefs) {
@@ -71,6 +73,7 @@ export class ApiStack extends cdk.Stack {
       databaseStack.fillupsTable,
       databaseStack.maintenanceTable,
       databaseStack.schemasTable,
+      databaseStack.sharingTable,
     ];
 
     // userProfile needs Users, Vehicles, Fillups, Maintenance (for cascading delete), and S3
@@ -80,31 +83,39 @@ export class ApiStack extends cdk.Stack {
     databaseStack.maintenanceTable.grantReadWriteData(this.lambdaFunctions['userProfile'].function);
     storageStack.photosBucket.grantReadWrite(this.lambdaFunctions['userProfile'].function);
 
-    // vehicleCrud needs Vehicles and Photos
+    // vehicleCrud needs Vehicles, Photos, Users (shared access email lookup), Sharing (shared access check)
     databaseStack.vehiclesTable.grantReadWriteData(this.lambdaFunctions['vehicleCrud'].function);
     storageStack.photosBucket.grantReadWrite(this.lambdaFunctions['vehicleCrud'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['vehicleCrud'].function);
+    databaseStack.sharingTable.grantReadData(this.lambdaFunctions['vehicleCrud'].function);
 
-    // fillupCrud needs Fillups, Vehicles (ownership check), and Photos
+    // fillupCrud needs Fillups, Vehicles (ownership check), Photos, Users (shared access email lookup)
     databaseStack.fillupsTable.grantReadWriteData(this.lambdaFunctions['fillupCrud'].function);
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['fillupCrud'].function);
     storageStack.photosBucket.grantReadWrite(this.lambdaFunctions['fillupCrud'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['fillupCrud'].function);
 
-    // maintenanceCrud needs Maintenance, Vehicles, Schemas
+    // maintenanceCrud needs Maintenance, Vehicles, Schemas, Users (shared access email lookup)
     databaseStack.maintenanceTable.grantReadWriteData(this.lambdaFunctions['maintenanceCrud'].function);
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['maintenanceCrud'].function);
     databaseStack.schemasTable.grantReadData(this.lambdaFunctions['maintenanceCrud'].function);
     storageStack.photosBucket.grantReadWrite(this.lambdaFunctions['maintenanceCrud'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['maintenanceCrud'].function);
 
-    // analytics needs Fillups, Maintenance, Vehicles
+    // analytics needs Fillups, Maintenance, Vehicles, Users (shared access email lookup), Sharing (shared access check)
     databaseStack.fillupsTable.grantReadData(this.lambdaFunctions['analytics'].function);
     databaseStack.maintenanceTable.grantReadData(this.lambdaFunctions['analytics'].function);
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['analytics'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['analytics'].function);
+    databaseStack.sharingTable.grantReadData(this.lambdaFunctions['analytics'].function);
 
-    // exportData needs Fillups, Maintenance, Vehicles, Exports bucket
+    // exportData needs Fillups, Maintenance, Vehicles, Exports bucket, Users (shared access email lookup), Sharing (shared access check)
     databaseStack.fillupsTable.grantReadData(this.lambdaFunctions['exportData'].function);
     databaseStack.maintenanceTable.grantReadData(this.lambdaFunctions['exportData'].function);
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['exportData'].function);
     storageStack.exportsBucket.grantReadWrite(this.lambdaFunctions['exportData'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['exportData'].function);
+    databaseStack.sharingTable.grantReadData(this.lambdaFunctions['exportData'].function);
 
     // presignUrl needs Photos bucket
     storageStack.photosBucket.grantPut(this.lambdaFunctions['presignUrl'].function);
@@ -119,11 +130,22 @@ export class ApiStack extends cdk.Stack {
     databaseStack.schemasTable.grantReadWriteData(this.lambdaFunctions['adminSchemas'].function);
     databaseStack.usersTable.grantReadData(this.lambdaFunctions['adminSchemas'].function);
 
-    // importData needs Fillups, Maintenance (read/write), Vehicles (read), Photos bucket (read)
+    // importData needs Fillups, Maintenance (read/write), Vehicles (read), Photos bucket (read), Users (shared access email lookup), Sharing (shared access check)
     databaseStack.fillupsTable.grantReadWriteData(this.lambdaFunctions['importData'].function);
     databaseStack.maintenanceTable.grantReadWriteData(this.lambdaFunctions['importData'].function);
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['importData'].function);
     storageStack.photosBucket.grantRead(this.lambdaFunctions['importData'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['importData'].function);
+    databaseStack.sharingTable.grantReadData(this.lambdaFunctions['importData'].function);
+
+    // sharingCrud needs Sharing (read/write), Users (read for email lookup), Vehicles (read for shared vehicles)
+    databaseStack.sharingTable.grantReadWriteData(this.lambdaFunctions['sharingCrud'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['sharingCrud'].function);
+    databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['sharingCrud'].function);
+
+    // fillupCrud and maintenanceCrud need Sharing table read for shared access checks
+    databaseStack.sharingTable.grantReadData(this.lambdaFunctions['fillupCrud'].function);
+    databaseStack.sharingTable.grantReadData(this.lambdaFunctions['maintenanceCrud'].function);
 
     // adminStats needs read access to all tables for aggregation
     for (const table of allTables) {
@@ -242,6 +264,12 @@ export class ApiStack extends cdk.Stack {
     // Import and recalculate routes
     addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/import/{type}', 'importData');
     addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/recalculate', 'importData');
+
+    // Sharing routes
+    addRoute(apigwv2.HttpMethod.GET, '/v1/vehicles/shared', 'sharingCrud');
+    addRoute(apigwv2.HttpMethod.GET, '/v1/vehicles/{vehicleId}/sharing', 'sharingCrud');
+    addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/sharing', 'sharingCrud');
+    addRoute(apigwv2.HttpMethod.DELETE, '/v1/vehicles/{vehicleId}/sharing/{shareId}', 'sharingCrud');
 
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl', { value: this.httpApi.apiEndpoint });
