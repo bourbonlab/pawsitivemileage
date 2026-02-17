@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { GetCommand, PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
+import { PutCommand, QueryCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
@@ -8,6 +8,7 @@ import { parseBody, validateRequired, validateTypes, validateRange, validateStri
 import { createLogger } from '../lib/logger.js';
 import { calculateDerivedMetrics, recalculateAllMetrics } from '../lib/metrics.js';
 import { deleteObject } from '../lib/s3.js';
+import { verifyAccess } from '../lib/authSharing.js';
 import type { Fillup } from '../types/fillup.js';
 
 const logger = createLogger('fillupCrud');
@@ -29,10 +30,14 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   try {
-    // Verify vehicle ownership before any operation
-    const ownershipValid = await verifyVehicleOwnership(userId, vehicleId);
-    if (!ownershipValid) {
-      return error('NOT_FOUND', 'Vehicle not found', requestId);
+    // Determine required operation based on HTTP method
+    const isRead = method === 'GET';
+    const requiredOperation = isRead ? 'read' as const : 'write-fuel' as const;
+
+    // Verify ownership or shared access with appropriate permission
+    const access = await verifyAccess(userId, vehicleId, requiredOperation);
+    if (!access.allowed) {
+      return error('FORBIDDEN', 'You do not have permission to perform this action', requestId);
     }
 
     if (method === 'GET' && !fillupId) {
@@ -58,22 +63,6 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 };
 
-
-/**
- * Verify that the vehicle belongs to the authenticated user.
- */
-async function verifyVehicleOwnership(userId: string, vehicleId: string): Promise<boolean> {
-  const docClient = getDocClient();
-  const tableName = getTableName('VEHICLES_TABLE');
-
-  const result = await docClient.send(new GetCommand({
-    TableName: tableName,
-    Key: { userId, vehicleId },
-    ProjectionExpression: 'vehicleId',
-  }));
-
-  return !!result.Item;
-}
 
 /**
  * GET /v1/vehicles/{vehicleId}/fillups — List all fillups for a vehicle, sorted by date.

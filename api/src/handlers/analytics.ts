@@ -3,6 +3,7 @@ import { GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
+import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
 import { parseBody } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
@@ -63,11 +64,46 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 async function getVehicle(userId: string, vehicleId: string): Promise<Vehicle | null> {
   const docClient = getDocClient();
   const tableName = getTableName('VEHICLES_TABLE');
+
+  // Try direct ownership first
   const result = await docClient.send(new GetCommand({
     TableName: tableName,
     Key: { userId, vehicleId },
   }));
-  return (result.Item as Vehicle) ?? null;
+
+  if (result.Item) {
+    return result.Item as Vehicle;
+  }
+
+  // Not the owner — check shared access
+  const email = await getUserEmail(userId);
+  if (!email) return null;
+
+  const sharedPermission = await getSharedPermission(email, vehicleId);
+  if (!sharedPermission) return null;
+
+  // Find the owner's userId from the sharing table
+  const sharingTable = getTableName('SHARING_TABLE');
+  const shareResult = await docClient.send(new QueryCommand({
+    TableName: sharingTable,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :email AND GSI1SK = :vehicleId',
+    ExpressionAttributeValues: {
+      ':email': email,
+      ':vehicleId': vehicleId,
+    },
+    Limit: 1,
+  }));
+
+  const shareItem = shareResult.Items?.[0];
+  if (!shareItem?.ownerUserId) return null;
+
+  const ownerResult = await docClient.send(new GetCommand({
+    TableName: tableName,
+    Key: { userId: shareItem.ownerUserId as string, vehicleId },
+  }));
+
+  return (ownerResult.Item as Vehicle) ?? null;
 }
 
 async function fetchAllFillups(vehicleId: string): Promise<Fillup[]> {

@@ -15,8 +15,9 @@
 - Tire and battery life tracking as first-class maintenance subtypes with dedicated reminder logic
 
 ## Social & Sharing
+- ~~Fleet/household view with aggregate stats across all vehicles, compare cost per vehicle~~ → **Shipped:** Shared Garage (share vehicles by email with readonly/fuel/maintenance/full permissions)
 - Public vehicle profile pages (opt-in) with lifetime stats
-- Fleet/household view with aggregate stats across all vehicles, compare cost per vehicle
+- Aggregate stats dashboard across all shared vehicles
 - Anonymized opt-in MPG leaderboard
 
 ## Automation & Integrations

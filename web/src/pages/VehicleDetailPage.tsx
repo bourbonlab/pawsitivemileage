@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router';
 import {
   ArrowLeft, Car, Loader2, Archive, ArchiveRestore,
-  BarChart3, Download, Plus, Pencil, Upload, RefreshCw,
+  BarChart3, Download, Plus, Pencil, Upload, RefreshCw, Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,6 +27,8 @@ import { ReminderBanner } from '@/components/ReminderBanner';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { ImportDialog } from '@/components/ImportDialog';
 import { useRecalculateMetrics } from '@/api/import';
+import { useSharedVehicles } from '@/api/sharing';
+import { SharingManagementDialog } from '@/components/SharingManagementDialog';
 import type { Vehicle } from '@/types';
 
 export default function VehicleDetailPage() {
@@ -46,7 +48,13 @@ export default function VehicleDetailPage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [sharingOpen, setSharingOpen] = useState(false);
   const [recalcMessage, setRecalcMessage] = useState('');
+
+  const sharedVehiclesQuery = useSharedVehicles();
+  const sharedEntry = sharedVehiclesQuery.data?.find(sv => sv.vehicle.vehicleId === vehicleId);
+  const isSharedUser = !!sharedEntry;
+  const sharedPermission = sharedEntry?.permission;
 
   const recalculate = useRecalculateMetrics(vehicleId ?? '');
 
@@ -119,24 +127,28 @@ export default function VehicleDetailPage() {
 
       {/* Action buttons */}
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-          <Pencil className="size-4" /> Edit
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleArchiveToggle}
-          disabled={archiveVehicle.isPending}
-        >
-          {archiveVehicle.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : vehicle.isArchived ? (
-            <ArchiveRestore className="size-4" />
-          ) : (
-            <Archive className="size-4" />
-          )}
-          {vehicle.isArchived ? 'Unarchive' : 'Archive'}
-        </Button>
+        {!isSharedUser && (
+          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil className="size-4" /> Edit
+          </Button>
+        )}
+        {!isSharedUser && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleArchiveToggle}
+            disabled={archiveVehicle.isPending}
+          >
+            {archiveVehicle.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : vehicle.isArchived ? (
+              <ArchiveRestore className="size-4" />
+            ) : (
+              <Archive className="size-4" />
+            )}
+            {vehicle.isArchived ? 'Unarchive' : 'Archive'}
+          </Button>
+        )}
         <Button variant="outline" size="sm" asChild>
           <Link to={`/vehicles/${vehicleId}/analytics`}>
             <BarChart3 className="size-4" /> Analytics
@@ -147,34 +159,43 @@ export default function VehicleDetailPage() {
             <Download className="size-4" /> Export
           </Link>
         </Button>
-        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-          <Upload className="size-4" /> Import Data
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={recalculate.isPending}
-          onClick={() => {
-            setRecalcMessage('');
-            recalculate.mutate(undefined, {
-              onSuccess: (data) => {
-                setRecalcMessage(`Recalculated ${data.recalculatedCount} fillups`);
-                setTimeout(() => setRecalcMessage(''), 5000);
-              },
-              onError: () => {
-                setRecalcMessage('Recalculation failed. Please try again.');
-                setTimeout(() => setRecalcMessage(''), 5000);
-              },
-            });
-          }}
-        >
-          {recalculate.isPending ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <RefreshCw className="size-4" />
-          )}
-          Recalculate Metrics
-        </Button>
+        {(!isSharedUser || sharedPermission === 'full') && (
+          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+            <Upload className="size-4" /> Import Data
+          </Button>
+        )}
+        {(!isSharedUser || sharedPermission === 'full') && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={recalculate.isPending}
+            onClick={() => {
+              setRecalcMessage('');
+              recalculate.mutate(undefined, {
+                onSuccess: (data) => {
+                  setRecalcMessage(`Recalculated ${data.recalculatedCount} fillups`);
+                  setTimeout(() => setRecalcMessage(''), 5000);
+                },
+                onError: () => {
+                  setRecalcMessage('Recalculation failed. Please try again.');
+                  setTimeout(() => setRecalcMessage(''), 5000);
+                },
+              });
+            }}
+          >
+            {recalculate.isPending ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <RefreshCw className="size-4" />
+            )}
+            Recalculate Metrics
+          </Button>
+        )}
+        {!isSharedUser && (
+          <Button variant="outline" size="sm" onClick={() => setSharingOpen(true)}>
+            <Users className="size-4" /> Manage Sharing
+          </Button>
+        )}
       </div>
 
       {/* Recalculate feedback */}
@@ -195,11 +216,13 @@ export default function VehicleDetailPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Fillups</h2>
-          <Button size="sm" asChild>
-            <Link to={`/vehicles/${vehicleId}/fillups/new`}>
-              <Plus className="size-4" /> Add Fillup
-            </Link>
-          </Button>
+          {(!isSharedUser || sharedPermission === 'fuel' || sharedPermission === 'full') && (
+            <Button size="sm" asChild>
+              <Link to={`/vehicles/${vehicleId}/fillups/new`}>
+                <Plus className="size-4" /> Add Fillup
+              </Link>
+            </Button>
+          )}
         </div>
         {fillupsQuery.isLoading ? (
           <div className="flex justify-center py-8" role="status">
@@ -224,6 +247,7 @@ export default function VehicleDetailPage() {
                 onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data: data as Parameters<typeof editFillup.mutate>[0]['data'] })}
                 isDeleting={deleteFillup.isPending}
                 isEditing={editFillup.isPending}
+                readOnly={isSharedUser && sharedPermission !== 'fuel' && sharedPermission !== 'full'}
               />
             </TabsContent>
             <TabsContent value="map">
@@ -239,11 +263,13 @@ export default function VehicleDetailPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Maintenance</h2>
-          <Button size="sm" asChild>
-            <Link to={`/vehicles/${vehicleId}/maintenance/new`}>
-              <Plus className="size-4" /> Add Maintenance
-            </Link>
-          </Button>
+          {(!isSharedUser || sharedPermission === 'maintenance' || sharedPermission === 'full') && (
+            <Button size="sm" asChild>
+              <Link to={`/vehicles/${vehicleId}/maintenance/new`}>
+                <Plus className="size-4" /> Add Maintenance
+              </Link>
+            </Button>
+          )}
         </div>
         {maintenanceQuery.isLoading ? (
           <div className="flex justify-center py-8" role="status">
@@ -262,6 +288,7 @@ export default function VehicleDetailPage() {
             onEdit={(recordId, data) => editMaintenance.mutate({ recordId, data: data as Parameters<typeof editMaintenance.mutate>[0]['data'] })}
             isDeleting={deleteMaintenance.isPending}
             isEditing={editMaintenance.isPending}
+            readOnly={isSharedUser && sharedPermission !== 'maintenance' && sharedPermission !== 'full'}
           />
         )}
       </section>
@@ -284,6 +311,15 @@ export default function VehicleDetailPage() {
         open={editOpen}
         onOpenChange={setEditOpen}
       />
+
+      {/* Sharing management dialog (owner only) */}
+      {!isSharedUser && (
+        <SharingManagementDialog
+          vehicleId={vehicleId!}
+          open={sharingOpen}
+          onOpenChange={setSharingOpen}
+        />
+      )}
     </div>
   );
 }

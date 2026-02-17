@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { VehicleCard } from '@/components/VehicleCard';
+import { SharedGarageSection } from '@/components/SharedGarageSection';
 import { useVehicles, useCreateVehicle } from '@/api/vehicles';
 import { usePresignedUpload, uploadFileToS3 } from '@/api/upload';
 
@@ -61,6 +62,8 @@ export default function GaragePage() {
           />
         </TabsContent>
       </Tabs>
+
+      <SharedGarageSection />
     </div>
   );
 }

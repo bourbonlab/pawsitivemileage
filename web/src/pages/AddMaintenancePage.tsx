@@ -17,6 +17,7 @@ import { PhotoUpload } from '@/components/PhotoUpload';
 import { LocationPicker } from '@/components/LocationPicker';
 import { useCreateMaintenance } from '@/api/maintenance';
 import { useAdminSchemas } from '@/api/admin';
+import { useSharedVehicles } from '@/api/sharing';
 
 const CUSTOM_TYPE_VALUE = '__custom__';
 
@@ -34,6 +35,9 @@ export default function AddMaintenancePage() {
 
   const createMaintenance = useCreateMaintenance(vehicleId ?? '');
   const schemasQuery = useAdminSchemas();
+  const sharedVehiclesQuery = useSharedVehicles();
+  const sharedEntry = sharedVehiclesQuery.data?.find(sv => sv.vehicle.vehicleId === vehicleId);
+  const isSharedUser = !!sharedEntry;
 
   const activeSchemas = (schemasQuery.data ?? []).filter((s) => s.isActive);
 
@@ -102,6 +106,21 @@ export default function AddMaintenancePage() {
     !!odometerAtService &&
     !!cost &&
     !createMaintenance.isPending;
+
+  if (isSharedUser && sharedEntry?.permission !== 'maintenance' && sharedEntry?.permission !== 'full') {
+    return (
+      <div className="container mx-auto max-w-lg space-y-6 p-4">
+        <Button variant="ghost" size="sm" asChild>
+          <Link to={`/vehicles/${vehicleId}`}>
+            <ArrowLeft className="size-4" /> Back to Vehicle
+          </Link>
+        </Button>
+        <p className="py-16 text-center text-sm text-destructive" role="alert">
+          You don't have permission to add maintenance records to this vehicle.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto max-w-lg space-y-6 p-4">

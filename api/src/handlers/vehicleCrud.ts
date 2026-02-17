@@ -3,6 +3,7 @@ import { GetCommand, PutCommand, QueryCommand, UpdateCommand } from '@aws-sdk/li
 import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
+import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
 import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
@@ -199,6 +200,7 @@ async function createVehicle(
 /**
  * GET /v1/vehicles/{vehicleId}
  * Get a single vehicle by userId + vehicleId composite key.
+ * Falls back to shared access if the caller doesn't own the vehicle.
  */
 async function getVehicle(
   userId: string,
@@ -208,6 +210,7 @@ async function getVehicle(
   const tableName = getTableName('VEHICLES_TABLE');
   const docClient = getDocClient();
 
+  // Try direct ownership first
   const result = await docClient.send(
     new GetCommand({
       TableName: tableName,
@@ -215,12 +218,49 @@ async function getVehicle(
     }),
   );
 
-  if (!result.Item) {
-    return error('NOT_FOUND', 'Vehicle not found', requestId);
+  if (result.Item) {
+    logger.info(`Retrieved vehicle ${vehicleId}`, requestId, userId);
+    return success(result.Item as Vehicle, requestId);
   }
 
-  logger.info(`Retrieved vehicle ${vehicleId}`, requestId, userId);
-  return success(result.Item as Vehicle, requestId);
+  // Not the owner — check shared access
+  const email = await getUserEmail(userId);
+  if (email) {
+    const sharedPermission = await getSharedPermission(email, vehicleId);
+    if (sharedPermission) {
+      // Find the owner's userId from the sharing table and fetch the vehicle
+      const sharingTable = getTableName('SHARING_TABLE');
+      const shareResult = await docClient.send(
+        new QueryCommand({
+          TableName: sharingTable,
+          IndexName: 'GSI1',
+          KeyConditionExpression: 'GSI1PK = :email AND GSI1SK = :vehicleId',
+          ExpressionAttributeValues: {
+            ':email': email,
+            ':vehicleId': vehicleId,
+          },
+          Limit: 1,
+        }),
+      );
+
+      const shareItem = shareResult.Items?.[0];
+      if (shareItem?.ownerUserId) {
+        const ownerResult = await docClient.send(
+          new GetCommand({
+            TableName: tableName,
+            Key: { userId: shareItem.ownerUserId as string, vehicleId },
+          }),
+        );
+
+        if (ownerResult.Item) {
+          logger.info(`Retrieved shared vehicle ${vehicleId}`, requestId, userId);
+          return success(ownerResult.Item as Vehicle, requestId);
+        }
+      }
+    }
+  }
+
+  return error('NOT_FOUND', 'Vehicle not found', requestId);
 }
 
 /**

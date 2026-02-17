@@ -39,9 +39,10 @@ interface MaintenanceListProps {
   onEdit: (recordId: string, data: MaintenanceEditData) => void;
   isDeleting?: boolean;
   isEditing?: boolean;
+  readOnly?: boolean;
 }
 
-export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleting, isEditing }: MaintenanceListProps) {
+export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleting, isEditing, readOnly }: MaintenanceListProps) {
   const [sortField, setSortField] = useState<SortField>('datePerformed');
   const [sortAsc, setSortAsc] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MaintenanceRecord | null>(null);
@@ -127,25 +128,29 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
                         <ImageIcon className="size-4" />
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8"
-                      onClick={() => setEditingRecord(r)}
-                      aria-label={`Edit maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
-                    >
-                      <Pencil className="size-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-8 text-destructive hover:text-destructive"
-                      onClick={() => onDelete(r.recordId)}
-                      disabled={isDeleting}
-                      aria-label={`Delete maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
-                    >
-                      {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                    </Button>
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8"
+                        onClick={() => setEditingRecord(r)}
+                        aria-label={`Edit maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    )}
+                    {!readOnly && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 text-destructive hover:text-destructive"
+                        onClick={() => onDelete(r.recordId)}
+                        disabled={isDeleting}
+                        aria-label={`Delete maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
+                      >
+                        {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                      </Button>
+                    )}
                   </div>
                 </TableCell>
               </TableRow>
