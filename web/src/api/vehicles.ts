@@ -8,7 +8,7 @@ export function useVehicles(filter?: 'active' | 'archived') {
   return useQuery({
     queryKey: ['vehicles', filter],
     queryFn: () => {
-      const params = filter ? `?filter=${filter}` : '';
+      const params = filter ? `?status=${filter}` : '';
       return apiClient<Vehicle[]>(`/v1/vehicles${params}`);
     },
   });
@@ -54,7 +54,7 @@ export function useArchiveVehicle(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (archive: boolean) =>
-      apiClient<Vehicle>(`/v1/vehicles/${vehicleId}`, {
+      apiClient<Vehicle>(`/v1/vehicles/${vehicleId}/archive`, {
         method: 'PATCH',
         body: JSON.stringify({ isArchived: archive }),
       }),
