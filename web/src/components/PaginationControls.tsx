@@ -27,8 +27,6 @@ export function PaginationControls({
   onPageSizeChange,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
 }: PaginationControlsProps) {
-  if (totalPages <= 1) return null;
-
   return (
     <div className="flex items-center justify-between gap-4 pt-4">
       <div className="flex items-center gap-2">
@@ -54,26 +52,28 @@ export function PaginationControls({
         Page {currentPage} of {totalPages}
       </span>
 
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="icon-sm"
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          aria-label="Previous page"
-        >
-          <ChevronLeft />
-        </Button>
-        <Button
-          variant="outline"
-          size="icon-sm"
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          aria-label="Next page"
-        >
-          <ChevronRight />
-        </Button>
-      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage === 1}
+            aria-label="Previous page"
+          >
+            <ChevronLeft />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon-sm"
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage === totalPages}
+            aria-label="Next page"
+          >
+            <ChevronRight />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
