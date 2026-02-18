@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowUpDown, Trash2, Pencil, Wrench, Loader2, ImageIcon, FileText } from 'lucide-react';
 import { DetailPeekDialog, hasDetails } from '@/components/DetailPeekDialog';
 import type { DetailPeekData } from '@/components/DetailPeekDialog';
@@ -15,6 +15,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { LocationPicker } from '@/components/LocationPicker';
+import { PaginationControls } from '@/components/PaginationControls';
+import { usePagination } from '@/lib/use-pagination';
 import type { MaintenanceRecord } from '@/types';
 
 type SortField = 'datePerformed' | 'odometerAtService' | 'cost';
@@ -75,6 +77,15 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
     return sortAsc ? cmp : -cmp;
   });
 
+  const {
+    pageItems, currentPage, totalPages, pageSize,
+    setPage, setPageSize, resetPage,
+  } = usePagination(sorted);
+
+  useEffect(() => {
+    resetPage();
+  }, [sortField, sortAsc, resetPage]);
+
   if (!records.length) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
@@ -98,7 +109,7 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((r) => (
+            {pageItems.map((r) => (
               <TableRow key={r.recordId}>
                 <TableCell className="whitespace-nowrap">{new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}</TableCell>
                 <TableCell>{r.schemaName || r.customTypeName || '—'}</TableCell>
@@ -158,6 +169,14 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {editingRecord && (
         <EditMaintenanceDialog

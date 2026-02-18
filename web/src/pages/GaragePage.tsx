@@ -151,13 +151,15 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
     const make = (fd.get('make') as string).trim();
     const model = (fd.get('model') as string).trim();
     const yearStr = (fd.get('year') as string).trim();
+    const vin = (fd.get('vin') as string).trim();
+    const licensePlate = (fd.get('licensePlate') as string).trim();
 
     if (!nickname || !make || !model || !yearStr) return;
 
     setIsSaving(true);
     try {
       const vehicle = await createVehicle.mutateAsync(
-        { nickname, make, model, year: Number(yearStr) },
+        { nickname, make, model, year: Number(yearStr), ...(vin && { vin }), ...(licensePlate && { licensePlate }) },
       );
 
       // If a photo was selected, upload it and update the vehicle
@@ -268,6 +270,14 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
             placeholder="e.g. 2024"
             required
           />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="vin">VIN</Label>
+          <Input id="vin" name="vin" maxLength={17} placeholder="e.g. 1HGBH41JXMN109186" />
+        </div>
+        <div className="grid gap-1.5">
+          <Label htmlFor="licensePlate">License Plate</Label>
+          <Input id="licensePlate" name="licensePlate" maxLength={20} placeholder="e.g. ABC-1234" />
         </div>
       </form>
 
