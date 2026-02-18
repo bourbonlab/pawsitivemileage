@@ -913,6 +913,9 @@ The script scans the entire Fillups table, identifies items missing GSI2 attribu
 ## Testing
 
 ```bash
+# Run all tests (API + Frontend)
+./unit-test.sh
+
 # API tests (unit + property-based)
 cd api && npm test
 
@@ -943,6 +946,10 @@ cd cli && npm run lint
 | `api/tests/unit/metrics.test.ts` | Derived metric calculations, partial fill accumulation, edge cases |
 | `api/tests/unit/reminders.test.ts` | Reminder threshold logic, overdue detection, mileage/time/both types |
 | `api/tests/unit/userProfile.test.ts` | User profile handler tests |
+| `api/tests/unit/validation.test.ts` | Input validation, range checks, coordinate validation, filename sanitization |
+| `api/tests/unit/csv-parser.test.ts` | Fuelly CSV import parsing (fuelups + maintenance) |
+| `api/tests/unit/s3.test.ts` | S3 key construction |
+| `api/tests/unit/authSharing.test.ts` | Sharing authorization logic |
 
 ### Coverage Configuration
 
