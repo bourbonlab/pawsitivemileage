@@ -46,6 +46,13 @@ export function VehicleCard({ vehicle, className }: VehicleCardProps) {
           <p className="truncate text-sm text-muted-foreground">
             {vehicle.year} {vehicle.make} {vehicle.model}
           </p>
+          {(vehicle.vin || vehicle.licensePlate) && (
+            <p className="truncate text-xs text-muted-foreground">
+              {[vehicle.vin && `VIN: ${vehicle.vin}`, vehicle.licensePlate && `Plate: ${vehicle.licensePlate}`]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
         </div>
       </CardContent>
     </Card>

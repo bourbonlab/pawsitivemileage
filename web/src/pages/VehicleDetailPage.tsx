@@ -121,6 +121,13 @@ export default function VehicleDetailPage() {
             <p className="text-muted-foreground">
               {vehicle.year} {vehicle.make} {vehicle.model}
             </p>
+            {(vehicle.vin || vehicle.licensePlate) && (
+              <p className="text-sm text-muted-foreground">
+                {[vehicle.vin && `VIN: ${vehicle.vin}`, vehicle.licensePlate && `Plate: ${vehicle.licensePlate}`]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -349,11 +356,13 @@ function EditVehicleDialog({
     const make = (fd.get('make') as string).trim();
     const model = (fd.get('model') as string).trim();
     const yearStr = (fd.get('year') as string).trim();
+    const vin = (fd.get('vin') as string).trim() || undefined;
+    const licensePlate = (fd.get('licensePlate') as string).trim() || undefined;
 
     if (!nickname || !make || !model || !yearStr) return;
 
     updateVehicle.mutate(
-      { nickname, make, model, year: Number(yearStr), photoKey },
+      { nickname, make, model, year: Number(yearStr), photoKey, vin, licensePlate },
       { onSuccess: () => onOpenChange(false) },
     );
   }
@@ -400,6 +409,26 @@ function EditVehicleDialog({
               max={new Date().getFullYear() + 2}
               defaultValue={vehicle.year}
               required
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="edit-vin">VIN</Label>
+            <Input
+              id="edit-vin"
+              name="vin"
+              maxLength={17}
+              defaultValue={vehicle.vin ?? ''}
+              placeholder="e.g. 1HGBH41JXMN109186"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="edit-licensePlate">License Plate</Label>
+            <Input
+              id="edit-licensePlate"
+              name="licensePlate"
+              maxLength={20}
+              defaultValue={vehicle.licensePlate ?? ''}
+              placeholder="e.g. ABC-1234"
             />
           </div>
         </form>

@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowUpDown, Trash2, Pencil, Fuel, Loader2, ImageIcon, FileText } from 'lucide-react';
+import { usePagination } from '@/lib/use-pagination';
+import { PaginationControls } from '@/components/PaginationControls';
 import { DetailPeekDialog, hasDetails } from '@/components/DetailPeekDialog';
 import type { DetailPeekData } from '@/components/DetailPeekDialog';
 import {
@@ -92,6 +94,15 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
     return sortAsc ? cmp : -cmp;
   });
 
+  const {
+    pageItems, currentPage, totalPages, pageSize,
+    setPage, setPageSize, resetPage,
+  } = usePagination(sorted);
+
+  useEffect(() => {
+    resetPage();
+  }, [sortField, sortAsc, resetPage]);
+
   if (!fillups.length) {
     return (
       <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
@@ -117,7 +128,7 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((f) => (
+            {pageItems.map((f) => (
               <TableRow key={f.fillupId}>
                 <TableCell className="whitespace-nowrap">{new Date(f.date + 'T00:00:00').toLocaleDateString()}</TableCell>
                 <TableCell className="text-right tabular-nums">{f.odometerReading.toLocaleString()}</TableCell>
@@ -179,6 +190,14 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
           </TableBody>
         </Table>
       </div>
+
+      <PaginationControls
+        currentPage={currentPage}
+        totalPages={totalPages}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
 
       {editingFillup && (
         <EditFillupDialog
