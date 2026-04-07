@@ -30,7 +30,9 @@ export function createLogger(handler: string) {
       };
     }
 
-    // Structured JSON to stdout — CloudWatch picks it up automatically
+    // Structured JSON to stdout — CloudWatch picks it up automatically.
+    // Suppress output during test runs to keep vitest output clean.
+    if (process.env.VITEST) return;
     process.stdout.write(JSON.stringify(entry) + '\n');
   }
 

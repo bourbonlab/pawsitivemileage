@@ -39,7 +39,7 @@ export function CostPerMileChart({ data }: CostPerMileChartProps) {
               domain={['auto', 'auto']}
             />
             <Tooltip
-              formatter={(value: number | undefined) => [`$${(value ?? 0).toFixed(3)}/mi`, 'Cost/Mile']}
+              formatter={(value) => [`$${Number(value ?? 0).toFixed(3)}/mi`, 'Cost/Mile']}
               labelFormatter={(label) =>
                 new Date(String(label)).toLocaleDateString('en-US', {
                   month: 'short', day: 'numeric', year: 'numeric',

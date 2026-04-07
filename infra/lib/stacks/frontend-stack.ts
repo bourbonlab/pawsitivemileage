@@ -46,6 +46,13 @@ export class FrontendStack extends cdk.Stack {
     const photosBucket = s3.Bucket.fromBucketName(this, 'PhotosBucket', `${config.resourcePrefix}-photos`);
     const photosOrigin = origins.S3BucketOrigin.withOriginAccessControl(photosBucket);
 
+    // Acknowledge that we manage the imported bucket's OAC policy manually (via Storage stack).
+    // This suppresses the CDK warning about not being able to auto-update an imported bucket's policy.
+    cdk.Annotations.of(this).acknowledgeWarning(
+      '@aws-cdk/aws-cloudfront-origins:updateImportedBucketPolicyOac',
+      'Photos bucket policy is managed in the Storage stack',
+    );
+
     // CloudFront Function to strip /photos prefix so S3 key matches the actual object path
     const stripPhotosPrefix = new cloudfront.Function(this, 'StripPhotosPrefix', {
       comment: 'Strip /photos prefix from URI before forwarding to photos S3 bucket',

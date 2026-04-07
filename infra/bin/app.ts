@@ -1,4 +1,11 @@
 #!/usr/bin/env node
+
+// Suppress JSII deprecation warnings for CDK-internal TableGrantsProps usage.
+// TableV2 constructor always passes deprecated encryptedResource/policyResource
+// to TableGrants — this is a CDK library issue (not in our code), tracked in
+// aws-cdk-lib v2.248.0. Safe to suppress until CDK removes the deprecated path.
+process.env.JSII_DEPRECATED = 'quiet';
+
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
 import { getEnvironmentConfig } from '../lib/config.js';

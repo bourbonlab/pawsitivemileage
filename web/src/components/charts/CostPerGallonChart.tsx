@@ -39,7 +39,7 @@ export function CostPerGallonChart({ data }: CostPerGallonChartProps) {
               domain={['auto', 'auto']}
             />
             <Tooltip
-              formatter={(value: number | undefined) => [`$${(value ?? 0).toFixed(3)}/gal`, 'Price/Gal']}
+              formatter={(value) => [`$${Number(value ?? 0).toFixed(3)}/gal`, 'Price/Gal']}
               labelFormatter={(label) =>
                 new Date(String(label) + 'T00:00:00').toLocaleDateString('en-US', {
                   month: 'short', day: 'numeric', year: 'numeric',
