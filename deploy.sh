@@ -220,11 +220,9 @@ if ! command -v aws &>/dev/null; then
 fi
 ok "AWS CLI $(aws --version 2>&1 | awk '{print $1}')"
 
-# CDK (via npx — no global install required)
-if ! npx cdk --version &>/dev/null; then
-  fail "AWS CDK CLI not available via npx. Run: npm install -g aws-cdk"
-fi
-ok "CDK $(npx cdk --version 2>&1 | head -1)"
+# CDK (via npx from infra/ — where aws-cdk is installed)
+CDK_VERSION=$(cd infra && npx cdk --version 2>&1 | head -1) || fail "AWS CDK CLI not available. Run: cd infra && npm install"
+ok "CDK ${CDK_VERSION}"
 
 # AWS credentials
 step "Verifying AWS credentials"

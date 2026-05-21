@@ -1,0 +1,9 @@
+{
+  "name": "pawsitive-mileage",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PawsitiveMileage monorepo root — provides shared tooling for CDK bundling",
+  "devDependencies": {
+    "esbuild": "^0.27.7"
+  }
+}

@@ -322,7 +322,7 @@ pawsitive-mileage/
 - **Node.js** 24+ ([nodejs.org](https://nodejs.org/))
 - **npm** (comes with Node.js)
 - **AWS CLI** v2 ([install guide](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html))
-- **AWS CDK CLI** (`npm install -g aws-cdk` or use via `npx cdk`)
+- **AWS CDK CLI** (installed as a devDependency in `infra/`; no global install needed)
 - **AWS credentials** configured (`aws configure` or environment variables)
 - **Google OAuth credentials** (Client ID + Secret for Cognito identity provider)
 - **ACM certificate** in us-east-1 (wildcard or multi-domain for your frontend + API domains)
