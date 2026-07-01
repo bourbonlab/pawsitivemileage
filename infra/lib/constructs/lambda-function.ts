@@ -35,7 +35,6 @@ export class AppFunction extends Construct {
     const { config, handlerFile, handlerExport = 'handler', environment = {}, memorySize = 256, timeout = 30, description } = props;
 
     const projectRoot = path.join(__dirname, '..', '..', '..');
-    const infraDir = path.join(__dirname, '..', '..');
 
     this.function = new lambdaNodejs.NodejsFunction(this, 'Function', {
       functionName: `${config.resourcePrefix}-${handlerFile}`,
@@ -43,7 +42,8 @@ export class AppFunction extends Construct {
       entry: path.join(projectRoot, 'api', 'src', 'handlers', `${handlerFile}.ts`),
       handler: handlerExport,
       projectRoot,
-      depsLockFilePath: path.join(infraDir, 'package-lock.json'),
+      // Single hoisted lockfile at the monorepo root (npm workspaces).
+      depsLockFilePath: path.join(projectRoot, 'package-lock.json'),
       memorySize,
       timeout: cdk.Duration.seconds(timeout),
       description,
