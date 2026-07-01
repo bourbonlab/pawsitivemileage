@@ -236,18 +236,20 @@ ok "Account: ${ACCOUNT_ID}"
 
 # ── Step 2: Install dependencies ────────────────────────────────────────────
 
-step "Installing dependencies"
+step "Installing dependencies (npm ci — all workspaces)"
 
-for dir in api web infra; do
-  info "npm install in ${dir}/"
-  if [[ "$VERBOSE" == true ]]; then
-    (cd "$dir" && npm install --yes)
-  else
-    (cd "$dir" && npm install --yes --silent 2>&1) || fail "npm install failed in ${dir}/"
-  fi
-  ok "${dir}/ dependencies installed"
-  (cd "$dir" && npm audit --audit-level=high 2>/dev/null) || warn "npm audit found vulnerabilities in ${dir}/"
-done
+# Single hoisted install from the root lockfile covers every workspace
+# (api, web, cli, infra). npm ci is reproducible and fails fast if the
+# lockfile is out of sync with package.json.
+info "npm ci at repo root"
+if [[ "$VERBOSE" == true ]]; then
+  npm ci
+else
+  npm ci --silent 2>&1 || fail "npm ci failed — lockfile may be out of sync. Run 'npm install' locally and commit package-lock.json."
+fi
+ok "All workspace dependencies installed from lockfile"
+
+(npm audit --audit-level=high 2>/dev/null) || warn "npm audit found vulnerabilities (run 'npm audit' for details)"
 
 # ── Step 3: Build API ───────────────────────────────────────────────────────
 
