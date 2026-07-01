@@ -3,6 +3,11 @@
 **Date:** 2026-02-15
 **Scope:** Full codebase review — frontend (`web/`), backend (`api/`), infrastructure (`infra/`), CLI (`cli/`), and deployment pipeline (`deploy.sh`)
 
+> **Update — 2026-05-22:** A follow-up code review identified three additional
+> security-relevant findings, recorded below as **F-15, F-16, and F-17**. See the
+> [Follow-up Review (2026-05-22)](#follow-up-review--2026-05-22) section and the
+> full [`code-review-2026-05.md`](./code-review-2026-05.md) for context.
+
 ---
 
 ## Executive Summary
@@ -296,3 +301,71 @@ The following security practices are well-implemented:
 12. **F-13** — Add `npm audit` to pipeline (LOW, quick win)
 13. **F-11** — Truncate stack traces in production (LOW, minor change)
 14. **F-14** — Use `config.resourcePrefix` for table names (LOW, breaking change — requires migration)
+
+---
+
+## Follow-up Review — 2026-05-22
+
+A full follow-up code review ([`code-review-2026-05.md`](./code-review-2026-05.md)) found
+no critical or high-severity issues, but surfaced three security-relevant findings not
+covered by the original assessment. They are recorded here for continuity.
+
+### F-15 — Import Handler Trusts Client-Supplied S3 Key (MEDIUM)
+
+**File:** `api/src/handlers/importData.ts:375` (object read at `:87`, `:196`)
+
+The import handler reads `s3Key` from the request body and passes it directly to
+`GetObjectCommand` on the photos bucket. It verifies the caller owns the path
+`vehicleId`, but never verifies that `s3Key` is scoped to the caller. S3 photo keys
+are exposed verbatim in CloudFront URLs (`/photos/{userId}/{vehicleId}/...`) — and to
+shared-vehicle users — so the `{userId}` prefix is not secret. This is a missing
+object-level authorization control (security-by-obscurity only).
+
+Separately, `importData.ts:47` defines a **local `parseBody`** that omits the
+`maxBytes` size cap added to `lib/validation.ts` for **F-02** — a partial regression
+of that remediation.
+
+**Recommendation:** Reject any `s3Key` that does not begin with `${userId}/`. Replace
+the local `parseBody` with the shared, size-capped implementation from `validation.ts`.
+
+### F-16 — Account Deletion Leaves Orphaned Sharing Records (MEDIUM)
+
+**File:** `api/src/handlers/userProfile.ts:162-219`
+
+Cascading account deletion removes vehicles, fillups, maintenance records, and S3
+objects, but never deletes `Sharing` table rows — neither shares the user created
+(`ownerUserId = userId`) nor shares targeting the user's email (`GSI1PK = email`).
+
+Because shares key on email and Google sign-up auto-provisions accounts, a future
+account that reuses the same email address would inherit stale shared-vehicle grants.
+Deletion also leaves the Cognito user intact, so a later Google login silently
+recreates an empty profile.
+
+**Recommendation:** Delete all `Sharing` rows where `ownerUserId = userId` and all GSI1
+rows where `GSI1PK = userEmail` during account deletion. Decide explicitly whether the
+Cognito user should also be removed.
+
+### F-17 — CSP Allows Inline Scripts; Photos Served Publicly (LOW)
+
+**File:** `infra/lib/stacks/frontend-stack.ts:79`, `:118`
+
+The CloudFront `ResponseHeadersPolicy` sets `script-src 'self' 'unsafe-inline'`. The
+`'unsafe-inline'` token largely defeats CSP's protection against injected scripts and
+is weaker than the **F-07** recommendation (`script-src 'self'`). A Vite production
+build does not emit inline scripts.
+
+Additionally, the `/photos/*` CloudFront behavior serves objects with no signed URLs
+or signed cookies — any photo (including receipts, which may contain PII) is readable
+by anyone holding the key.
+
+**Recommendation:** Remove `'unsafe-inline'` from `script-src` and verify the SPA still
+loads. For photos, consider CloudFront signed URLs/cookies, or formally document the
+access model as an accepted tradeoff.
+
+### Follow-up Risk Summary
+
+| ID | Severity | Finding | OWASP Category | Status |
+|----|----------|---------|----------------|--------|
+| F-15 | MEDIUM | Import handler trusts client-supplied S3 key | A01: Broken Access Control | ⬚ Not addressed |
+| F-16 | MEDIUM | Account deletion leaves orphaned sharing records | A01: Broken Access Control | ⬚ Not addressed |
+| F-17 | LOW | CSP allows inline scripts; photos served publicly | A05: Security Misconfiguration | ⬚ Not addressed |
