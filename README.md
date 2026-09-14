@@ -751,8 +751,8 @@ The sign-out flow manually constructs the Cognito logout URL to work around an A
 ### Stack
 
 - **React 19** with TypeScript, rendered via `ReactDOM.createRoot`
-- **Vite 7** for development (HMR) and production builds
-- **React Router v7** with `createBrowserRouter` — element-based route definitions, no loader/action patterns currently used
+- **Vite 8** for development (HMR) and production builds
+- **React Router v8** with `createBrowserRouter` — element-based route definitions, no loader/action patterns currently used
 - **TanStack Query v5** for server state (5-minute stale time, single retry, no refetch on window focus)
 - **Tailwind CSS v4** with the Vite plugin (`@tailwindcss/vite`)
 - **shadcn/ui** components built on Radix primitives (alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
