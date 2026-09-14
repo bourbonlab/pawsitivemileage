@@ -1,31 +1,31 @@
 # Tech Stack & Build
 
 ## Frontend (`web/`)
-- React 19.2.x with TypeScript 5.9.x
-- Vite 7.3.x (build tool, HMR, `@tailwindcss/vite` plugin)
-- React Router v7.13.x (`createBrowserRouter`, element-based routes)
-- TanStack Query v5.90.x (5-min stale time, single retry, no refetch on window focus)
-- shadcn/ui + Radix v1.4.x (mobile-first components: alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
-- Recharts 3.7.x (MPG, spending, cost per mile, cost per gallon charts)
+- React 19.3.x with TypeScript 7.0.x
+- Vite 8.3.x (build tool, HMR, `@tailwindcss/vite` plugin)
+- React Router v8.3.x (`createBrowserRouter`, element-based routes)
+- TanStack Query v5.102.x (5-min stale time, single retry, no refetch on window focus)
+- shadcn/ui + Radix v1.6.x (mobile-first components: alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
+- Recharts 3.10.x (MPG, spending, cost per mile, cost per gallon charts)
 - Leaflet 1.9.x + react-leaflet 5.x (fillup location maps and picker)
-- Lucide React 0.564.x (icons)
-- Tailwind CSS 4.1.x with tailwind-merge 3.4.x + clsx 2.1.x via `cn()` helper
-- AWS Amplify JS v6.16.x (Cognito OAuth, token management)
+- Lucide React 1.46.x (icons)
+- Tailwind CSS 4.3.x with tailwind-merge 3.7.x + clsx 2.1.x via `cn()` helper
+- AWS Amplify JS v6.20.x (Cognito OAuth, token management)
 - class-variance-authority 0.7.x (component variants)
 
 ## Backend (`api/`)
 - AWS Lambda, Node.js 24.x runtime
-- esbuild 0.27.x for bundling (ESM output, tree-shaking, minified, source maps, `@aws-sdk/*` externalized)
+- esbuild 0.28.x for bundling (ESM output, tree-shaking, minified, source maps, `@aws-sdk/*` externalized)
 - API Gateway v2 (HTTP API), JWT authorizer (Cognito)
 - All routes prefixed `/v1/`
 - Single-purpose Lambda per route group (11 handlers total)
-- AWS SDK v3: `@aws-sdk/client-dynamodb` ^3.990, `@aws-sdk/lib-dynamodb` ^3.990, `@aws-sdk/client-s3` ^3.990, `@aws-sdk/s3-request-presigner` ^3.990
+- AWS SDK v3: `@aws-sdk/client-dynamodb` ^3.1131, `@aws-sdk/lib-dynamodb` ^3.1131, `@aws-sdk/client-s3` ^3.1131, `@aws-sdk/s3-request-presigner` ^3.1131
 - ULID 3.x for sortable unique IDs
 
 ## Infrastructure (`infra/`)
-- AWS CDK 2.238.x (`aws-cdk-lib`) with constructs 10.4.x
-- CDK CLI via `aws-cdk` ^2.1106.x (devDependency)
-- TypeScript 5.9.x, tsx 4.21.x for running scripts
+- AWS CDK 2.269.x (`aws-cdk-lib`) with constructs 10.8.x
+- CDK CLI via `aws-cdk` ^2.1141.x (devDependency)
+- TypeScript 7.0.x, tsx 4.23.x for running scripts
 - 6 stacks per environment with explicit dependency ordering:
   - Auth → (no deps)
   - Database → (no deps)
@@ -57,8 +57,8 @@
 | Termination protection | Off | On (Database, Storage) |
 
 ## CLI (`cli/`)
-- TypeScript 5.9.x, run via `npx tsx`
-- AWS SDK v3: `@aws-sdk/client-dynamodb` ^3.800, `@aws-sdk/lib-dynamodb` ^3.800
+- TypeScript 7.0.x, run via `npx tsx`
+- AWS SDK v3: `@aws-sdk/client-dynamodb` ^3.1131, `@aws-sdk/lib-dynamodb` ^3.1131
 - Scripts: `backfill-gsi2.ts` (backfill GSI2PK/GSI2SK on fillup items)
 
 ## Data
@@ -79,10 +79,10 @@
 - ACM certificate in us-east-1 for CloudFront and API Gateway custom domains
 
 ## Testing
-- Vitest 4.x across all packages (`vitest run` for CI, `vitest` for watch mode)
-- fast-check 4.5.x for property-based testing (metrics, reminders)
-- @testing-library/react 16.x + jsdom 28.x for frontend component tests
-- @vitest/coverage-v8 4.x for coverage
+- Vitest 5.x across all packages (`vitest run` for CI, `vitest` for watch mode)
+- fast-check 4.10.x for property-based testing (metrics, reminders)
+- @testing-library/react 16.x + @testing-library/jest-dom 7.x + jsdom 30.x for frontend component tests
+- @vitest/coverage-v8 5.x for coverage
 - API coverage includes `src/**/*.ts` but excludes `src/handlers/**/*.ts`
 - Test files: `api/tests/unit/metrics.test.ts`, `api/tests/unit/reminders.test.ts`, `api/tests/unit/userProfile.test.ts`
 
