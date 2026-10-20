@@ -24,12 +24,12 @@ export function buildS3Key(userId: string, vehicleId: string, type: string, uniq
 }
 
 /**
- * True when the key sits directly under the caller's own upload prefix
- * `{userId}/{vehicleId}/{type}/` (as built by buildS3Key, or the older
- * un-prefixed form) — no nested paths or traversal.
+ * True when the key sits directly under `{userId}/{vehicleId}/{type}/` (as built by
+ * buildS3Key, or the older un-prefixed form) — no nested paths or traversal.
+ * `userId` is the vehicle owner: presignUrl stores every upload under the owner's ID.
  *
  * Pass `vehicleId: null` when the vehicle doesn't exist yet (vehicle create),
- * which accepts any single vehicle segment under the caller's user ID.
+ * which accepts any single vehicle segment under the user ID.
  */
 export function isOwnUploadKey(key: string, userId: string, vehicleId: string | null, type: string): boolean {
   if (key.includes('..')) return false;
@@ -42,26 +42,26 @@ export function isOwnUploadKey(key: string, userId: string, vehicleId: string | 
     && filename.length > 0;
 }
 
-/** True when the key is a CSV import the given user uploaded for this vehicle. */
-export function isOwnCsvImportKey(key: string, userId: string, vehicleId: string): boolean {
-  return isOwnUploadKey(key, userId, vehicleId, 'csv-import');
+/** True when the key is a CSV import uploaded for this vehicle (stored under its owner's ID). */
+export function isOwnCsvImportKey(key: string, ownerUserId: string, vehicleId: string): boolean {
+  return isOwnUploadKey(key, ownerUserId, vehicleId, 'csv-import');
 }
 
 /**
  * Validate a photo key submitted on a create/update. Unchanged keys are always
  * accepted — edit forms send the current key back, and it may predate unique keys
- * or have been uploaded by someone the vehicle is shared with. A new key must be
- * one the caller uploaded for this vehicle, so a record can't point at (and later
- * delete) another user's object.
+ * or have been stored under a shared user's ID before uploads moved to the owner.
+ * A new key must be under the vehicle owner's upload prefix for this vehicle, so a
+ * record can't point at (and later delete) another user's object.
  */
 export function isAcceptablePhotoKey(
   key: string,
   existingKey: string | undefined,
-  userId: string,
+  ownerUserId: string,
   vehicleId: string | null,
   type: 'vehicle-photo' | 'receipt-photo',
 ): boolean {
-  return key === existingKey || isOwnUploadKey(key, userId, vehicleId, type);
+  return key === existingKey || isOwnUploadKey(key, ownerUserId, vehicleId, type);
 }
 
 /**
@@ -72,12 +72,12 @@ export function photoKeyFieldError(
   field: string,
   value: unknown,
   existingKey: string | undefined,
-  userId: string,
+  ownerUserId: string,
   vehicleId: string | null,
   type: 'vehicle-photo' | 'receipt-photo',
 ): string | null {
   if (value === undefined || value === null) return null;
-  if (typeof value === 'string' && isAcceptablePhotoKey(value, existingKey, userId, vehicleId, type)) return null;
+  if (typeof value === 'string' && isAcceptablePhotoKey(value, existingKey, ownerUserId, vehicleId, type)) return null;
   return `${field} must be a key returned by /v1/upload/presign for this vehicle`;
 }
 

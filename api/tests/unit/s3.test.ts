@@ -64,20 +64,21 @@ describe('isOwnUploadKey', () => {
 });
 
 describe('isAcceptablePhotoKey', () => {
-  const legacyOwnerKey = 'owner/v1/receipt-photo/receipt.pdf';
+  // Before uploads moved under the owner, a shared user's receipt was stored under their own ID
+  const legacyShareeKey = 'sharee/v1/receipt-photo/receipt.pdf';
 
-  it('accepts an unchanged key even if it predates unique keys or was uploaded by someone else', () => {
-    // Edit forms send the current key back; a sharee editing the owner's record must not be rejected
-    expect(isAcceptablePhotoKey(legacyOwnerKey, legacyOwnerKey, 'sharee', 'v1', 'receipt-photo')).toBe(true);
+  it('accepts an unchanged key even if it predates unique keys or sits under a shared user', () => {
+    // Edit forms send the current key back; editing such a record must not be rejected
+    expect(isAcceptablePhotoKey(legacyShareeKey, legacyShareeKey, 'owner', 'v1', 'receipt-photo')).toBe(true);
   });
 
-  it("accepts a new key from the caller's own upload prefix for this vehicle", () => {
-    expect(isAcceptablePhotoKey(`sharee/v1/receipt-photo/${ID}-r.pdf`, legacyOwnerKey, 'sharee', 'v1', 'receipt-photo')).toBe(true);
+  it("accepts a new key under the vehicle owner's upload prefix for this vehicle", () => {
+    expect(isAcceptablePhotoKey(`owner/v1/receipt-photo/${ID}-r.pdf`, legacyShareeKey, 'owner', 'v1', 'receipt-photo')).toBe(true);
   });
 
-  it("rejects pointing a record at another user's object", () => {
-    expect(isAcceptablePhotoKey('victim/v7/receipt-photo/private.pdf', undefined, 'attacker', 'v1', 'receipt-photo')).toBe(false);
-    expect(isAcceptablePhotoKey('victim/v1/receipt-photo/private.pdf', legacyOwnerKey, 'attacker', 'v1', 'receipt-photo')).toBe(false);
+  it("rejects a new key under anyone but the vehicle owner, including the uploader's own prefix", () => {
+    expect(isAcceptablePhotoKey(`sharee/v1/receipt-photo/${ID}-r.pdf`, undefined, 'owner', 'v1', 'receipt-photo')).toBe(false);
+    expect(isAcceptablePhotoKey('victim/v7/receipt-photo/private.pdf', undefined, 'owner', 'v1', 'receipt-photo')).toBe(false);
   });
 
   it('rejects a key of the wrong upload type', () => {

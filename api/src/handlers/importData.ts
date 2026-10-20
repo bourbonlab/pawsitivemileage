@@ -383,9 +383,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('VALIDATION_ERROR', 's3Key is required', requestId);
     }
 
-    // Only allow importing a CSV the caller uploaded for this vehicle (see presignUrl/buildS3Key),
-    // so one user can't read another user's uploads by passing an arbitrary key.
-    if (!isOwnCsvImportKey(s3Key, userId, vehicleId)) {
+    // Only allow importing a CSV uploaded for this vehicle — presignUrl stores it under the
+    // vehicle owner's ID — so one user can't read another user's uploads by passing an arbitrary key.
+    if (!isOwnCsvImportKey(s3Key, ownerUserId, vehicleId)) {
       return error('FORBIDDEN', 'You do not have permission to import this file', requestId);
     }
 

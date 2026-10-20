@@ -166,7 +166,7 @@ async function createMaintenance(
     return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
   }
 
-  const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, undefined, userId, vehicleId, 'receipt-photo');
+  const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, undefined, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
   }
@@ -282,7 +282,7 @@ async function updateMaintenance(
     return error('NOT_FOUND', 'Maintenance record not found', requestId);
   }
 
-  const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, existing.receiptPhotoKey, userId, vehicleId, 'receipt-photo');
+  const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, existing.receiptPhotoKey, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
   }

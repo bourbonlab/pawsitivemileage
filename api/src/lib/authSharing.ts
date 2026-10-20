@@ -96,11 +96,30 @@ export function isOperationAllowed(
   return false;
 }
 
+/**
+ * Pure function: may this caller upload a file of this type for the vehicle?
+ * `access` must come from verifyAccess(…, 'write-fuel').
+ *
+ * - receipt-photo: anyone who may write records (owner, or fuel/maintenance/full share)
+ * - vehicle-photo: owner only — shared users can't update vehicles
+ * - csv-import:    owner or 'full' share — matches what importData allows
+ */
+export function uploadAllowed(
+  uploadType: 'vehicle-photo' | 'receipt-photo' | 'csv-import',
+  access: AccessResult,
+): boolean {
+  if (uploadType === 'vehicle-photo') return access.isOwner;
+  if (uploadType === 'csv-import') return access.isOwner || access.permission === 'full';
+  return access.allowed;
+}
+
 export interface AccessResult {
   allowed: boolean;
   isOwner: boolean;
   /** The vehicle owner's userId. Records written by shared users are attributed to the owner. Null when access is denied. */
   ownerUserId: string | null;
+  /** The caller's share permission, or null when they own the vehicle or have no access. */
+  permission: SharePermission | null;
 }
 
 /**
@@ -123,20 +142,25 @@ export async function verifyAccess(
   }));
 
   if (ownerResult.Item) {
-    return { allowed: true, isOwner: true, ownerUserId: userId };
+    return { allowed: true, isOwner: true, ownerUserId: userId, permission: null };
   }
 
   // Not the owner — check shared access
   const email = await getUserEmail(userId);
   if (!email) {
-    return { allowed: false, isOwner: false, ownerUserId: null };
+    return { allowed: false, isOwner: false, ownerUserId: null, permission: null };
   }
 
   const sharedPermission = await getSharedPermission(email, vehicleId);
   if (!sharedPermission) {
-    return { allowed: false, isOwner: false, ownerUserId: null };
+    return { allowed: false, isOwner: false, ownerUserId: null, permission: null };
   }
 
   const allowed = isOperationAllowed(sharedPermission.permission, requiredOperation);
-  return { allowed, isOwner: false, ownerUserId: allowed ? sharedPermission.ownerUserId : null };
+  return {
+    allowed,
+    isOwner: false,
+    ownerUserId: allowed ? sharedPermission.ownerUserId : null,
+    permission: sharedPermission.permission,
+  };
 }

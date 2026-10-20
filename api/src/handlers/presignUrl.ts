@@ -5,6 +5,7 @@ import { success, error } from '../lib/response.js';
 import { parseBody, validateRequired, sanitizeFilename } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
 import { buildS3Key, getPresignedUploadUrl } from '../lib/s3.js';
+import { uploadAllowed, verifyAccess } from '../lib/authSharing.js';
 
 const logger = createLogger('presignUrl');
 
@@ -87,9 +88,16 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('INTERNAL_ERROR', 'An internal error occurred', requestId);
     }
 
-    // Build user-scoped S3 key: {userId}/{vehicleId}/{type}/{ulid}-{filename}.
-    // The ULID keeps same-named uploads from overwriting each other.
-    const key = buildS3Key(userId, vehicleId, uploadType, ulid(), sanitizedFilename);
+    // Files are stored under the vehicle owner's ID, so a shared user's uploads stay with the
+    // owner's data (and are removed with the owner's account, not the uploader's).
+    const access = await verifyAccess(userId, vehicleId, 'write-fuel');
+    if (!access.ownerUserId || !uploadAllowed(uploadType as UploadType, access)) {
+      return error('FORBIDDEN', 'You do not have permission to upload files for this vehicle', requestId);
+    }
+
+    // {ownerUserId}/{vehicleId}/{type}/{ulid}-{filename} — the ULID keeps same-named uploads
+    // from overwriting each other.
+    const key = buildS3Key(access.ownerUserId, vehicleId, uploadType, ulid(), sanitizedFilename);
 
     logger.info(`Generating presigned URL for ${uploadType}`, requestId, userId);
 
