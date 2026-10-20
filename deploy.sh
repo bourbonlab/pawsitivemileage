@@ -221,7 +221,9 @@ fi
 ok "AWS CLI $(aws --version 2>&1 | awk '{print $1}')"
 
 # CDK (via npx from infra/ — where aws-cdk is installed)
-CDK_VERSION=$(cd infra && npx cdk --version 2>&1 | head -1) || fail "AWS CDK CLI not available. Run: cd infra && npm install"
+# stderr is discarded: npm 12 prints "npm notice run ..." lines there, and piping them
+# through `head -1` SIGPIPEs npx, which fails this check under `set -o pipefail`.
+CDK_VERSION=$(cd infra && npx cdk --version 2>/dev/null) || fail "AWS CDK CLI not available. Run: cd infra && npm install"
 ok "CDK ${CDK_VERSION}"
 
 # AWS credentials
