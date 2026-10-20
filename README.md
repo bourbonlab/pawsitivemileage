@@ -72,7 +72,8 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 
 **Vehicle Sharing**
 - Share vehicles with other users by email address
-- Four permission levels: readonly, fuel-only, maintenance-only, and full access
+- Three permission levels: Read Only, Fuel & Maintenance (add/edit/delete fillups and maintenance records), and Full Access (also CSV import and metric recalculation). Legacy maintenance-only shares behave like Fuel & Maintenance
+- Records created or edited by shared users are attributed to the vehicle owner
 - Shared vehicles appear in a dedicated "Shared Garage" section on the Garage page
 - Permission-based UI controls — edit/delete buttons hidden based on access level
 - Email-based sharing without registration check (prevents user enumeration)
@@ -617,6 +618,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 | PUT | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Update record |
 | DELETE | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Delete record |
 | GET | `/v1/vehicles/{vehicleId}/maintenance/reminders` | Get upcoming maintenance reminders based on intervals and current odometer |
+| GET | `/v1/vehicles/{vehicleId}/maintenance/schemas` | List active maintenance types (available to the owner and shared users) |
 
 ### Analytics
 
@@ -646,7 +648,7 @@ S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v1/vehicles/{vehicleId}/import/{type}` | Import Fuelly CSV (type: `fuelups` or `maintenance`). Body: `{ s3Key }`. Returns import result with counts |
+| POST | `/v1/vehicles/{vehicleId}/import/{type}` | Import Fuelly CSV (type: `fuelups` or `maintenance`). Body: `{ s3Key }` — must be the caller's own `csv-import` upload for this vehicle. Returns import result with counts |
 | POST | `/v1/vehicles/{vehicleId}/recalculate` | Recalculate all derived metrics for a vehicle's fillups. Returns `{ recalculatedCount }` |
 
 ### Sharing
@@ -655,7 +657,7 @@ S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type 
 |--------|------|-------------|
 | GET | `/v1/vehicles/shared` | List vehicles shared with the current user (looks up by email) |
 | GET | `/v1/vehicles/{vehicleId}/sharing` | List all shares for a vehicle (owner only) |
-| POST | `/v1/vehicles/{vehicleId}/sharing` | Create or update a share. Body: `{ email, permission }`. Permission: `readonly`, `fuel`, `maintenance`, `full` |
+| POST | `/v1/vehicles/{vehicleId}/sharing` | Create or update a share. Body: `{ email, permission }`. Permission: `readonly`, `fuel` (fuel & maintenance), `full`. `maintenance` is accepted for backward compatibility and behaves like `fuel` |
 | DELETE | `/v1/vehicles/{vehicleId}/sharing/{shareId}` | Revoke a share (owner only) |
 
 ### Admin (requires `isAdmin: true`)

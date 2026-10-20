@@ -36,9 +36,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     // Verify ownership or shared access with appropriate permission
     const access = await verifyAccess(userId, vehicleId, requiredOperation);
-    if (!access.allowed) {
+    if (!access.allowed || !access.ownerUserId) {
       return error('FORBIDDEN', 'You do not have permission to perform this action', requestId);
     }
+    const { ownerUserId } = access;
 
     if (method === 'GET' && !fillupId) {
       return await listFillups(vehicleId, requestId, userId);
@@ -47,13 +48,13 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return await getFillup(vehicleId, fillupId, requestId, userId);
     }
     if (method === 'POST') {
-      return await createFillup(event, vehicleId, requestId, userId);
+      return await createFillup(event, vehicleId, ownerUserId, requestId, userId);
     }
     if (method === 'PUT' && fillupId) {
-      return await updateFillup(event, vehicleId, fillupId, requestId, userId);
+      return await updateFillup(event, vehicleId, fillupId, ownerUserId, requestId, userId);
     }
     if (method === 'DELETE' && fillupId) {
-      return await deleteFillup(vehicleId, fillupId, requestId, userId);
+      return await deleteFillup(vehicleId, fillupId, ownerUserId, requestId, userId);
     }
 
     return error('VALIDATION_ERROR', 'Unsupported operation', requestId);
@@ -120,10 +121,12 @@ async function getFillup(
 
 /**
  * POST /v1/vehicles/{vehicleId}/fillups — Create a new fillup with derived metrics.
+ * The fillup is attributed to the vehicle owner, even when created by a shared user.
  */
 async function createFillup(
   event: APIGatewayProxyEventV2,
   vehicleId: string,
+  ownerUserId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
@@ -231,7 +234,7 @@ async function createFillup(
   const fillup: Fillup = {
     vehicleId,
     fillupId,
-    userId,
+    userId: ownerUserId,
     date,
     currencySpent,
     gallonsAdded,
@@ -261,7 +264,7 @@ async function createFillup(
     Item: {
       ...fillup,
       fillupDateId: sortKey,
-      GSI1PK: userId,
+      GSI1PK: ownerUserId,
       GSI1SK: date,
       GSI2PK: 'FILLUPS',
       GSI2SK: date,
@@ -280,6 +283,7 @@ async function updateFillup(
   event: APIGatewayProxyEventV2,
   vehicleId: string,
   fillupId: string,
+  ownerUserId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
@@ -401,7 +405,7 @@ async function updateFillup(
   const recalculated = recalculateAllMetrics(updatedList);
 
   // Write all recalculated fillups back to DynamoDB
-  await writeAllFillups(recalculated, userId);
+  await writeAllFillups(recalculated, ownerUserId);
 
   const result = recalculated.find(f => f.fillupId === fillupId);
   logger.info(`Updated fillup ${fillupId}`, requestId, userId);
@@ -414,6 +418,7 @@ async function updateFillup(
 async function deleteFillup(
   vehicleId: string,
   fillupId: string,
+  ownerUserId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
@@ -438,7 +443,7 @@ async function deleteFillup(
   const remainingFillups = await fetchAllFillups(vehicleId);
   if (remainingFillups.length > 0) {
     const recalculated = recalculateAllMetrics(remainingFillups);
-    await writeAllFillups(recalculated, userId);
+    await writeAllFillups(recalculated, ownerUserId);
   }
 
   logger.info(`Deleted fillup ${fillupId}`, requestId, userId);
@@ -494,9 +499,9 @@ async function findFillupById(vehicleId: string, fillupId: string): Promise<Fill
 
 /**
  * Write all fillups back to DynamoDB after recalculation.
- * Each fillup is written with its composite sort key and GSI attributes.
+ * Each fillup is written with its composite sort key and GSI attributes, attributed to the vehicle owner.
  */
-async function writeAllFillups(fillups: Fillup[], userId: string): Promise<void> {
+async function writeAllFillups(fillups: Fillup[], ownerUserId: string): Promise<void> {
   const docClient = getDocClient();
   const tableName = getTableName('FILLUPS_TABLE');
 
@@ -507,8 +512,9 @@ async function writeAllFillups(fillups: Fillup[], userId: string): Promise<void>
       TableName: tableName,
       Item: {
         ...fillup,
+        userId: ownerUserId,
         fillupDateId: `${fillup.date}#${fillup.fillupId}`,
-        GSI1PK: userId,
+        GSI1PK: ownerUserId,
         GSI1SK: fillup.date,
         GSI2PK: 'FILLUPS',
         GSI2SK: fillup.date,

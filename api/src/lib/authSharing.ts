@@ -4,8 +4,12 @@ import type { SharePermission } from '../types/sharing.js';
 
 export interface SharedPermission {
   shareId: string;
+  ownerUserId: string;
   permission: SharePermission;
 }
+
+/** Permission levels that may create, edit, and delete fillup and maintenance records. */
+const RECORD_WRITE_PERMISSIONS: readonly SharePermission[] = ['fuel', 'maintenance', 'full'];
 
 /**
  * Look up a user's email from the Users table.
@@ -57,6 +61,7 @@ export async function getSharedPermission(
 
   return {
     shareId: item.shareId as string,
+    ownerUserId: item.ownerUserId as string,
     permission: item.permission as SharePermission,
   };
 }
@@ -64,12 +69,16 @@ export async function getSharedPermission(
 /**
  * Pure function: check if a permission level allows a specific operation.
  *
+ * Any shared editor can write both fillups and maintenance records. The legacy
+ * 'maintenance' level is kept for existing shares and behaves the same as 'fuel'.
+ * Only 'full' additionally unlocks import/recalculate (enforced in importData).
+ *
  * Permission matrix:
  * | Permission    | read | write-fuel | write-maintenance |
  * |---------------|------|------------|-------------------|
  * | readonly      | ✅   | ❌          | ❌                 |
- * | fuel          | ✅   | ✅          | ❌                 |
- * | maintenance   | ✅   | ❌          | ✅                 |
+ * | fuel          | ✅   | ✅          | ✅                 |
+ * | maintenance   | ✅   | ✅          | ✅                 |
  * | full          | ✅   | ✅          | ✅                 |
  */
 export function isOperationAllowed(
@@ -80,26 +89,29 @@ export function isOperationAllowed(
     return true;
   }
 
-  if (operation === 'write-fuel') {
-    return permission === 'fuel' || permission === 'full';
-  }
-
-  if (operation === 'write-maintenance') {
-    return permission === 'maintenance' || permission === 'full';
+  if (operation === 'write-fuel' || operation === 'write-maintenance') {
+    return RECORD_WRITE_PERMISSIONS.includes(permission);
   }
 
   return false;
 }
 
+export interface AccessResult {
+  allowed: boolean;
+  isOwner: boolean;
+  /** The vehicle owner's userId. Records written by shared users are attributed to the owner. Null when access is denied. */
+  ownerUserId: string | null;
+}
+
 /**
  * Combined access check: first verify ownership, then fall back to shared permission.
- * Returns whether access is allowed and whether the user is the vehicle owner.
+ * Returns whether access is allowed, whether the user is the vehicle owner, and the owner's userId.
  */
 export async function verifyAccess(
   userId: string,
   vehicleId: string,
   requiredOperation: 'read' | 'write-fuel' | 'write-maintenance',
-): Promise<{ allowed: boolean; isOwner: boolean }> {
+): Promise<AccessResult> {
   const docClient = getDocClient();
   const vehiclesTable = getTableName('VEHICLES_TABLE');
 
@@ -111,20 +123,20 @@ export async function verifyAccess(
   }));
 
   if (ownerResult.Item) {
-    return { allowed: true, isOwner: true };
+    return { allowed: true, isOwner: true, ownerUserId: userId };
   }
 
   // Not the owner — check shared access
   const email = await getUserEmail(userId);
   if (!email) {
-    return { allowed: false, isOwner: false };
+    return { allowed: false, isOwner: false, ownerUserId: null };
   }
 
   const sharedPermission = await getSharedPermission(email, vehicleId);
   if (!sharedPermission) {
-    return { allowed: false, isOwner: false };
+    return { allowed: false, isOwner: false, ownerUserId: null };
   }
 
   const allowed = isOperationAllowed(sharedPermission.permission, requiredOperation);
-  return { allowed, isOwner: false };
+  return { allowed, isOwner: false, ownerUserId: allowed ? sharedPermission.ownerUserId : null };
 }

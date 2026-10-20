@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
-import type { MaintenanceRecord, Reminder } from '../types';
+import type { MaintenanceRecord, MaintenanceSchema, Reminder } from '../types';
 
 type MaintenanceCreate = {
   schemaId?: string;
@@ -50,6 +50,16 @@ export function useReminders(vehicleId: string | undefined) {
     queryKey: ['reminders', vehicleId],
     queryFn: () =>
       apiClient<Reminder[]>(`/v1/vehicles/${vehicleId}/maintenance/reminders`),
+    enabled: !!vehicleId,
+  });
+}
+
+/** Active maintenance types for a vehicle — available to the owner and shared users (not admin-only). */
+export function useMaintenanceSchemas(vehicleId: string | undefined) {
+  return useQuery({
+    queryKey: ['maintenanceSchemas', vehicleId],
+    queryFn: () =>
+      apiClient<MaintenanceSchema[]>(`/v1/vehicles/${vehicleId}/maintenance/schemas`),
     enabled: !!vehicleId,
   });
 }

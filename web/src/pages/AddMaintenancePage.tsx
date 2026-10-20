@@ -15,9 +15,9 @@ import {
 } from '@/components/ui/select';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { LocationPicker } from '@/components/LocationPicker';
-import { useCreateMaintenance } from '@/api/maintenance';
-import { useAdminSchemas } from '@/api/admin';
+import { useCreateMaintenance, useMaintenanceSchemas } from '@/api/maintenance';
 import { useSharedVehicles } from '@/api/sharing';
+import { canEditRecords } from '@/lib/sharing';
 
 const CUSTOM_TYPE_VALUE = '__custom__';
 
@@ -34,10 +34,9 @@ export default function AddMaintenancePage() {
   const navigate = useNavigate();
 
   const createMaintenance = useCreateMaintenance(vehicleId ?? '');
-  const schemasQuery = useAdminSchemas();
+  const schemasQuery = useMaintenanceSchemas(vehicleId);
   const sharedVehiclesQuery = useSharedVehicles();
   const sharedEntry = sharedVehiclesQuery.data?.find(sv => sv.vehicle.vehicleId === vehicleId);
-  const isSharedUser = !!sharedEntry;
 
   const activeSchemas = (schemasQuery.data ?? []).filter((s) => s.isActive);
 
@@ -107,7 +106,7 @@ export default function AddMaintenancePage() {
     !!cost &&
     !createMaintenance.isPending;
 
-  if (isSharedUser && sharedEntry?.permission !== 'maintenance' && sharedEntry?.permission !== 'full') {
+  if (!canEditRecords(sharedEntry?.permission)) {
     return (
       <div className="container mx-auto max-w-lg space-y-6 p-4">
         <Button variant="ghost" size="sm" asChild>

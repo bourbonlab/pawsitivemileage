@@ -19,6 +19,16 @@ export function buildS3Key(userId: string, vehicleId: string, type: string, file
 }
 
 /**
+ * True when the key is a CSV import the given user uploaded for this vehicle,
+ * i.e. `{userId}/{vehicleId}/csv-import/{filename}` as built by buildS3Key.
+ */
+export function isOwnCsvImportKey(key: string, userId: string, vehicleId: string): boolean {
+  const prefix = buildS3Key(userId, vehicleId, 'csv-import', '');
+  const filename = key.slice(prefix.length);
+  return key.startsWith(prefix) && filename.length > 0 && !filename.includes('/') && !key.includes('..');
+}
+
+/**
  * Generate a presigned PUT URL for uploading an object to S3.
  */
 export async function getPresignedUploadUrl(

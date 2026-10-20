@@ -8,7 +8,7 @@ import { parseBody, validateRequired, validateTypes, validateRange, validateStri
 import { createLogger } from '../lib/logger.js';
 import { deleteObject } from '../lib/s3.js';
 import { calculateReminder } from '../lib/reminders.js';
-import { verifyAccess, getUserEmail } from '../lib/authSharing.js';
+import { verifyAccess } from '../lib/authSharing.js';
 import type { MaintenanceRecord } from '../types/maintenance.js';
 import type { MaintenanceSchema } from '../types/schema.js';
 import type { Vehicle } from '../types/vehicle.js';
@@ -39,18 +39,26 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     // Verify ownership or shared access with appropriate permission
     const access = await verifyAccess(userId, vehicleId, requiredOperation);
-    if (!access.allowed) {
+    if (!access.allowed || !access.ownerUserId) {
       return error('FORBIDDEN', 'You do not have permission to perform this action', requestId);
     }
+    const { ownerUserId } = access;
 
     // Route: GET /v1/vehicles/{vehicleId}/maintenance/reminders
     if (method === 'GET' && path.endsWith('/reminders')) {
       // Reminders need the full Vehicle object for maintenanceOverrides
-      const vehicle = await getVehicleForReminders(userId, vehicleId, access.isOwner);
+      const vehicle = await getVehicle(ownerUserId, vehicleId);
       if (!vehicle) {
         return error('NOT_FOUND', 'Vehicle not found', requestId);
       }
       return await getReminders(vehicle, requestId, userId);
+    }
+
+    // Route: GET /v1/vehicles/{vehicleId}/maintenance/schemas
+    // Active maintenance types for the add-maintenance form. Unlike /v1/admin/schemas,
+    // this is available to the owner and anyone the vehicle is shared with.
+    if (method === 'GET' && path.endsWith('/schemas')) {
+      return success(await fetchActiveSchemas(), requestId);
     }
 
     // Maintenance CRUD routes
@@ -58,10 +66,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return await listMaintenance(vehicleId, requestId, userId);
     }
     if (method === 'POST') {
-      return await createMaintenance(event, vehicleId, requestId, userId);
+      return await createMaintenance(event, vehicleId, ownerUserId, requestId, userId);
     }
     if (method === 'PUT' && recordId) {
-      return await updateMaintenance(event, vehicleId, recordId, requestId, userId);
+      return await updateMaintenance(event, vehicleId, recordId, ownerUserId, requestId, userId);
     }
     if (method === 'DELETE' && recordId) {
       return await deleteMaintenance(vehicleId, recordId, requestId, userId);
@@ -88,45 +96,6 @@ async function getVehicle(userId: string, vehicleId: string): Promise<Vehicle | 
   }));
 
   return (result.Item as Vehicle) ?? null;
-}
-
-/**
- * Fetch the vehicle for reminders, handling both owner and shared user cases.
- * For owners, uses the direct getVehicle lookup.
- * For shared users, looks up the ownerUserId from the sharing table first.
- */
-async function getVehicleForReminders(
-  userId: string,
-  vehicleId: string,
-  isOwner: boolean,
-): Promise<Vehicle | null> {
-  if (isOwner) {
-    return getVehicle(userId, vehicleId);
-  }
-
-  // Shared user: find the owner from the sharing table via GSI1
-  const email = await getUserEmail(userId);
-  if (!email) return null;
-
-  const docClient = getDocClient();
-  const sharingTable = getTableName('SHARING_TABLE');
-
-  // Query GSI1 to find the share record (contains ownerUserId)
-  const shareResult = await docClient.send(new QueryCommand({
-    TableName: sharingTable,
-    IndexName: 'GSI1',
-    KeyConditionExpression: 'GSI1PK = :email AND GSI1SK = :vehicleId',
-    ExpressionAttributeValues: {
-      ':email': email,
-      ':vehicleId': vehicleId,
-    },
-    Limit: 1,
-  }));
-
-  const shareItem = shareResult.Items?.[0];
-  if (!shareItem?.ownerUserId) return null;
-
-  return getVehicle(shareItem.ownerUserId as string, vehicleId);
 }
 
 
@@ -166,11 +135,13 @@ async function listMaintenance(
 /**
  * POST /v1/vehicles/{vehicleId}/maintenance — Create a maintenance record.
  * Accepts either schemaId (references a MaintenanceSchema) or customTypeName (free-text).
+ * The record is attributed to the vehicle owner, even when created by a shared user.
  * Validates: Requirements 4.4, 4.5
  */
 async function createMaintenance(
   event: APIGatewayProxyEventV2,
   vehicleId: string,
+  ownerUserId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
@@ -248,7 +219,7 @@ async function createMaintenance(
   const record: MaintenanceRecord = {
     vehicleId,
     recordId,
-    userId,
+    userId: ownerUserId,
     ...(schemaId && { schemaId }),
     ...(schemaName && { schemaName }),
     ...(customTypeName && { customTypeName }),
@@ -274,7 +245,7 @@ async function createMaintenance(
     Item: {
       ...record,
       serviceDateId: sortKey,
-      GSI1PK: userId,
+      GSI1PK: ownerUserId,
       GSI1SK: datePerformed,
     },
   }));
@@ -291,6 +262,7 @@ async function updateMaintenance(
   event: APIGatewayProxyEventV2,
   vehicleId: string,
   recordId: string,
+  ownerUserId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
@@ -374,6 +346,8 @@ async function updateMaintenance(
 
   const updated: MaintenanceRecord = {
     ...existing,
+    // Re-attribute to the owner in case an older record was stamped with a shared user's id
+    userId: ownerUserId,
     ...(body.schemaId !== undefined && { schemaId: body.schemaId as string }),
     ...(schemaName !== undefined && { schemaName }),
     ...(body.customTypeName !== undefined && { customTypeName: body.customTypeName as string }),
@@ -411,7 +385,7 @@ async function updateMaintenance(
     Item: {
       ...updated,
       serviceDateId: newSortKey,
-      GSI1PK: userId,
+      GSI1PK: ownerUserId,
       GSI1SK: updatedDate,
     },
   }));
