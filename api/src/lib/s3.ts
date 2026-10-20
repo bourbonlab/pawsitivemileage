@@ -12,20 +12,73 @@ function getS3Client(): S3Client {
 
 /**
  * Build a user-scoped S3 object key.
- * Format: {userId}/{vehicleId}/{type}/{filename}
+ * Format: {userId}/{vehicleId}/{type}/{uniqueId}-{filename}
+ *
+ * The unique ID (a ULID) keeps two uploads with the same filename — e.g. two
+ * receipts named `receipt.pdf` on the same vehicle — from overwriting each other.
+ * Keys written before it was added (`{type}/{filename}`) remain valid: records
+ * store the full key, and nothing parses keys back into parts on read.
  */
-export function buildS3Key(userId: string, vehicleId: string, type: string, filename: string): string {
-  return `${userId}/${vehicleId}/${type}/${filename}`;
+export function buildS3Key(userId: string, vehicleId: string, type: string, uniqueId: string, filename: string): string {
+  return `${userId}/${vehicleId}/${type}/${uniqueId}-${filename}`;
 }
 
 /**
- * True when the key is a CSV import the given user uploaded for this vehicle,
- * i.e. `{userId}/{vehicleId}/csv-import/{filename}` as built by buildS3Key.
+ * True when the key sits directly under the caller's own upload prefix
+ * `{userId}/{vehicleId}/{type}/` (as built by buildS3Key, or the older
+ * un-prefixed form) — no nested paths or traversal.
+ *
+ * Pass `vehicleId: null` when the vehicle doesn't exist yet (vehicle create),
+ * which accepts any single vehicle segment under the caller's user ID.
  */
+export function isOwnUploadKey(key: string, userId: string, vehicleId: string | null, type: string): boolean {
+  if (key.includes('..')) return false;
+  const parts = key.split('/');
+  if (parts.length !== 4) return false;
+  const [owner, vehicle, keyType, filename] = parts;
+  return owner === userId
+    && (vehicleId === null ? vehicle.length > 0 : vehicle === vehicleId)
+    && keyType === type
+    && filename.length > 0;
+}
+
+/** True when the key is a CSV import the given user uploaded for this vehicle. */
 export function isOwnCsvImportKey(key: string, userId: string, vehicleId: string): boolean {
-  const prefix = buildS3Key(userId, vehicleId, 'csv-import', '');
-  const filename = key.slice(prefix.length);
-  return key.startsWith(prefix) && filename.length > 0 && !filename.includes('/') && !key.includes('..');
+  return isOwnUploadKey(key, userId, vehicleId, 'csv-import');
+}
+
+/**
+ * Validate a photo key submitted on a create/update. Unchanged keys are always
+ * accepted — edit forms send the current key back, and it may predate unique keys
+ * or have been uploaded by someone the vehicle is shared with. A new key must be
+ * one the caller uploaded for this vehicle, so a record can't point at (and later
+ * delete) another user's object.
+ */
+export function isAcceptablePhotoKey(
+  key: string,
+  existingKey: string | undefined,
+  userId: string,
+  vehicleId: string | null,
+  type: 'vehicle-photo' | 'receipt-photo',
+): boolean {
+  return key === existingKey || isOwnUploadKey(key, userId, vehicleId, type);
+}
+
+/**
+ * Validation error for a photo-key request field, or null when it's acceptable.
+ * Absent and `null` (meaning "remove the photo") always pass.
+ */
+export function photoKeyFieldError(
+  field: string,
+  value: unknown,
+  existingKey: string | undefined,
+  userId: string,
+  vehicleId: string | null,
+  type: 'vehicle-photo' | 'receipt-photo',
+): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string' && isAcceptablePhotoKey(value, existingKey, userId, vehicleId, type)) return null;
+  return `${field} must be a key returned by /v1/upload/presign for this vehicle`;
 }
 
 /**

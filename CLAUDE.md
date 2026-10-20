@@ -56,7 +56,7 @@ When a change affects project structure, API routes, commands, environment varia
 
 ## Conventions worth knowing
 
-- **User ID:** the Cognito `sub` (`getUserId` in `api/src/lib/auth.ts`). It appears in DynamoDB keys and GSIs, and as the first segment of photo-bucket keys (`{userId}/{vehicleId}/{type}/{filename}`).
+- **User ID:** the Cognito `sub` (`getUserId` in `api/src/lib/auth.ts`). It appears in DynamoDB keys and GSIs, and as the first segment of photo-bucket keys (`{userId}/{vehicleId}/{uploadType}/{ulid}-{filename}`; older keys lack the ULID). Validate submitted keys with `photoKeyFieldError` (`api/src/lib/s3.ts`).
 - **Other IDs** are ULIDs. The only UUIDs the app writes are user IDs, and the migration tool relies on this.
 - **API responses** are `{ data, requestId }` on success and `{ error, code, requestId }` on failure (`api/src/lib/response.ts`). The web client unwraps `data`.
 - **Photos** are served by the frontend CloudFront at `/photos/<key>`. Uploads go straight to S3 through presigned PUT URLs.

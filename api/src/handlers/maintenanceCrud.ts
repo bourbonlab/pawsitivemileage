@@ -6,7 +6,7 @@ import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
 import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
-import { deleteObject } from '../lib/s3.js';
+import { deleteObject, photoKeyFieldError } from '../lib/s3.js';
 import { calculateReminder } from '../lib/reminders.js';
 import { verifyAccess } from '../lib/authSharing.js';
 import type { MaintenanceRecord } from '../types/maintenance.js';
@@ -166,6 +166,11 @@ async function createMaintenance(
     return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
   }
 
+  const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, undefined, userId, vehicleId, 'receipt-photo');
+  if (receiptKeyError) {
+    return error('VALIDATION_ERROR', receiptKeyError, requestId);
+  }
+
   // Validate ranges
   const rangeErrors = validateRange(body, {
     odometerAtService: { min: 0 },
@@ -275,6 +280,11 @@ async function updateMaintenance(
   const existing = await findRecordById(vehicleId, recordId);
   if (!existing) {
     return error('NOT_FOUND', 'Maintenance record not found', requestId);
+  }
+
+  const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, existing.receiptPhotoKey, userId, vehicleId, 'receipt-photo');
+  if (receiptKeyError) {
+    return error('VALIDATION_ERROR', receiptKeyError, requestId);
   }
 
   // Validate types if provided

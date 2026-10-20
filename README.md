@@ -642,9 +642,9 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v1/upload/presign` | Get S3 presigned upload URL. Body: `{ vehicleId, type, filename, contentType }`. Returns `{ uploadUrl, key }` |
+| POST | `/v1/upload/presign` | Get S3 presigned upload URL. Body: `{ uploadType, vehicleId, filename, contentType, fileSize? }`. Returns `{ url, key, expiresIn }` |
 
-S3 keys follow the pattern: `{userId}/{vehicleId}/{type}/{filename}` where type is `receipt`, `vehicle`, `csv-import`, etc. Presigned upload URLs enforce a 10 MB maximum file size via `Content-Length` header signing.
+S3 keys follow the pattern: `{userId}/{vehicleId}/{uploadType}/{ulid}-{filename}`, where `uploadType` is `vehicle-photo`, `receipt-photo` or `csv-import`. The ULID keeps same-named uploads from overwriting each other; keys written before it was added (`…/{uploadType}/{filename}`) still work, because records store the full key. When a fill-up, maintenance record or vehicle is created or updated with a *new* photo key, the key must be one the caller uploaded for that vehicle and type (`{callerUserId}/{vehicleId}/{uploadType}/…`), so a record can't point at — or later delete — another user's object. An unchanged key is always accepted. Presigned upload URLs enforce a 10 MB maximum file size via `Content-Length` header signing.
 
 ### Import & Recalculate
 

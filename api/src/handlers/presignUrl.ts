@@ -87,8 +87,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('INTERNAL_ERROR', 'An internal error occurred', requestId);
     }
 
-    // Build user-scoped S3 key: {userId}/{vehicleId}/{type}/{filename}
-    const key = buildS3Key(userId, vehicleId, uploadType, sanitizedFilename);
+    // Build user-scoped S3 key: {userId}/{vehicleId}/{type}/{ulid}-{filename}.
+    // The ULID keeps same-named uploads from overwriting each other.
+    const key = buildS3Key(userId, vehicleId, uploadType, ulid(), sanitizedFilename);
 
     logger.info(`Generating presigned URL for ${uploadType}`, requestId, userId);
 
