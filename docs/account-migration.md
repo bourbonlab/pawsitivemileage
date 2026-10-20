@@ -31,6 +31,23 @@ npx tsx src/migrate-account.ts complete --env production --yes           # lock:
 npx tsx src/migrate-account.ts unfreeze --env production --yes           # roll back the freeze
 ```
 
+Functional parity check, also from `cli/`. It invokes the API Lambdas directly as each migrated user:
+
+```bash
+npx tsx src/parity-check.ts --env staging                # read parity (old vs new) + write smoke tests (new only)
+npx tsx src/parity-check.ts --env staging --skip-writes  # read parity only
+```
+
+It calls every read endpoint in both accounts and requires identical responses once old user IDs are swapped for new ones. These include profile, vehicles, fill-ups, maintenance, reminders, analytics, sharing and admin.
+
+The write tests run in the new account only:
+- create, update and delete records
+- share and unshare
+- presign, upload, and fetch through the site
+- exports, summary card and recalculate
+
+Re-run `migrate` afterwards to undo them. Because it invokes the old Lambdas, it only works while the source is **not** frozen, so use it in rehearsals.
+
 `--yes` is required for any command that writes to production. `complete` sets the SSM parameter `/pawsitivemileage/<env>/migration/cutover-complete` in the new account. While it exists, `migrate` refuses to run, because the target is live and mirroring would wipe real data. To re-open a migration deliberately, delete the parameter.
 
 ---
@@ -45,7 +62,9 @@ npx tsx src/migrate-account.ts unfreeze --env production --yes           # roll 
    - shared vehicles
    - one create, edit and delete
    - a photo upload and an export
-5. Run `migrate --env staging` again. The test edits from step 4 are reverted, and verify passes. This proves re-runs are safe.
+5. `npx tsx src/parity-check.ts --env staging`. All read endpoints match the old account, and the write smoke tests pass.
+6. Run `migrate --env staging` again. The test edits from steps 4–5 are reverted, and verify passes. This proves re-runs are safe.
+7. Optionally, `parity-check --skip-writes` should now pass cleanly.
 
 ## Phase 2 — Production rehearsal (old app stays live)
 
@@ -57,7 +76,7 @@ npx tsx src/migrate-account.ts unfreeze --env production --yes           # roll 
 
    Users keep using `pawsitivemileage.bourbonlab.net` until cutover, so pointing the apex now is safe.
 3. `migrate --env production --dry-run`, then `migrate --env production --yes`.
-4. Test on https://pawsitivemileage.app the same way as staging.
+4. `npx tsx src/parity-check.ts --env production`, then test on https://pawsitivemileage.app the same way as staging.
    - **Anything changed here is discarded at cutover.** Tell testers.
 5. Repeat whenever you like. Each run brings the rehearsal copy back in line with live production.
 
@@ -68,7 +87,7 @@ Tell users ahead of time. On the day:
 | # | Step | Command / action |
 |---|------|------------------|
 | 1 | Freeze the old app. Its API now fails every call. | `freeze --env production --yes` |
-| 2 | Final migration | `migrate --env production --final --yes` → **Verify passed** |
+| 2 | Final migration | `migrate --env production --final --yes` → **Verify passed**. It compares every item, photo and user link. `parity-check` can't run now, because it needs the old Lambdas. |
 | 3 | Smoke test on https://pawsitivemileage.app | sign-in, data spot-checks, one write |
 | 4 | Redirect the old site | CloudFlare Single Redirect on bourbonlab.net: `pawsitivemileage.bourbonlab.net/*` → `https://pawsitivemileage.app/${path}` (301, keep the query string) |
 | 5 | **Go / no-go** | |
