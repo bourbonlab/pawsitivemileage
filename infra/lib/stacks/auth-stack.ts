@@ -1,4 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
+import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from '../config.js';
@@ -56,13 +57,21 @@ export class AuthStack extends cdk.Stack {
       },
     });
 
-    // Cognito domain prefix must NOT contain "aws" (even as substring).
-    // "pawsitivemileage" contains "p-aws-itive", so we use a separate prefix (resolved from config).
-    const cognitoDomainPrefix = config.cognitoDomainPrefix;
+    // Hosted UI on a custom domain (e.g. auth.pawsitivemileage.app) so the Google consent
+    // screen shows our domain. The certificate must be in us-east-1, and Cognito requires the
+    // parent domain (e.g. pawsitivemileage.app) to already resolve to an A record.
+    const authCertificateArn = this.node.tryGetContext('authCertificateArn');
+    if (!authCertificateArn) {
+      throw new Error('CDK context parameter "authCertificateArn" is required. Pass it via -c authCertificateArn=<acm-arn>');
+    }
+    const authCertificate = certificatemanager.Certificate.fromCertificateArn(
+      this, 'AuthCertificate', authCertificateArn,
+    );
 
     this.userPoolDomain = this.userPool.addDomain('HostedUIDomain', {
-      cognitoDomain: {
-        domainPrefix: cognitoDomainPrefix,
+      customDomain: {
+        domainName: config.authDomain,
+        certificate: authCertificate,
       },
     });
 
@@ -103,7 +112,9 @@ export class AuthStack extends cdk.Stack {
     // Outputs
     new cdk.CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: this.userPoolClient.userPoolClientId });
-    new cdk.CfnOutput(this, 'HostedUIDomain', { value: this.userPoolDomain.domainName });
+    new cdk.CfnOutput(this, 'HostedUIDomain', { value: config.authDomain });
+    // DNS target for the auth domain CNAME (must be DNS-only, not proxied, in CloudFlare)
+    new cdk.CfnOutput(this, 'HostedUIDomainCloudFrontTarget', { value: this.userPoolDomain.cloudFrontEndpoint });
     new cdk.CfnOutput(this, 'JwtIssuer', { value: this.jwtIssuer });
   }
 }

@@ -8,7 +8,7 @@ process.env.JSII_DEPRECATED = 'quiet';
 
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
-import { getEnvironmentConfig } from '../lib/config.js';
+import { getEnvironmentConfig, REGION } from '../lib/config.js';
 import { applyTags } from '../lib/tags.js';
 import { AuthStack } from '../lib/stacks/auth-stack.js';
 import { DatabaseStack } from '../lib/stacks/database-stack.js';
@@ -19,19 +19,24 @@ import { MonitoringStack } from '../lib/stacks/monitoring-stack.js';
 
 const app = new cdk.App();
 
-const envName = app.node.tryGetContext('environment') ?? 'test';
+const envName = app.node.tryGetContext('environment') ?? 'staging';
 const config = getEnvironmentConfig(app, envName);
 
 const stackPrefix = `PawsitiveMileage-${config.envName}`;
 
-const authStack = new AuthStack(app, `${stackPrefix}-Auth`, { config });
+// Pin every stack to the environment's account so a deploy with the wrong
+// credentials fails instead of creating resources in another account.
+const env: cdk.Environment = { account: config.account, region: REGION };
 
-const databaseStack = new DatabaseStack(app, `${stackPrefix}-Database`, { config });
+const authStack = new AuthStack(app, `${stackPrefix}-Auth`, { config, env });
 
-const storageStack = new StorageStack(app, `${stackPrefix}-Storage`, { config });
+const databaseStack = new DatabaseStack(app, `${stackPrefix}-Database`, { config, env });
+
+const storageStack = new StorageStack(app, `${stackPrefix}-Storage`, { config, env });
 
 const apiStack = new ApiStack(app, `${stackPrefix}-Api`, {
   config,
+  env,
   authStack,
   databaseStack,
   storageStack,
@@ -39,6 +44,7 @@ const apiStack = new ApiStack(app, `${stackPrefix}-Api`, {
 
 const frontendStack = new FrontendStack(app, `${stackPrefix}-Frontend`, {
   config,
+  env,
 });
 
 // Explicit deploy ordering
@@ -57,6 +63,7 @@ const allStacks: cdk.Stack[] = [authStack, databaseStack, storageStack, apiStack
 if (config.enableMonitoring) {
   const monitoringStack = new MonitoringStack(app, `${stackPrefix}-Monitoring`, {
     config,
+    env,
     apiStack,
     databaseStack,
   });

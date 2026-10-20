@@ -324,9 +324,10 @@ pawsitive-mileage/
 - **npm** (comes with Node.js)
 - **AWS CLI** v2 ([install guide](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html))
 - **AWS CDK CLI** (installed as a devDependency in `infra/`; no global install needed)
-- **AWS credentials** configured (`aws configure` or environment variables)
+- **AWS credentials** for the app's dedicated account (an `AWS_PROFILE` set in `.env`, e.g. IAM Identity Center via `aws sso login`)
+- **CDK bootstrap** in that account, once: `npx cdk bootstrap aws://<account-id>/us-east-1` (run outside `infra/`)
 - **Google OAuth credentials** (Client ID + Secret for Cognito identity provider)
-- **ACM certificate** in us-east-1 (wildcard or multi-domain for your frontend + API domains)
+- **ACM certificate** in **us-east-1** covering the apex and wildcard (e.g. `pawsitivemileage.app` + `*.pawsitivemileage.app`) — used by CloudFront, API Gateway, and the Cognito custom domain
 
 ---
 
@@ -348,7 +349,7 @@ cd infra && npm install && cd ..
 
 ```bash
 cp .env.example .env
-# Edit .env with your Google OAuth Client ID, ACM certificate ARN, and domain names
+# Edit .env with your AWS profile/account IDs, Google OAuth Client ID, ACM certificate ARN, and domain names
 ```
 
 See [Environment Variables](#environment-variables) for the full list of required values.
@@ -363,14 +364,13 @@ aws secretsmanager create-secret \
   --name pawsitivemileage/google-oauth-client-secret \
   --description "Google OAuth client secret for PawsitiveMileage Cognito integration" \
   --secret-string "YOUR_GOOGLE_CLIENT_SECRET" \
-  --region us-east-1
+  --region us-east-1 --profile pawsitivemileage
 ```
 
 Copy the full ARN from the output (e.g. `arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf`) and set it in `.env`:
 
 ```env
-# All three can point to the same secret, or use separate secrets per environment
-GOOGLE_CLIENT_SECRET_ARN_TEST=arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf
+# Both can point to the same secret, or use separate secrets per environment
 GOOGLE_CLIENT_SECRET_ARN_STAGING=arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf
 GOOGLE_CLIENT_SECRET_ARN_PRODUCTION=arn:aws:secretsmanager:us-east-1:123456789:secret:pawsitivemileage/google-oauth-client-secret-AbCdEf
 ```
@@ -387,7 +387,7 @@ aws secretsmanager put-secret-value \
 ### 4. Deploy infrastructure (first time)
 
 ```bash
-./deploy.sh --test    # Full pipeline: install → build → test → synth → deploy
+./deploy.sh --stage   # Full pipeline: install → build → test → synth → deploy
 ```
 
 The deploy script automatically fetches Cognito outputs after deployment and builds the frontend with the correct `VITE_*` environment variables baked in.
@@ -397,10 +397,10 @@ The deploy script automatically fetches Cognito outputs after deployment and bui
 After your first deployment, create `web/.env.local` with the Cognito values from CDK stack outputs:
 
 ```env
-VITE_API_URL=https://pawsitivemileageapitest.bourbonlab.net
+VITE_API_URL=https://api-staging.pawsitivemileage.app
 VITE_COGNITO_USER_POOL_ID=us-east-1_XXXXXXXXX
 VITE_COGNITO_APP_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
-VITE_COGNITO_DOMAIN=pmileage-test.auth.us-east-1.amazoncognito.com
+VITE_COGNITO_DOMAIN=auth-staging.pawsitivemileage.app
 ```
 
 Then run the dev server:
@@ -430,33 +430,27 @@ All deployment configuration lives in a single `.env` file. The `deploy.sh` scri
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `GOOGLE_CLIENT_ID` | Google OAuth 2.0 Client ID | `123456789-abc.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET_ARN_TEST` | Secrets Manager ARN for Google OAuth secret (test) | `arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret-AbCdEf` |
-| `GOOGLE_CLIENT_SECRET_ARN_STAGING` | Secrets Manager ARN for Google OAuth secret (staging) | `arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret-AbCdEf` |
-| `GOOGLE_CLIENT_SECRET_ARN_PRODUCTION` | Secrets Manager ARN for Google OAuth secret (production) | `arn:aws:secretsmanager:us-east-1:123456789:secret:my-secret-AbCdEf` |
-| `ACM_CERTIFICATE_ARN` | ACM certificate ARN (us-east-1) | `arn:aws:acm:us-east-1:...` |
-| `FRONTEND_DOMAIN_TEST` | Frontend domain for test | `pawsitivemileagetest.bourbonlab.net` |
-| `FRONTEND_DOMAIN_STAGING` | Frontend domain for staging | `pawsitivemileagestaging.bourbonlab.net` |
-| `FRONTEND_DOMAIN_PRODUCTION` | Frontend domain for production | `pawsitivemileage.bourbonlab.net` |
-| `API_DOMAIN_TEST` | API domain for test | `pawsitivemileageapitest.bourbonlab.net` |
-| `API_DOMAIN_STAGING` | API domain for staging | `pawsitivemileageapistaging.bourbonlab.net` |
-| `API_DOMAIN_PRODUCTION` | API domain for production | `pawsitivemileageapi.bourbonlab.net` |
-| `RESOURCE_PREFIX` | Prefix for all AWS resource names | `pawsitivemileage` |
-| `COGNITO_DOMAIN_PREFIX` | Cognito hosted UI domain prefix | `pmileage` |
+| `AWS_PROFILE` | AWS CLI profile used for every `aws`/`cdk` call | `pawsitivemileage` |
+| `AWS_ACCOUNT_ID_STAGING` / `_PRODUCTION` | Account each environment is pinned to — deploy aborts if credentials don't match | `376784708284` |
+| `GOOGLE_CLIENT_SECRET_ARN_STAGING` / `_PRODUCTION` | Secrets Manager ARN for the Google OAuth secret (in the target account) | `arn:aws:secretsmanager:us-east-1:123456789012:secret:my-secret-AbCdEf` |
+| `ACM_CERTIFICATE_ARN` | ACM certificate ARN (**must be us-east-1**) | `arn:aws:acm:us-east-1:...` |
+| `FRONTEND_DOMAIN_STAGING` / `_PRODUCTION` | Frontend domain | `staging.pawsitivemileage.app` / `pawsitivemileage.app` |
+| `API_DOMAIN_STAGING` / `_PRODUCTION` | API domain | `api-staging.pawsitivemileage.app` / `api.pawsitivemileage.app` |
+| `AUTH_DOMAIN_STAGING` / `_PRODUCTION` | Cognito Hosted UI custom domain | `auth-staging.pawsitivemileage.app` / `auth.pawsitivemileage.app` |
+| `RESOURCE_PREFIX` | Prefix for AWS resource names (S3 bucket names are globally unique) | `pawsitivemileage-app` |
 | `SOURCE_CODE_URL` | Source code repository URL (leave blank to hide the link) | `https://gitea.example.com/org/PawsitiveMileage` |
 | `SUPPORT_EMAIL` | Support email shown on Privacy Policy and Terms of Service pages | `support@example.com` |
 
-The `.env` file is in `.gitignore` and should never be committed.
-
-> **Note:** The Cognito domain prefix must not contain the substring "aws" — Cognito rejects it. The default `pawsitivemileage` contains "p-**aws**-itive", so we use `pmileage` instead.
+The `.env` file is in `.gitignore` and should never be committed. Only the target environment's `*_<ENV>` variables are required. A `--test` environment is still supported by the code; add `*_TEST` variables to use it.
 
 ### Frontend (`web/.env.local`)
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_API_URL` | API Gateway endpoint URL (e.g. `https://pawsitivemileageapitest.bourbonlab.net`) |
+| `VITE_API_URL` | API Gateway endpoint URL (e.g. `https://api-staging.pawsitivemileage.app`) |
 | `VITE_COGNITO_USER_POOL_ID` | Cognito User Pool ID |
 | `VITE_COGNITO_APP_CLIENT_ID` | Cognito App Client ID |
-| `VITE_COGNITO_DOMAIN` | Cognito Hosted UI domain (e.g. `pmileage-test.auth.us-east-1.amazoncognito.com`) |
+| `VITE_COGNITO_DOMAIN` | Cognito Hosted UI custom domain (e.g. `auth-staging.pawsitivemileage.app`) |
 | `VITE_SOURCE_CODE_URL` | Source code repository URL (optional; hides link if blank) |
 | `VITE_SUPPORT_EMAIL` | Support email shown on Privacy Policy and Terms of Service pages |
 
@@ -488,7 +482,6 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 
 ```bash
 ./deploy.sh              # Install, build, test, synth only (no deploy)
-./deploy.sh --test       # Deploy to test environment
 ./deploy.sh --stage      # Deploy to staging environment
 ./deploy.sh --prod --yes # Deploy to production (--yes required as safety gate)
 
@@ -500,7 +493,7 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 **Pipeline steps:**
 
 1. Prerequisite checks (Node.js 24+, npm, AWS CLI, CDK)
-2. AWS credential verification (`sts get-caller-identity`)
+2. AWS credential verification (`sts get-caller-identity`) — aborts if the account doesn't match `AWS_ACCOUNT_ID_<ENV>`
 3. Load and validate `.env` (all required variables present, no placeholders)
 4. `npm install` in api/, web/, infra/ + `npm audit --audit-level=high` after each
 5. API build (esbuild → `api/dist/`)
@@ -516,11 +509,10 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 
 | Environment | Deploy Flag | CDK Context | Stack Prefix |
 |-------------|-------------|-------------|--------------|
-| test | `--test` | `-c environment=test` | `PawsitiveMileage-test-` |
 | staging | `--stage` | `-c environment=staging` | `PawsitiveMileage-staging-` |
 | production | `--prod --yes` | `-c environment=production` | `PawsitiveMileage-production-` |
 
-Each environment gets its own set of stacks, DynamoDB tables, S3 buckets, Cognito user pool, and API Gateway. Resource names are prefixed with `{RESOURCE_PREFIX}-{environment}`.
+Both environments live in the dedicated PawsitiveMileage AWS account (`376784708284`, us-east-1); every stack is pinned to it via `-c account`. Each environment gets its own set of stacks, DynamoDB tables, S3 buckets, Cognito user pool, and API Gateway. Resource names are prefixed with `{RESOURCE_PREFIX}-{environment}`.
 
 ### CDK Context Variables
 
@@ -528,25 +520,31 @@ The deploy script passes all configuration to CDK via context flags:
 
 ```bash
 npx cdk deploy --all \
-  -c environment=test \
+  -c environment=staging \
+  -c account=376784708284 \
   -c googleClientId="..." \
   -c googleClientSecretArn="arn:aws:secretsmanager:..." \
   -c apiCertificateArn="..." \
   -c frontendCertificateArn="..." \
-  -c frontendDomain="..." \
-  -c apiDomain="..." \
-  -c resourcePrefix="pawsitivemileage-test" \
-  -c cognitoDomainPrefix="pmileage-test" \
+  -c authCertificateArn="..." \
+  -c frontendDomain="staging.pawsitivemileage.app" \
+  -c apiDomain="api-staging.pawsitivemileage.app" \
+  -c authDomain="auth-staging.pawsitivemileage.app" \
+  -c resourcePrefix="pawsitivemileage-app-staging" \
   -c enableMonitoring=true
 ```
 
 ### Custom Domains
 
-1. Provision a wildcard ACM certificate in us-east-1 (or individual certs for each domain)
+1. Provision an ACM certificate in **us-east-1** for the apex + wildcard (`pawsitivemileage.app`, `*.pawsitivemileage.app`)
 2. Set `ACM_CERTIFICATE_ARN` in `.env`
-3. Set the `FRONTEND_DOMAIN_*` and `API_DOMAIN_*` variables
-4. Create CNAME records in your DNS provider pointing to CloudFront and API Gateway domain names
-5. For CloudFlare: enable proxy (orange cloud), set SSL mode to Full (Strict)
+3. Set the `FRONTEND_DOMAIN_*`, `API_DOMAIN_*`, and `AUTH_DOMAIN_*` variables
+4. **Before the first deploy**, make sure the apex (`pawsitivemileage.app`) resolves to an A record — Cognito refuses to create an `auth.*` custom domain otherwise (a proxied placeholder works until production points the apex at CloudFront)
+5. After deploying, create the CNAME records `deploy.sh` prints:
+   - frontend → CloudFront distribution, **proxied**
+   - API → API Gateway regional domain, **proxied**
+   - auth → Cognito CloudFront target, **DNS-only** (grey cloud)
+6. For CloudFlare: set SSL mode to Full (Strict)
 
 > **CloudFlare note:** ACM certificate DNS validation requires either temporarily disabling the proxy or using CNAME validation records that work through the proxy.
 
@@ -560,9 +558,8 @@ npx cdk deploy --all \
 
 | Environment | Authorized Origin | Redirect URI |
 |-------------|-------------------|--------------|
-| Test | `https://pmileage-test.auth.us-east-1.amazoncognito.com` | `https://pmileage-test.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
-| Staging | `https://pmileage-staging.auth.us-east-1.amazoncognito.com` | `https://pmileage-staging.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
-| Production | `https://pmileage-production.auth.us-east-1.amazoncognito.com` | `https://pmileage-production.auth.us-east-1.amazoncognito.com/oauth2/idpresponse` |
+| Staging | `https://auth-staging.pawsitivemileage.app` | `https://auth-staging.pawsitivemileage.app/oauth2/idpresponse` |
+| Production | `https://auth.pawsitivemileage.app` | `https://auth.pawsitivemileage.app/oauth2/idpresponse` |
 
 4. Save the Client ID to `.env` as `GOOGLE_CLIENT_ID`
 5. Store the Client Secret in AWS Secrets Manager (see [step 3 in Getting Started](#3-store-google-oauth-secret-in-secrets-manager)) and set the ARN in `.env`
@@ -1029,7 +1026,7 @@ A full security assessment is documented in [docs/security.md](docs/security.md)
 ### Key security measures
 
 - Google OAuth client secret stored in AWS Secrets Manager (never passed as plaintext via CDK context or CLI args). The CDK Auth stack reads it at deploy time via `cdk.SecretValue.secretsManager()`
-- Per-environment Secrets Manager ARN variables (`GOOGLE_CLIENT_SECRET_ARN_TEST`, `_STAGING`, `_PRODUCTION`) allow environment isolation
+- Per-environment Secrets Manager ARN variables (`GOOGLE_CLIENT_SECRET_ARN_STAGING`, `_PRODUCTION`) allow environment isolation
 - API request body size limit (64 KB) enforced at the application level via `parseBody()`
 - String length validation on all user-supplied text fields across all handlers
 - Location coordinate range validation (lat: -90 to 90, lng: -180 to 180)

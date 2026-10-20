@@ -104,21 +104,28 @@ set -a
 source "$SCRIPT_DIR/.env"
 set +a
 
-# Validate required environment variables
+# Target environment for synth/deploy (synth-only runs default to staging)
+CDK_ENV="${DEPLOY_ENV:-staging}"
+CDK_ENV_UPPER=$(echo "$CDK_ENV" | tr '[:lower:]' '[:upper:]')
+
+# Resolve per-environment values (e.g. FRONTEND_DOMAIN_STAGING → FRONTEND_DOMAIN)
+env_var() { local name="${1}_${CDK_ENV_UPPER}"; echo "${!name:-}"; }
+AWS_ACCOUNT_ID=$(env_var AWS_ACCOUNT_ID)
+FRONTEND_DOMAIN=$(env_var FRONTEND_DOMAIN)
+API_DOMAIN=$(env_var API_DOMAIN)
+AUTH_DOMAIN=$(env_var AUTH_DOMAIN)
+GOOGLE_CLIENT_SECRET_ARN=$(env_var GOOGLE_CLIENT_SECRET_ARN)
+
+# Validate required environment variables (global + the target environment only)
 MISSING_VARS=()
 [[ -z "${GOOGLE_CLIENT_ID:-}" || "$GOOGLE_CLIENT_ID" == "your-google-client-id"* ]]   && MISSING_VARS+=("GOOGLE_CLIENT_ID")
-[[ -z "${GOOGLE_CLIENT_SECRET_ARN_TEST:-}" || "$GOOGLE_CLIENT_SECRET_ARN_TEST" == "your-"* ]]             && MISSING_VARS+=("GOOGLE_CLIENT_SECRET_ARN_TEST")
-[[ -z "${GOOGLE_CLIENT_SECRET_ARN_STAGING:-}" || "$GOOGLE_CLIENT_SECRET_ARN_STAGING" == "your-"* ]]       && MISSING_VARS+=("GOOGLE_CLIENT_SECRET_ARN_STAGING")
-[[ -z "${GOOGLE_CLIENT_SECRET_ARN_PRODUCTION:-}" || "$GOOGLE_CLIENT_SECRET_ARN_PRODUCTION" == "your-"* ]] && MISSING_VARS+=("GOOGLE_CLIENT_SECRET_ARN_PRODUCTION")
 [[ -z "${ACM_CERTIFICATE_ARN:-}" || "$ACM_CERTIFICATE_ARN" == *"your-certificate-id"* ]] && MISSING_VARS+=("ACM_CERTIFICATE_ARN")
 [[ -z "${RESOURCE_PREFIX:-}" ]]                                                          && MISSING_VARS+=("RESOURCE_PREFIX")
-[[ -z "${COGNITO_DOMAIN_PREFIX:-}" ]]                                                      && MISSING_VARS+=("COGNITO_DOMAIN_PREFIX")
-[[ -z "${FRONTEND_DOMAIN_TEST:-}" ]]                                                     && MISSING_VARS+=("FRONTEND_DOMAIN_TEST")
-[[ -z "${FRONTEND_DOMAIN_STAGING:-}" ]]                                                  && MISSING_VARS+=("FRONTEND_DOMAIN_STAGING")
-[[ -z "${FRONTEND_DOMAIN_PRODUCTION:-}" ]]                                               && MISSING_VARS+=("FRONTEND_DOMAIN_PRODUCTION")
-[[ -z "${API_DOMAIN_TEST:-}" ]]                                                          && MISSING_VARS+=("API_DOMAIN_TEST")
-[[ -z "${API_DOMAIN_STAGING:-}" ]]                                                       && MISSING_VARS+=("API_DOMAIN_STAGING")
-[[ -z "${API_DOMAIN_PRODUCTION:-}" ]]                                                    && MISSING_VARS+=("API_DOMAIN_PRODUCTION")
+[[ ! "$AWS_ACCOUNT_ID" =~ ^[0-9]{12}$ ]]                                                 && MISSING_VARS+=("AWS_ACCOUNT_ID_${CDK_ENV_UPPER}")
+[[ -z "$GOOGLE_CLIENT_SECRET_ARN" || "$GOOGLE_CLIENT_SECRET_ARN" == "your-"* ]]           && MISSING_VARS+=("GOOGLE_CLIENT_SECRET_ARN_${CDK_ENV_UPPER}")
+[[ -z "$FRONTEND_DOMAIN" ]]                                                              && MISSING_VARS+=("FRONTEND_DOMAIN_${CDK_ENV_UPPER}")
+[[ -z "$API_DOMAIN" ]]                                                                   && MISSING_VARS+=("API_DOMAIN_${CDK_ENV_UPPER}")
+[[ -z "$AUTH_DOMAIN" ]]                                                                  && MISSING_VARS+=("AUTH_DOMAIN_${CDK_ENV_UPPER}")
 
 if [[ ${#MISSING_VARS[@]} -gt 0 ]]; then
   echo ""
@@ -132,6 +139,17 @@ if [[ ${#MISSING_VARS[@]} -gt 0 ]]; then
   echo -e "  ${CYAN}→${NC} Edit .env with your actual values. See .env.example for reference."
   exit 1
 fi
+
+# Refuse to touch AWS unless the active credentials belong to the environment's account.
+# AWS_PROFILE (if set in .env) is exported above and used by every aws/cdk call.
+verify_account() {
+  local actual
+  actual=$(aws sts get-caller-identity --query Account --output text 2>/dev/null) \
+    || fail "AWS credentials not configured or expired (profile: ${AWS_PROFILE:-default}). Run: aws sso login --profile ${AWS_PROFILE:-<profile>}"
+  if [[ "$actual" != "$AWS_ACCOUNT_ID" ]]; then
+    fail "Credentials are for account ${actual}, but ${CDK_ENV} must deploy to ${AWS_ACCOUNT_ID}. Check AWS_PROFILE in .env (currently: ${AWS_PROFILE:-unset})."
+  fi
+}
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════════╗${NC}"
@@ -153,6 +171,8 @@ if [[ "$CLEAR_CACHE" == true ]]; then
   fi
 
   step "Clearing caches for ${DEPLOY_ENV}"
+
+  verify_account
 
   # Resolve CloudFront distribution ID
   FRONTEND_STACK_NAME="PawsitiveMileage-${DEPLOY_ENV}-Frontend"
@@ -234,7 +254,13 @@ fi
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 CALLER_ARN=$(aws sts get-caller-identity --query Arn --output text)
 ok "Authenticated as ${CALLER_ARN}"
-ok "Account: ${ACCOUNT_ID}"
+ok "Account: ${ACCOUNT_ID} (profile: ${AWS_PROFILE:-default})"
+if [[ -n "$DEPLOY_ENV" ]]; then
+  verify_account
+  ok "Account matches ${CDK_ENV} target (${AWS_ACCOUNT_ID})"
+elif [[ "$ACCOUNT_ID" != "$AWS_ACCOUNT_ID" ]]; then
+  warn "Synth-only: credentials are for ${ACCOUNT_ID}, ${CDK_ENV} targets ${AWS_ACCOUNT_ID}"
+fi
 
 # ── Step 2: Install dependencies ────────────────────────────────────────────
 
@@ -284,28 +310,19 @@ fi
 
 # ── Step 5: CDK Synth ────────────────────────────────────────────────────────
 
-CDK_ENV="${DEPLOY_ENV:-test}"
-
-# Resolve domains for the target environment
-CDK_ENV_UPPER=$(echo "$CDK_ENV" | tr '[:lower:]' '[:upper:]')
-FRONTEND_DOMAIN_VAR="FRONTEND_DOMAIN_${CDK_ENV_UPPER}"
-API_DOMAIN_VAR="API_DOMAIN_${CDK_ENV_UPPER}"
-GOOGLE_SECRET_ARN_VAR="GOOGLE_CLIENT_SECRET_ARN_${CDK_ENV_UPPER}"
-FRONTEND_DOMAIN="${!FRONTEND_DOMAIN_VAR}"
-API_DOMAIN="${!API_DOMAIN_VAR}"
-GOOGLE_CLIENT_SECRET_ARN="${!GOOGLE_SECRET_ARN_VAR}"
-
 # Build CDK context flags (all values validated from .env above)
 CDK_CONTEXT=(
   -c environment="$CDK_ENV"
+  -c account="$AWS_ACCOUNT_ID"
   -c apiCertificateArn="$ACM_CERTIFICATE_ARN"
   -c frontendCertificateArn="$ACM_CERTIFICATE_ARN"
+  -c authCertificateArn="$ACM_CERTIFICATE_ARN"
   -c googleClientId="$GOOGLE_CLIENT_ID"
   -c googleClientSecretArn="$GOOGLE_CLIENT_SECRET_ARN"
   -c frontendDomain="$FRONTEND_DOMAIN"
   -c apiDomain="$API_DOMAIN"
+  -c authDomain="$AUTH_DOMAIN"
   -c resourcePrefix="${RESOURCE_PREFIX}-${CDK_ENV}"
-  -c cognitoDomainPrefix="${COGNITO_DOMAIN_PREFIX}-${CDK_ENV}"
 )
 
 step "Synthesizing CDK stacks (environment: ${CDK_ENV})"
@@ -331,6 +348,11 @@ if [[ -z "$DEPLOY_ENV" ]]; then
 fi
 
 step "Deploying to ${DEPLOY_ENV}"
+
+# CDK must be bootstrapped once per account/region before the first deploy
+if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region us-east-1 &>/dev/null; then
+  fail "CDK is not bootstrapped in ${AWS_ACCOUNT_ID}/us-east-1. Run (outside infra/): npx cdk bootstrap aws://${AWS_ACCOUNT_ID}/us-east-1"
+fi
 
 # Production deployments require approval for security-broadening changes (IAM, security groups)
 if [[ "$DEPLOY_ENV" == "production" ]]; then
@@ -366,7 +388,7 @@ COGNITO_APP_CLIENT_ID=$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='UserPoolClientId'].OutputValue" \
   --output text 2>/dev/null) || fail "Could not fetch UserPoolClientId from ${AUTH_STACK_NAME}"
 
-COGNITO_DOMAIN="${COGNITO_DOMAIN_PREFIX}-${CDK_ENV}.auth.us-east-1.amazoncognito.com"
+COGNITO_DOMAIN="$AUTH_DOMAIN"
 
 if [[ -z "$COGNITO_USER_POOL_ID" || "$COGNITO_USER_POOL_ID" == "None" ]]; then
   fail "UserPoolId is empty — Auth stack may not have deployed correctly"
@@ -465,9 +487,15 @@ case "$DEPLOY_ENV" in
       --query "Stacks[0].Outputs[?OutputKey=='ApiDomainRegionalDomainName'].OutputValue" \
       --output text 2>/dev/null || echo "unknown")
 
+    AUTH_CNAME_TARGET=$(aws cloudformation describe-stacks \
+      --stack-name "$AUTH_STACK_NAME" \
+      --query "Stacks[0].Outputs[?OutputKey=='HostedUIDomainCloudFrontTarget'].OutputValue" \
+      --output text 2>/dev/null || echo "unknown")
+
     echo -e "  ${CYAN}Endpoints${NC}"
     info "Frontend: https://${FRONTEND_DOMAIN}  (CNAME → ${CF_DOMAIN_NAME})"
     info "API:      https://${API_DOMAIN}  (CNAME → ${API_CNAME_TARGET})"
+    info "Auth:     https://${AUTH_DOMAIN}  (CNAME → ${AUTH_CNAME_TARGET}, DNS-only — not proxied)"
 
     # Google OAuth configuration reminder
     COGNITO_HOSTED_UI="https://${COGNITO_DOMAIN}"

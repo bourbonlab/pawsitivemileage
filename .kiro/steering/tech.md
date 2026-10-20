@@ -60,6 +60,8 @@
 - TypeScript 7.0.x, run via `npx tsx`
 - AWS SDK v3: `@aws-sdk/client-dynamodb` ^3.1131, `@aws-sdk/lib-dynamodb` ^3.1131
 - Scripts: `backfill-gsi2.ts` (backfill GSI2PK/GSI2SK on fillup items)
+- `migrate-account.ts` — re-runnable account migration (legacy account → 376784708284): pre-creates/links Cognito users, mirrors tables + photos with subs remapped, verify, freeze/unfreeze, `complete` lock. Runbook: `docs/account-migration.md`
+- Tests: vitest (`cli/tests/`)
 
 ## Data
 - DynamoDB single-table design per entity (5 tables, 6 GSIs, on-demand billing, PITR enabled)
@@ -72,11 +74,15 @@
 - OAuth scopes: openid, email, profile, aws.cognito.signin.user.admin
 - JWT tokens validated by API Gateway v2 JWT authorizer
 - Admin flag stored in DynamoDB Users table (`isAdmin` field)
-- Cognito domain prefix: `pmileage-{env}` (avoids "aws" substring rejection)
+- Cognito Hosted UI on a custom domain (`auth.pawsitivemileage.app` / `auth-staging.…`); requires the apex to resolve to an A record before creation
 
 ## DNS
-- CloudFlare (proxied, Full Strict SSL)
-- ACM certificate in us-east-1 for CloudFront and API Gateway custom domains
+- CloudFlare (Full Strict SSL); frontend and API proxied, auth CNAME DNS-only
+- ACM certificate in us-east-1 (`pawsitivemileage.app` + `*.pawsitivemileage.app`) for CloudFront, API Gateway, and Cognito custom domains
+
+## AWS Account
+- Dedicated account `376784708284` (CLI profile `pawsitivemileage`), us-east-1; every stack is pinned via `-c account`
+- `deploy.sh` aborts if the active credentials don't match `AWS_ACCOUNT_ID_<ENV>`
 
 ## Testing
 - Vitest 5.x across all packages (`vitest run` for CI, `vitest` for watch mode)
@@ -148,18 +154,20 @@ cd cli && npm run lint
 ## Environment Variables
 
 ### Deployment (`.env` at project root, sourced by `deploy.sh`)
-- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — Google OAuth 2.0 credentials
+- `AWS_PROFILE` — CLI profile for all aws/cdk calls (`pawsitivemileage`)
+- `AWS_ACCOUNT_ID_STAGING` / `AWS_ACCOUNT_ID_PRODUCTION` — account each environment is pinned to
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET_ARN_STAGING` / `_PRODUCTION` — Google OAuth client ID and Secrets Manager ARN of the secret
 - `ACM_CERTIFICATE_ARN` — ACM certificate ARN (us-east-1)
-- `FRONTEND_DOMAIN_TEST` / `FRONTEND_DOMAIN_STAGING` / `FRONTEND_DOMAIN_PRODUCTION`
-- `API_DOMAIN_TEST` / `API_DOMAIN_STAGING` / `API_DOMAIN_PRODUCTION`
-- `RESOURCE_PREFIX` — prefix for all AWS resource names (default: `pawsitivemileage`)
-- `COGNITO_DOMAIN_PREFIX` — Cognito hosted UI domain prefix (default: `pmileage`)
+- `FRONTEND_DOMAIN_STAGING` / `FRONTEND_DOMAIN_PRODUCTION`
+- `API_DOMAIN_STAGING` / `API_DOMAIN_PRODUCTION`
+- `AUTH_DOMAIN_STAGING` / `AUTH_DOMAIN_PRODUCTION` — Cognito Hosted UI custom domain
+- `RESOURCE_PREFIX` — prefix for AWS resource names (`pawsitivemileage-app`; S3 names are global)
 
 ### Frontend (`web/.env.local`, from CDK stack outputs)
 - `VITE_API_URL` — API Gateway endpoint
 - `VITE_COGNITO_USER_POOL_ID` — Cognito User Pool ID
 - `VITE_COGNITO_APP_CLIENT_ID` — Cognito App Client ID
-- `VITE_COGNITO_DOMAIN` — Cognito Hosted UI domain
+- `VITE_COGNITO_DOMAIN` — Cognito Hosted UI custom domain (e.g. `auth-staging.pawsitivemileage.app`)
 
 ### Lambda (set automatically by CDK)
 - `USERS_TABLE`, `VEHICLES_TABLE`, `FILLUPS_TABLE`, `MAINTENANCE_TABLE`, `SCHEMAS_TABLE`
