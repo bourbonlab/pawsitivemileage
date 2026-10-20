@@ -60,6 +60,8 @@
 - TypeScript 7.0.x, run via `npx tsx`
 - AWS SDK v3: `@aws-sdk/client-dynamodb` ^3.1131, `@aws-sdk/lib-dynamodb` ^3.1131
 - Scripts: `backfill-gsi2.ts` (backfill GSI2PK/GSI2SK on fillup items)
+- `migrate-account.ts` — re-runnable account migration (legacy account → 376784708284): pre-creates/links Cognito users, mirrors tables + photos with subs remapped, verify, freeze/unfreeze, `complete` lock. Runbook: `docs/account-migration.md`
+- Tests: vitest (`cli/tests/`)
 
 ## Data
 - DynamoDB single-table design per entity (5 tables, 6 GSIs, on-demand billing, PITR enabled)
