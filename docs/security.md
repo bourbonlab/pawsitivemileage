@@ -20,7 +20,7 @@ That said, the review identified 14 findings across critical, high, medium, and 
 
 ## Remediation Status
 
-**12 of 14 findings remediated** as part of the `feat/security-hardening` branch (spec: `.kiro/specs/security-hardening/`).
+**12 of 14 findings remediated** as part of the `feat/security-hardening` branch.
 
 | Status | Count | Findings |
 |--------|-------|----------|

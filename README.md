@@ -256,27 +256,32 @@ pawsitive-mileage/
 │       │   └── lambda-function.ts  # AppFunction construct (NodejsFunction + LogGroup + X-Ray)
 │       └── stacks/
 │           ├── auth-stack.ts       # Cognito User Pool, Google IdP, App Client, Hosted UI
-│           ├── database-stack.ts   # 5 DynamoDB tables with GSIs and PITR
+│           ├── database-stack.ts   # 6 DynamoDB tables with GSIs and PITR
 │           ├── storage-stack.ts    # S3 buckets (Photos, Exports with 7-day lifecycle)
-│           ├── api-stack.ts        # API Gateway v2, 10 Lambda functions, JWT authorizer, routes
+│           ├── api-stack.ts        # API Gateway v2, 12 Lambda functions, JWT authorizer, routes
 │           ├── frontend-stack.ts   # S3 + CloudFront with OAC, SPA error handling
 │           └── monitoring-stack.ts # CloudWatch Dashboard (API, Lambda, DynamoDB widgets)
 │
-├── cli/                    # Admin CLI tools
-│   └── src/
-│       ├── index.ts        # Entry point placeholder
-│       └── backfill-gsi2.ts # Backfill GSI2PK/GSI2SK on fillup items
+├── cli/                    # Admin CLI tools (run with npx tsx)
+│   ├── src/
+│   │   ├── migrate-account.ts   # Re-runnable account migration (users, tables, photos, verify, freeze, lock)
+│   │   ├── parity-check.ts      # Post-migration parity + write smoke tests via direct Lambda invocation
+│   │   ├── migrate/remap.ts     # User-ID remapping helpers (unit tested)
+│   │   ├── backfill-gsi2.ts     # Backfill GSI2PK/GSI2SK on fillup items
+│   │   └── backfill-is-business.ts # Backfill isBusiness=false on fillup items
+│   └── tests/                   # Vitest unit tests
 │
 ├── SampleData/
 │   └── FuelEfficency.csv   # 19 real-world fillup records (Aug 2024 – Feb 2026)
 │
 ├── docs/
+│   ├── account-migration.md # Account migration, cutover, and legacy teardown runbook
+│   ├── code-review-2026-05.md # May 2026 code review findings
 │   ├── cost.md             # Detailed AWS cost estimate breakdown
 │   └── security.md         # Security assessment with remediation status
 │
-├── .kiro/
-│   ├── specs/              # Feature specifications (requirements, design, tasks)
-│   └── steering/           # AI assistant steering rules (product, structure, tech)
+├── .claude/settings.json   # Shared Claude Code project settings
+├── CLAUDE.md               # Project conventions for AI assistants (accounts, workflow, commands)
 │
 ├── deploy.sh               # Full CI/CD pipeline script
 ├── Project.md              # Complete project charter and specification
@@ -293,26 +298,26 @@ pawsitive-mileage/
 
 | Layer | Technology | Version | Notes |
 |-------|-----------|---------|-------|
-| Frontend | React | 19.2.x | With TypeScript |
-| Build | Vite | 7.3.x | Fast HMR, Tailwind CSS plugin |
-| Routing | React Router | v7.13.x | `createBrowserRouter` with element-based routes |
-| Server State | TanStack Query | v5.90.x | 5-min stale time, single retry |
+| Frontend | React | 19.3.x | With TypeScript |
+| Build | Vite | 8.3.x | Fast HMR, Tailwind CSS plugin |
+| Routing | React Router | v8.5.x | `createBrowserRouter` with element-based routes |
+| Server State | TanStack Query | v5.104.x | 5-min stale time, single retry |
 | UI Components | shadcn/ui + Radix | v4 | Mobile-first, Tailwind CSS v4 |
-| Charts | Recharts | 3.7.x | MPG, spending, cost per mile, cost per gallon |
+| Charts | Recharts | 3.10.x | MPG, spending, cost per mile, cost per gallon |
 | Maps | Leaflet + react-leaflet | 1.9.x / 5.x | Fillup location picker and map view |
-| Icons | Lucide React | 0.564.x | |
-| Styling | Tailwind CSS | 4.1.x | With tailwind-merge + clsx via `cn()` |
-| Auth (client) | AWS Amplify JS | v6.16.x | Cognito OAuth, token management |
+| Icons | Lucide React | 1.60.x | |
+| Styling | Tailwind CSS | 4.3.x | With tailwind-merge + clsx via `cn()` |
+| Auth (client) | AWS Amplify JS | v6.22.x | Cognito OAuth, token management |
 | Backend Runtime | Node.js on Lambda | 24.x | Latest LTS |
-| Bundler (Lambda) | esbuild (via CDK NodejsFunction) | 0.27.x | ESM output, tree-shaking, minified, source maps |
-| Database | DynamoDB | On-demand | 5 tables, 6 GSIs, PITR enabled |
+| Bundler (Lambda) | esbuild (via CDK NodejsFunction) | 0.28.x | ESM output, tree-shaking, minified, source maps |
+| Database | DynamoDB | On-demand | 6 tables, 6 GSIs, PITR enabled |
 | Object Storage | S3 | — | 3 buckets (frontend, photos, exports) |
 | CDN | CloudFront | — | OAC, TLS 1.2, SPA error handling |
-| Auth | Cognito | — | Google OAuth 2.0, Hosted UI |
+| Auth | Cognito | — | Google OAuth 2.0, Hosted UI on custom domain (`auth.pawsitivemileage.app`) |
 | API | API Gateway v2 | HTTP API | JWT authorizer, CORS, custom domain |
-| Infrastructure | AWS CDK | 2.238.x | 6 stacks, TypeScript |
-| Language | TypeScript | 5.9.x | Strict mode, ES2022 target |
-| Testing | Vitest | 4.x | Unit + property-based (fast-check 4.x) |
+| Infrastructure | AWS CDK | 2.273.x (CLI 2.1146) | 5 stacks (+ optional monitoring), TypeScript |
+| Language | TypeScript | 7.0.x | Strict mode, ES2022 target |
+| Testing | Vitest | 5.x | Unit + property-based (fast-check 4.x) |
 | IDs | ULID | 3.x | Sortable unique IDs for fillups, vehicles, etc. |
 | DNS | CloudFlare | — | Proxied, Full Strict SSL |
 
