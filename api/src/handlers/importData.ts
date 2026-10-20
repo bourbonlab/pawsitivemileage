@@ -9,6 +9,7 @@ import { createLogger } from '../lib/logger.js';
 import { success, error } from '../lib/response.js';
 import { parseFuelupsCsv, parseMaintenanceCsv } from '../lib/csv-parser.js';
 import { recalculateAllMetrics } from '../lib/metrics.js';
+import { isOwnCsvImportKey } from '../lib/s3.js';
 import type { Fillup } from '../types/fillup.js';
 
 const logger = createLogger('importData');
@@ -71,8 +72,9 @@ async function batchWriteWithRetry(
 async function importFuelups(
   s3Key: string,
   vehicleId: string,
-  userId: string,
+  ownerUserId: string,
   requestId: string,
+  userId: string,
 ): Promise<APIGatewayProxyResultV2> {
   const docClient = getDocClient();
   const fillupsTable = getTableName('FILLUPS_TABLE');
@@ -119,7 +121,7 @@ async function importFuelups(
       vehicleId,
       fillupId,
       fillupDateId: `${record.date}#${fillupId}`,
-      userId,
+      userId: ownerUserId,
       date: record.date,
       currencySpent: record.currencySpent,
       gallonsAdded: record.gallonsAdded,
@@ -133,7 +135,7 @@ async function importFuelups(
       daysSinceLastFillup: null,
       createdAt: now,
       updatedAt: now,
-      GSI1PK: userId,
+      GSI1PK: ownerUserId,
       GSI1SK: record.date,
       GSI2PK: 'FILLUPS',
       GSI2SK: record.date,
@@ -180,8 +182,9 @@ async function importFuelups(
 async function importMaintenance(
   s3Key: string,
   vehicleId: string,
-  userId: string,
+  ownerUserId: string,
   requestId: string,
+  userId: string,
 ): Promise<APIGatewayProxyResultV2> {
   const docClient = getDocClient();
   const maintenanceTable = getTableName('MAINTENANCE_TABLE');
@@ -225,14 +228,14 @@ async function importMaintenance(
       vehicleId,
       recordId,
       serviceDateId: `${record.datePerformed}#${recordId}`,
-      userId,
+      userId: ownerUserId,
       customTypeName: record.customTypeName,
       datePerformed: record.datePerformed,
       odometerAtService: record.odometerAtService,
       cost: record.cost,
       createdAt: now,
       updatedAt: now,
-      GSI1PK: userId,
+      GSI1PK: ownerUserId,
       GSI1SK: record.datePerformed,
     };
 
@@ -336,7 +339,9 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
   }
 
   try {
-    // Verify vehicle ownership or shared access before any operation
+    // Verify vehicle ownership or shared access before any operation.
+    // Imported records are attributed to the vehicle owner, even when a shared user runs the import.
+    let ownerUserId = userId;
     const ownershipValid = await verifyVehicleOwnership(userId, vehicleId);
     if (!ownershipValid) {
       // Check shared access — only 'full' permission allows import/recalculate
@@ -348,6 +353,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       if (!shared || shared.permission !== 'full') {
         return error('NOT_FOUND', 'Vehicle not found', requestId);
       }
+      ownerUserId = shared.ownerUserId;
     }
 
     // POST /v1/vehicles/{vehicleId}/recalculate
@@ -377,13 +383,19 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('VALIDATION_ERROR', 's3Key is required', requestId);
     }
 
+    // Only allow importing a CSV the caller uploaded for this vehicle (see presignUrl/buildS3Key),
+    // so one user can't read another user's uploads by passing an arbitrary key.
+    if (!isOwnCsvImportKey(s3Key, userId, vehicleId)) {
+      return error('FORBIDDEN', 'You do not have permission to import this file', requestId);
+    }
+
     logger.info(`Import ${importType} requested`, requestId, userId);
 
     if (importType === 'fuelups') {
-      return await importFuelups(s3Key, vehicleId, userId, requestId);
+      return await importFuelups(s3Key, vehicleId, ownerUserId, requestId, userId);
     }
 
-    return await importMaintenance(s3Key, vehicleId, userId, requestId);
+    return await importMaintenance(s3Key, vehicleId, ownerUserId, requestId, userId);
   } catch (err) {
     logger.error('Unhandled error in importData', requestId, userId, err);
     return error('INTERNAL_ERROR', 'An internal error occurred', requestId);

@@ -5,21 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useSharedVehicles } from '@/api/sharing';
-import type { SharedVehicle, SharePermission } from '@/types';
-
-const permissionLabel: Record<SharePermission, string> = {
-  readonly: 'Read Only',
-  fuel: 'Fuel',
-  maintenance: 'Maintenance',
-  full: 'Full Access',
-};
-
-const permissionVariant: Record<SharePermission, 'secondary' | 'default' | 'outline' | 'destructive'> = {
-  readonly: 'secondary',
-  fuel: 'default',
-  maintenance: 'outline',
-  full: 'destructive',
-};
+import { permissionLabel, permissionVariant } from '@/lib/sharing';
+import type { SharedVehicle } from '@/types';
 
 function SharedVehicleCard({ item }: { item: SharedVehicle }) {
   const navigate = useNavigate();

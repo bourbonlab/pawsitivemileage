@@ -29,6 +29,7 @@ import { ImportDialog } from '@/components/ImportDialog';
 import { useRecalculateMetrics } from '@/api/import';
 import { useSharedVehicles } from '@/api/sharing';
 import { SharingManagementDialog } from '@/components/SharingManagementDialog';
+import { canEditRecords, canImportData } from '@/lib/sharing';
 import type { Vehicle } from '@/types';
 
 export default function VehicleDetailPage() {
@@ -54,7 +55,8 @@ export default function VehicleDetailPage() {
   const sharedVehiclesQuery = useSharedVehicles();
   const sharedEntry = sharedVehiclesQuery.data?.find(sv => sv.vehicle.vehicleId === vehicleId);
   const isSharedUser = !!sharedEntry;
-  const sharedPermission = sharedEntry?.permission;
+  const canEdit = canEditRecords(sharedEntry?.permission);
+  const canImport = canImportData(sharedEntry?.permission);
 
   const recalculate = useRecalculateMetrics(vehicleId ?? '');
 
@@ -166,12 +168,12 @@ export default function VehicleDetailPage() {
             <Download className="size-4" /> Export
           </Link>
         </Button>
-        {(!isSharedUser || sharedPermission === 'full') && (
+        {canImport && (
           <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
             <Upload className="size-4" /> Import Data
           </Button>
         )}
-        {(!isSharedUser || sharedPermission === 'full') && (
+        {canImport && (
           <Button
             variant="outline"
             size="sm"
@@ -223,7 +225,7 @@ export default function VehicleDetailPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Fillups</h2>
-          {(!isSharedUser || sharedPermission === 'fuel' || sharedPermission === 'full') && (
+          {canEdit && (
             <Button size="sm" asChild>
               <Link to={`/vehicles/${vehicleId}/fillups/new`}>
                 <Plus className="size-4" /> Add Fillup
@@ -254,7 +256,7 @@ export default function VehicleDetailPage() {
                 onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data: data as Parameters<typeof editFillup.mutate>[0]['data'] })}
                 isDeleting={deleteFillup.isPending}
                 isEditing={editFillup.isPending}
-                readOnly={isSharedUser && sharedPermission !== 'fuel' && sharedPermission !== 'full'}
+                readOnly={!canEdit}
               />
             </TabsContent>
             <TabsContent value="map">
@@ -270,7 +272,7 @@ export default function VehicleDetailPage() {
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Maintenance</h2>
-          {(!isSharedUser || sharedPermission === 'maintenance' || sharedPermission === 'full') && (
+          {canEdit && (
             <Button size="sm" asChild>
               <Link to={`/vehicles/${vehicleId}/maintenance/new`}>
                 <Plus className="size-4" /> Add Maintenance
@@ -295,7 +297,7 @@ export default function VehicleDetailPage() {
             onEdit={(recordId, data) => editMaintenance.mutate({ recordId, data: data as Parameters<typeof editMaintenance.mutate>[0]['data'] })}
             isDeleting={deleteMaintenance.isPending}
             isEditing={editMaintenance.isPending}
-            readOnly={isSharedUser && sharedPermission !== 'maintenance' && sharedPermission !== 'full'}
+            readOnly={!canEdit}
           />
         )}
       </section>

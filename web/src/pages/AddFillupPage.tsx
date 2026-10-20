@@ -15,6 +15,7 @@ import { useCreateFillup } from '@/api/fillups';
 import { useFillups } from '@/api/fillups';
 import { useSharedVehicles } from '@/api/sharing';
 import { previewMetrics } from '@/lib/metrics';
+import { canEditRecords } from '@/lib/sharing';
 
 function todayISO(): string {
   const d = new Date();
@@ -32,7 +33,6 @@ export default function AddFillupPage() {
   const fillupsQuery = useFillups(vehicleId);
   const sharedVehiclesQuery = useSharedVehicles();
   const sharedEntry = sharedVehiclesQuery.data?.find(sv => sv.vehicle.vehicleId === vehicleId);
-  const isSharedUser = !!sharedEntry;
 
   // Form state — required fields
   const [date, setDate] = useState(todayISO());
@@ -129,7 +129,7 @@ export default function AddFillupPage() {
   const canSubmit =
     !!currencySpent && !!gallonsAdded && !!odometerReading && !!date && !createFillup.isPending;
 
-  if (isSharedUser && sharedEntry?.permission !== 'fuel' && sharedEntry?.permission !== 'full') {
+  if (!canEditRecords(sharedEntry?.permission)) {
     return (
       <div className="container mx-auto max-w-lg space-y-6 p-4">
         <Button variant="ghost" size="sm" asChild>

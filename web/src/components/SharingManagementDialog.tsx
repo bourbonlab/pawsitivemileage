@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useVehicleShares, useCreateShare, useDeleteShare } from '@/api/sharing';
+import { permissionLabel, permissionVariant, selectablePermissions as permissions } from '@/lib/sharing';
 import type { SharePermission } from '@/types';
 
 interface SharingManagementDialogProps {
@@ -33,22 +34,6 @@ interface SharingManagementDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-const permissionLabel: Record<SharePermission, string> = {
-  readonly: 'Read Only',
-  fuel: 'Fuel',
-  maintenance: 'Maintenance',
-  full: 'Full Access',
-};
-
-const permissionVariant: Record<SharePermission, 'secondary' | 'default' | 'outline' | 'destructive'> = {
-  readonly: 'secondary',
-  fuel: 'default',
-  maintenance: 'outline',
-  full: 'destructive',
-};
-
-const permissions: SharePermission[] = ['readonly', 'fuel', 'maintenance', 'full'];
 
 export function SharingManagementDialog({
   vehicleId,
@@ -111,7 +96,8 @@ export function SharingManagementDialog({
         <DialogHeader>
           <DialogTitle>Manage Sharing</DialogTitle>
           <DialogDescription>
-            Share this vehicle with others by email address.
+            Share this vehicle with others by email address. Fuel &amp; Maintenance lets
+            them add and edit fillups and maintenance; Full Access also allows CSV import.
           </DialogDescription>
         </DialogHeader>
 
@@ -137,7 +123,7 @@ export function SharingManagementDialog({
               value={permission}
               onValueChange={(v) => setPermission(v as SharePermission)}
             >
-              <SelectTrigger className="w-[130px]" aria-label="Permission level">
+              <SelectTrigger className="w-[170px]" aria-label="Permission level">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent position="popper">
@@ -202,7 +188,7 @@ export function SharingManagementDialog({
                         handlePermissionChange(share.sharedEmail, v as SharePermission)
                       }
                     >
-                      <SelectTrigger className="h-7 w-[120px]" aria-label={`Permission for ${share.sharedEmail}`}>
+                      <SelectTrigger className="h-7 w-[170px]" aria-label={`Permission for ${share.sharedEmail}`}>
                         <Badge variant={permissionVariant[share.permission]} className="pointer-events-none">
                           {permissionLabel[share.permission]}
                         </Badge>
