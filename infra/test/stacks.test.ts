@@ -11,10 +11,11 @@ const BUCKET = 'AWS::S3::Bucket';
 function makeConfig(envName: EnvironmentConfig['envName']): EnvironmentConfig {
   return {
     envName,
+    account: '123456789012',
     frontendDomain: 'app.example.com',
     apiDomain: 'api.example.com',
+    authDomain: 'auth.example.com',
     resourcePrefix: `pawsitivemileage-${envName}`,
-    cognitoDomainPrefix: `pmileage-${envName}`,
     enableMonitoring: false,
     tags: { Environment: envName, Project: 'PawsitiveMileage', ManagedBy: 'CDK' },
   };

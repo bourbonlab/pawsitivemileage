@@ -10,13 +10,14 @@ Individual vehicle owners and multi-vehicle households. Initial scale under 1,00
 
 ## Domains & Environments
 
-| Environment | Frontend Domain | API Domain |
-|-------------|----------------|------------|
-| Test | `pawsitivemileagetest.bourbonlab.net` | `pawsitivemileageapitest.bourbonlab.net` |
-| Staging | `pawsitivemileagestaging.bourbonlab.net` | `pawsitivemileageapistaging.bourbonlab.net` |
-| Production | `pawsitivemileage.bourbonlab.net` | `pawsitivemileageapi.bourbonlab.net` |
+| Environment | Frontend Domain | API Domain | Auth (Cognito) Domain |
+|-------------|----------------|------------|-----------------------|
+| Staging | `staging.pawsitivemileage.app` | `api-staging.pawsitivemileage.app` | `auth-staging.pawsitivemileage.app` |
+| Production | `pawsitivemileage.app` | `api.pawsitivemileage.app` | `auth.pawsitivemileage.app` |
 
-DNS managed in CloudFlare (proxied, Full Strict SSL). ACM wildcard certificate in us-east-1 for TLS on CloudFront and API Gateway custom domains.
+All environments run in the dedicated PawsitiveMileage AWS account (`376784708284`, us-east-1, CLI profile `pawsitivemileage`). DNS managed in CloudFlare (Full Strict SSL; frontend/API proxied, auth DNS-only). One ACM certificate in us-east-1 (`pawsitivemileage.app` + `*.pawsitivemileage.app`) covers CloudFront, API Gateway, and the Cognito custom domain.
+
+The legacy `*.bourbonlab.net` hosts (in the Organization management account `817281265012`) are being retired; the old frontend host will 301 to the new domain at cutover.
 
 ## Core Features
 

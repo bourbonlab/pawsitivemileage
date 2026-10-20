@@ -44,14 +44,14 @@ pawsitive-mileage/
 - Mobile-first responsive React application
 - TypeScript throughout
 - Hosted on S3 with CloudFront distribution
-- Custom domain: **pawsitivemileage.bourbonlab.net**
+- Custom domain: **pawsitivemileage.app**
 - Authentication via AWS Cognito hosted UI with Google identity provider
 - Progressive enhancement for location services (geolocation API)
 
 ### 4.2 API Backend (`api/`)
 - AWS Lambda functions bundled with esbuild for minimal cold starts
 - Node.js 24.x runtime (latest LTS, supported until April 2028)
-- API Gateway v2 (HTTP API) with custom domain: **pawsitivemileageapi.bourbonlab.net**
+- API Gateway v2 (HTTP API) with custom domain: **api.pawsitivemileage.app**
 - API versioning from day one: all routes prefixed with `/v1/`
 - Structured for future mobile client consumption
 - Request validation and error handling middleware
@@ -258,7 +258,7 @@ A dedicated section of the web application accessible only to users with the adm
 
 ### 6.2 API Design
 
-**Base URL**: `https://pawsitivemileageapi.bourbonlab.net/v1`
+**Base URL**: `https://api.pawsitivemileage.app/v1`
 
 **Resource Structure**:
 ```
@@ -301,8 +301,9 @@ DNS is hosted in CloudFlare and will be proxied through CloudFlare.
 
 | Domain | Target | Purpose |
 |--------|--------|---------|
-| `pawsitivemileage.bourbonlab.net` | CloudFront distribution | Web frontend |
-| `pawsitivemileageapi.bourbonlab.net` | API Gateway custom domain | API backend |
+| `pawsitivemileage.app` | CloudFront distribution | Web frontend |
+| `api.pawsitivemileage.app` | API Gateway custom domain | API backend |
+| `auth.pawsitivemileage.app` | Cognito custom domain (DNS-only) | Hosted UI / OAuth |
 
 **CloudFlare Configuration**:
 - CNAME records pointing to AWS resources

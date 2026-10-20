@@ -145,7 +145,7 @@ The CloudFront distribution does not set security response headers (CSP, X-Frame
 const securityHeaders = new cloudfront.ResponseHeadersPolicy(this, 'SecurityHeaders', {
   securityHeadersBehavior: {
     contentSecurityPolicy: {
-      contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.tile.openstreetmap.org; connect-src 'self' https://{apiDomain} https://{resourcePrefix}-photos.s3.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://{cognitoDomainPrefix}.auth.us-east-1.amazoncognito.com",
+      contentSecurityPolicy: "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.tile.openstreetmap.org; connect-src 'self' https://{apiDomain} https://{resourcePrefix}-photos.s3.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://{authDomain}",
       override: true,
     },
     frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
