@@ -117,9 +117,13 @@ export class ApiStack extends cdk.Stack {
     databaseStack.usersTable.grantReadData(this.lambdaFunctions['exportData'].function);
     databaseStack.sharingTable.grantReadData(this.lambdaFunctions['exportData'].function);
 
-    // presignUrl needs Photos bucket
+    // presignUrl needs Photos bucket, plus Vehicles, Users (shared access email lookup) and Sharing
+    // to check the caller may upload for the vehicle and to key the file under the vehicle owner
     storageStack.photosBucket.grantPut(this.lambdaFunctions['presignUrl'].function);
     storageStack.photosBucket.grantRead(this.lambdaFunctions['presignUrl'].function);
+    databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['presignUrl'].function);
+    databaseStack.usersTable.grantReadData(this.lambdaFunctions['presignUrl'].function);
+    databaseStack.sharingTable.grantReadData(this.lambdaFunctions['presignUrl'].function);
 
     // adminUsers needs Users table
     databaseStack.usersTable.grantReadWriteData(this.lambdaFunctions['adminUsers'].function);

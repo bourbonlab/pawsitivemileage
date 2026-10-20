@@ -7,6 +7,7 @@ import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
 import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength } from '../lib/validation.js';
 import { createLogger } from '../lib/logger.js';
+import { photoKeyFieldError } from '../lib/s3.js';
 import type { Vehicle } from '../types/vehicle.js';
 
 const logger = createLogger('vehicleCrud');
@@ -132,6 +133,12 @@ async function createVehicle(
   });
   if (typeErrors.length > 0) {
     return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
+  }
+
+  // The vehicle doesn't exist yet, so accept any vehicle segment under the caller's own prefix
+  const photoKeyError = photoKeyFieldError('photoKey', body.photoKey, undefined, userId, null, 'vehicle-photo');
+  if (photoKeyError) {
+    return error('VALIDATION_ERROR', photoKeyError, requestId);
   }
 
   const rangeErrors = validateRange(body, {
@@ -309,6 +316,11 @@ async function updateVehicle(
   });
   if (typeErrors.length > 0) {
     return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
+  }
+
+  const photoKeyError = photoKeyFieldError('photoKey', body.photoKey, existing.Item.photoKey as string | undefined, userId, vehicleId, 'vehicle-photo');
+  if (photoKeyError) {
+    return error('VALIDATION_ERROR', photoKeyError, requestId);
   }
 
   if (body.year !== undefined) {

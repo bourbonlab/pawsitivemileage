@@ -3,6 +3,7 @@ import { Upload, Check, X, Loader2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { usePresignedUpload, uploadFileToS3 } from '@/api/upload';
+import { photoKeyFilename } from '@/lib/photos';
 
 type UploadState = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -14,8 +15,8 @@ function isImageFile(file: File | null, url: string | null): boolean {
   return false;
 }
 
-function getFileDisplayName(file: File): string {
-  return file.name.length > 30 ? file.name.slice(0, 27) + '...' : file.name;
+function truncateName(name: string): string {
+  return name.length > 30 ? name.slice(0, 27) + '...' : name;
 }
 
 interface PhotoUploadProps {
@@ -165,7 +166,7 @@ export function PhotoUpload({
           <div className="relative flex h-28 w-full items-center justify-center gap-2 rounded-md border bg-muted/50">
             <FileText className="size-8 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
-              {selectedFile ? getFileDisplayName(selectedFile) : currentPhotoKey?.split('/').pop() ?? 'Document'}
+              {selectedFile ? truncateName(selectedFile.name) : currentPhotoKey ? truncateName(photoKeyFilename(currentPhotoKey)) : 'Document'}
             </span>
             {uploadState !== 'uploading' && (
               <Button
