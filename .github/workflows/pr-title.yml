@@ -1,0 +1,47 @@
+name: PR title
+
+# The PR title becomes the merge commit message and decides the version bump
+# (docs/ci-cd.md#versioning). Fails unless it is a conventional commit; the job summary
+# shows the version merging would release.
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: PR title and version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history and tags
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check title, predict version
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set +e
+          node cli/src/release/version.ts pr --base "$BASE_SHA" --title "$PR_TITLE" > summary.md
+          status=$?
+          cat summary.md | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ $status -eq 0 ]]; then
+            echo "::notice title=Release::$(head -1 summary.md | sed 's/^### //; s/\*\*//g')"
+          else
+            echo "::error title=PR title::Not a conventional commit, e.g. 'feat(web): add version to footer'"
+          fi
+          exit $status

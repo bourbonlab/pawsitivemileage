@@ -10,6 +10,10 @@ on:
         description: staging or production
         required: true
         type: string
+      version:
+        description: Release tag (vX.Y.Z) shown in the app footer
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -33,6 +37,7 @@ jobs:
       id-token: write # OIDC token for the AWS deploy role
     env:
       TARGET_ENV: ${{ inputs.environment }}
+      APP_VERSION: ${{ inputs.version }}
       # Same names deploy.sh reads from .env; per-environment values are unsuffixed here.
       AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
       FRONTEND_DOMAIN: ${{ vars.FRONTEND_DOMAIN }}

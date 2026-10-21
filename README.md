@@ -163,6 +163,7 @@ pawsitive-mileage/
 │   │   │   └── AdminRoute.tsx     # Redirects non-admin users
 │   │   ├── components/     # UI components
 │   │   │   ├── Layout.tsx          # App shell with nav, sidebar, mobile menu
+│   │   │   ├── AppVersion.tsx      # Footer release version (links to the GitHub release)
 │   │   │   ├── VehicleCard.tsx     # Garage vehicle card
 │   │   │   ├── FillupList.tsx      # Fillup history table
 │   │   │   ├── FillupMap.tsx       # Leaflet map of fillup locations
@@ -269,6 +270,7 @@ pawsitive-mileage/
 │   │   ├── migrate-account.ts   # Re-runnable account migration (users, tables, photos, verify, freeze, lock)
 │   │   ├── parity-check.ts      # Post-migration parity + write smoke tests via direct Lambda invocation
 │   │   ├── migrate/remap.ts     # User-ID remapping helpers (unit tested)
+│   │   ├── release/version.ts   # Semantic version from conventional commits (used by GitHub Actions)
 │   │   ├── backfill-gsi2.ts     # Backfill GSI2PK/GSI2SK on fillup items
 │   │   └── backfill-is-business.ts # Backfill isBusiness=false on fillup items
 │   └── tests/                   # Vitest unit tests
@@ -463,6 +465,7 @@ The `.env` file is in `.gitignore` and should never be committed. Only the targe
 | `VITE_COGNITO_DOMAIN` | Cognito Hosted UI custom domain (e.g. `auth-staging.pawsitivemileage.app`) |
 | `VITE_SOURCE_CODE_URL` | Source code repository URL (optional; hides link if blank) |
 | `VITE_SUPPORT_EMAIL` | Support email shown on Privacy Policy and Terms of Service pages |
+| `VITE_APP_VERSION` | Release version in the footer, linked to its GitHub release. Set by `deploy.sh`: the release tag in GitHub Actions (`APP_VERSION`), else `git describe` |
 
 The Cognito values come from CDK stack outputs after deployment. The branding values (`VITE_SOURCE_CODE_URL`, `VITE_SUPPORT_EMAIL`) are passed through from the root `.env` file by `deploy.sh`. The deploy script automatically injects them during the frontend build step.
 
@@ -489,6 +492,8 @@ The Cognito values come from CDK stack outputs after deployment. The branding va
 ### GitHub Actions
 
 Pull requests run lint, all tests, the build and a CDK synth ([`ci.yml`](.github/workflows/ci.yml)). Every push to `main` deploys **staging**, then **production** once approved in the `production` GitHub environment ([`deploy.yml`](.github/workflows/deploy.yml)). Deploy jobs reach AWS through GitHub OIDC with a per-environment role; there are no AWS keys in GitHub. Setup, configuration and access details are in [docs/ci-cd.md](docs/ci-cd.md).
+
+Every merge to `main` is a release: it is tagged `vX.Y.Z` with the next [semantic version](https://semver.org) from its conventional commits (`feat` → minor, `!`/`BREAKING CHANGE` → major, anything else → patch), gets a GitHub Release, and shows that version in the app footer. PR titles must be conventional commits; a check shows the version merging will release. See [Versioning](docs/ci-cd.md#versioning).
 
 ### Deploy Script (`deploy.sh`)
 

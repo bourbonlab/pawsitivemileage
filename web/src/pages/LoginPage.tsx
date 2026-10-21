@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router';
 import { useAuth } from '../auth/AuthProvider';
+import { AppVersion } from '../components/AppVersion';
 
 export default function LoginPage() {
   const { isAuthenticated, isLoading, signIn } = useAuth();
@@ -60,6 +61,7 @@ export default function LoginPage() {
                 Source Code
               </a>
             )}
+            <AppVersion className="hover:text-foreground transition-colors" />
           </nav>
         </div>
       </footer>
