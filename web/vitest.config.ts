@@ -8,6 +8,7 @@ export default defineConfig({
     },
   },
   test: {
+    name: 'web',
     globals: true,
     environment: 'jsdom',
     include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
