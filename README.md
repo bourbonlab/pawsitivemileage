@@ -615,6 +615,11 @@ Responses follow a consistent envelope format:
 
 Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `CONFLICT` (409), `INTERNAL_ERROR` (500).
 
+**Safe retries:** `POST` creates for vehicles, fill-ups, maintenance records and shares accept an optional `Idempotency-Key` header (1–255 characters: letters, digits, `-`, `_`).
+- Retrying with the same key and body returns the original response, with `Idempotent-Replayed: true`, instead of creating a duplicate.
+- Reusing a key with a different body returns `409`, as does a retry while the first request is still running.
+- Keys are per user and expire after 24 hours.
+
 ### Meta (public)
 
 | Method | Path | Description |

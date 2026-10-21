@@ -4,6 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
+import { withIdempotency } from '../lib/idempotency.js';
 import { parseBody } from '../lib/validation.js';
 import { validate } from '../lib/contract.js';
 import { MaintenanceCreate, MaintenanceUpdate } from '@pawsitivemileage/contracts';
@@ -68,7 +69,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return await listMaintenance(vehicleId, requestId, userId);
     }
     if (method === 'POST') {
-      return await createMaintenance(event, vehicleId, ownerUserId, requestId, userId);
+      return await withIdempotency(event, userId, requestId, () => createMaintenance(event, vehicleId, ownerUserId, requestId, userId));
     }
     if (method === 'PUT' && recordId) {
       return await updateMaintenance(event, vehicleId, recordId, ownerUserId, requestId, userId);

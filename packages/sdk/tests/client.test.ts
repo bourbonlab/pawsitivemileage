@@ -78,6 +78,19 @@ describe('responses', () => {
   });
 });
 
+describe('idempotency keys', () => {
+  it('sends Idempotency-Key on create routes when given', async () => {
+    const f = mockFetch(201, { data: {}, requestId: 'r' });
+    await client(f).createFillup({ params: { vehicleId: VID }, idempotencyKey: 'retry-123', body: { date: '2026-10-20', currencySpent: 1, gallonsAdded: 1, odometerReading: 1 } });
+    expect((f.mock.calls[0][1]?.headers as Record<string, string>)['Idempotency-Key']).toBe('retry-123');
+    const neverRun = () => {
+      // @ts-expect-error: only idempotent (create) routes accept idempotencyKey
+      void client(f).updateFillup({ params: { vehicleId: VID, fillupId: FID }, body: {}, idempotencyKey: 'x' });
+    };
+    expect(neverRun).toBeTypeOf('function');
+  });
+});
+
 describe('public routes', () => {
   it('calls getMeta without a token or Authorization header', async () => {
     const meta = { apiVersion: 'v1', minimumVersions: { android: '1.0.0' }, features: {}, serverTime: '2026-10-21T12:00:00.000Z',

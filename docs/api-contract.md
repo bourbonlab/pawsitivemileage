@@ -103,6 +103,11 @@ Production is moving to the new AWS account (see [account-migration.md](account-
      - Values are in **`infra/lib/client-metadata.ts`**: code, not SSM, so a change is a one-line PR and a deploy.
      - It's marked `public` in the contract, so OpenAPI gives it `security: []` and the SDK skips the token.
    - **Safe retries:** an `Idempotency-Key` header on creates (fill-ups, maintenance, vehicles, shares).
+     - *Done on the branch:* `withIdempotency()` (`api/src/lib/idempotency.ts`) stores records in `pawsitivemileage-idempotency-{env}`. Records are per user and expire after 24 hours.
+     - A conditional "pending" put stops concurrent duplicates.
+     - A retry gets the stored response, with `Idempotent-Replayed: true`. A different body gets `409`, as does a request that's still in flight.
+     - A 5xx clears the record, so the client can retry.
+     - The SDK takes `idempotencyKey` on these four operations only.
    - **Conflict detection:** `updatedAt`-based `If-Match` on updates, returning `409 CONFLICT` when stale.
    - **Pagination:** one cursor format for every list (`?limit&cursor` returning `nextCursor`), staying backward compatible: no `limit` means today's full list.
 

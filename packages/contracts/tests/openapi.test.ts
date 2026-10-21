@@ -31,6 +31,16 @@ describe('openapi.json', () => {
     expect(Object.keys(byId.getProfile.responses)).toEqual(expect.arrayContaining(['200', '201']));
   });
 
+  it('documents Idempotency-Key and its 409 on create routes only', () => {
+    type Op = { parameters: Array<{ name: string; in: string }>; responses: Record<string, unknown> };
+    for (const id of ['createFillup', 'createMaintenance', 'createVehicle', 'shareVehicle']) {
+      const op = byId[id] as unknown as Op;
+      expect(op.parameters.some((p) => p.name === 'Idempotency-Key' && p.in === 'header'), id).toBe(true);
+      expect(op.responses['409'], id).toBeDefined();
+    }
+    expect((byId.updateFillup as unknown as Op).parameters.some((p) => p.name === 'Idempotency-Key')).toBe(false);
+  });
+
   it('marks the public route as needing no security', () => {
     expect((byId.getMeta as unknown as { security?: unknown[] }).security).toEqual([]);
     expect((byId.listVehicles as unknown as { security?: unknown[] }).security).toBeUndefined();

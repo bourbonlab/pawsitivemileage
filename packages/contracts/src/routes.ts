@@ -44,6 +44,8 @@ export interface RouteDefinition {
   admin?: boolean;
   /** No token required */
   public?: true;
+  /** Accepts an Idempotency-Key header: a retry returns the original response (#24) */
+  idempotent?: true;
 }
 
 const defineRoute = <const R extends RouteDefinition>(route: R): R => route;
@@ -82,7 +84,7 @@ export const routes = {
     summary: "The caller's own vehicles (shared vehicles: listSharedVehicles)",
   }),
   createVehicle: defineRoute({
-    method: 'POST', path: '/v1/vehicles', tag: 'Vehicles', status: 201, body: VehicleCreate, response: Vehicle,
+    method: 'POST', path: '/v1/vehicles', tag: 'Vehicles', status: 201, body: VehicleCreate, response: Vehicle, idempotent: true,
     summary: 'Add a vehicle',
   }),
   getVehicle: defineRoute({
@@ -104,7 +106,7 @@ export const routes = {
     response: z.array(Fillup), summary: 'All fill-ups for a vehicle',
   }),
   createFillup: defineRoute({
-    method: 'POST', path: '/v1/vehicles/{vehicleId}/fillups', tag: 'Fill-ups', status: 201, params: VehicleParams,
+    method: 'POST', path: '/v1/vehicles/{vehicleId}/fillups', tag: 'Fill-ups', status: 201, params: VehicleParams, idempotent: true,
     body: FillupCreate, response: Fillup, summary: 'Add a fill-up; derived metrics are recalculated for the vehicle',
   }),
   getFillup: defineRoute({
@@ -126,7 +128,7 @@ export const routes = {
     response: z.array(MaintenanceRecord), summary: 'All maintenance records for a vehicle',
   }),
   createMaintenance: defineRoute({
-    method: 'POST', path: '/v1/vehicles/{vehicleId}/maintenance', tag: 'Maintenance', status: 201, params: VehicleParams,
+    method: 'POST', path: '/v1/vehicles/{vehicleId}/maintenance', tag: 'Maintenance', status: 201, params: VehicleParams, idempotent: true,
     body: MaintenanceCreate, response: MaintenanceRecord, summary: 'Add a maintenance record',
   }),
   updateMaintenance: defineRoute({
@@ -199,7 +201,7 @@ export const routes = {
     response: z.array(Share), summary: 'Who a vehicle is shared with (owner only)',
   }),
   shareVehicle: defineRoute({
-    method: 'POST', path: '/v1/vehicles/{vehicleId}/sharing', tag: 'Sharing', status: 201, alsoReturns: [200],
+    method: 'POST', path: '/v1/vehicles/{vehicleId}/sharing', tag: 'Sharing', status: 201, alsoReturns: [200], idempotent: true,
     params: VehicleParams, body: ShareCreate, response: Share,
     summary: 'Share by email (201), or change the permission of an existing share (200)',
   }),

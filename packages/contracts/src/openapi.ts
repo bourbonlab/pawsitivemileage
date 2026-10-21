@@ -58,6 +58,14 @@ function parameters(schema: z.ZodObject | undefined, location: 'path' | 'query')
   });
 }
 
+const IDEMPOTENCY_HEADER = {
+  name: 'Idempotency-Key',
+  in: 'header',
+  required: false,
+  description: 'Client-generated key (e.g. a UUID). A retry with the same key and request returns the original response with `Idempotent-Replayed: true` instead of creating again; keys expire after 24 hours.',
+  schema: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,255}$' },
+};
+
 const ERROR_RESPONSES = {
   400: 'VALIDATION_ERROR: invalid or missing input',
   401: 'UNAUTHORIZED: missing or invalid token',
@@ -99,9 +107,13 @@ export function buildOpenApiDocument() {
       tags: [route.tag],
       ...(route.public ? { security: [] } : {}),
       ...(route.admin ? { description: 'Admin only: requires isAdmin on the caller\'s profile.', 'x-admin': true } : {}),
-      parameters: [...parameters(route.params, 'path'), ...parameters(route.query, 'query')],
+      parameters: [...parameters(route.params, 'path'), ...parameters(route.query, 'query'), ...(route.idempotent ? [IDEMPOTENCY_HEADER] : [])],
       ...(bodyRef ? { requestBody: { required: !route.bodyOptional, content: { 'application/json': { schema: ref(bodyRef) } } } } : {}),
-      responses: { ...success, ...errors },
+      responses: {
+        ...success,
+        ...errors,
+        ...(route.idempotent ? { 409: { $ref: '#/components/responses/ErrorIdempotency' } } : {}),
+      },
     };
   }
 
@@ -138,10 +150,16 @@ export function buildOpenApiDocument() {
           description: 'Cognito ID token from the PawsitiveMileage user pool (access tokens from #22).',
         },
       },
-      responses: Object.fromEntries(Object.entries(ERROR_RESPONSES).map(([status, description]) => [`Error${status}`, {
-        description,
-        content: { 'application/json': { schema: ref('ErrorResponse') } },
-      }])),
+      responses: {
+        ...Object.fromEntries(Object.entries(ERROR_RESPONSES).map(([status, description]) => [`Error${status}`, {
+          description,
+          content: { 'application/json': { schema: ref('ErrorResponse') } },
+        }])),
+        ErrorIdempotency: {
+          description: 'CONFLICT: the Idempotency-Key was used for a different request, or that request is still in progress',
+          content: { 'application/json': { schema: ref('ErrorResponse') } },
+        },
+      },
       schemas,
     },
   };

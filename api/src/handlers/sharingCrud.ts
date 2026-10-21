@@ -5,6 +5,7 @@ import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { getUserEmail } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
+import { withIdempotency } from '../lib/idempotency.js';
 import { parseBody } from '../lib/validation.js';
 import { validate } from '../lib/contract.js';
 import { ShareCreate } from '@pawsitivemileage/contracts';
@@ -35,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     // POST /v1/vehicles/{vehicleId}/sharing — create or update a share
     if (method === 'POST' && vehicleId && path.endsWith('/sharing')) {
-      return await createOrUpdateShare(event, userId, vehicleId, requestId);
+      return await withIdempotency(event, userId, requestId, () => createOrUpdateShare(event, userId, vehicleId, requestId));
     }
 
     // GET /v1/vehicles/{vehicleId}/sharing — list shares for a vehicle (owner only)

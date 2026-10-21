@@ -46,6 +46,7 @@ export type OperationArgs<R extends RouteDefinition> =
   & (R extends { body: z.ZodType }
     ? R extends { bodyOptional: true } ? { body?: Input<R['body']> } : { body: Input<R['body']> }
     : { body?: never })
+  & (R extends { idempotent: true } ? { /** Sent as Idempotency-Key; reuse it when retrying the same create */ idempotencyKey?: string } : { idempotencyKey?: never })
   & { signal?: AbortSignal; headers?: Record<string, string> };
 
 /** The `data` an operation resolves to */
@@ -79,6 +80,7 @@ interface RequestArgs {
   params?: Record<string, unknown>;
   query?: Record<string, unknown>;
   body?: unknown;
+  idempotencyKey?: string;
   signal?: AbortSignal;
   headers?: Record<string, string>;
 }
@@ -104,6 +106,7 @@ export function createClient(options: ClientOptions): Client {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(args.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+          ...(args.idempotencyKey ? { 'Idempotency-Key': args.idempotencyKey } : {}),
           ...options.headers,
           ...args.headers,
         },

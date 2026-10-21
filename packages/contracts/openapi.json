@@ -685,7 +685,18 @@
         "tags": [
           "Vehicles"
         ],
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Client-generated key (e.g. a UUID). A retry with the same key and request returns the original response with `Idempotent-Replayed: true` instead of creating again; keys expire after 24 hours.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,255}$"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -718,6 +729,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorIdempotency"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -1268,6 +1282,16 @@
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Client-generated key (e.g. a UUID). A retry with the same key and request returns the original response with `Idempotent-Replayed: true` instead of creating again; keys expire after 24 hours.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,255}$"
+            }
           }
         ],
         "requestBody": {
@@ -1302,6 +1326,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorIdempotency"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -1622,6 +1649,16 @@
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Client-generated key (e.g. a UUID). A retry with the same key and request returns the original response with `Idempotent-Replayed: true` instead of creating again; keys expire after 24 hours.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,255}$"
+            }
           }
         ],
         "requestBody": {
@@ -1656,6 +1693,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorIdempotency"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -1994,6 +2034,16 @@
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
             }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "description": "Client-generated key (e.g. a UUID). A retry with the same key and request returns the original response with `Idempotent-Replayed: true` instead of creating again; keys expire after 24 hours.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{1,255}$"
+            }
           }
         ],
         "requestBody": {
@@ -2038,6 +2088,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorIdempotency"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -2251,6 +2304,16 @@
       },
       "Error500": {
         "description": "INTERNAL_ERROR",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "ErrorIdempotency": {
+        "description": "CONFLICT: the Idempotency-Key was used for a different request, or that request is still in progress",
         "content": {
           "application/json": {
             "schema": {

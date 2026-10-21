@@ -35,6 +35,7 @@ export class ApiStack extends cdk.Stack {
       MAINTENANCE_TABLE: databaseStack.maintenanceTable.tableName,
       SCHEMAS_TABLE: databaseStack.schemasTable.tableName,
       SHARING_TABLE: databaseStack.sharingTable.tableName,
+      IDEMPOTENCY_TABLE: databaseStack.idempotencyTable.tableName,
       PHOTOS_BUCKET: storageStack.photosBucket.bucketName,
       EXPORTS_BUCKET: storageStack.exportsBucket.bucketName,
       FRONTEND_DOMAIN: config.frontendDomain,
@@ -155,6 +156,11 @@ export class ApiStack extends cdk.Stack {
     databaseStack.sharingTable.grantReadWriteData(this.lambdaFunctions['sharingCrud'].function);
     databaseStack.usersTable.grantReadData(this.lambdaFunctions['sharingCrud'].function);
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['sharingCrud'].function);
+
+    // Creates that accept an Idempotency-Key read/write the idempotency table (#24)
+    for (const fn of ['fillupCrud', 'maintenanceCrud', 'vehicleCrud', 'sharingCrud']) {
+      databaseStack.idempotencyTable.grantReadWriteData(this.lambdaFunctions[fn].function);
+    }
 
     // fillupCrud and maintenanceCrud need Sharing table read for shared access checks
     databaseStack.sharingTable.grantReadData(this.lambdaFunctions['fillupCrud'].function);

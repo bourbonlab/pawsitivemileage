@@ -14,6 +14,7 @@ export class DatabaseStack extends cdk.Stack {
   public readonly maintenanceTable: dynamodb.TableV2;
   public readonly schemasTable: dynamodb.TableV2;
   public readonly sharingTable: dynamodb.TableV2;
+  public readonly idempotencyTable: dynamodb.TableV2;
 
   constructor(scope: Construct, id: string, props: DatabaseStackProps) {
     super(scope, id, props);
@@ -135,6 +136,17 @@ export class DatabaseStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'FillupsTableName', { value: this.fillupsTable.tableName });
     new cdk.CfnOutput(this, 'MaintenanceTableName', { value: this.maintenanceTable.tableName });
     new cdk.CfnOutput(this, 'SchemasTableName', { value: this.schemasTable.tableName });
+    // Idempotency records for create requests (#24): PK = "{userId}#{Idempotency-Key}", expiring
+    // after 24 hours via TTL. A short-lived cache, so no PITR and destroyed with the stack, even in prod.
+    this.idempotencyTable = new dynamodb.TableV2(this, 'IdempotencyTable', {
+      tableName: `pawsitivemileage-idempotency-${config.envName}`,
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billing: dynamodb.Billing.onDemand(),
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     new cdk.CfnOutput(this, 'SharingTableName', { value: this.sharingTable.tableName });
+    new cdk.CfnOutput(this, 'IdempotencyTableName', { value: this.idempotencyTable.tableName });
   }
 }

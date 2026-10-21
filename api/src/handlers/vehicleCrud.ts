@@ -5,6 +5,7 @@ import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
+import { withIdempotency } from '../lib/idempotency.js';
 import { parseBody } from '../lib/validation.js';
 import { validate } from '../lib/contract.js';
 import { VehicleArchive, VehicleCreate, VehicleUpdate } from '@pawsitivemileage/contracts';
@@ -35,7 +36,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     // POST /v1/vehicles — create vehicle
     if (method === 'POST' && !vehicleId) {
-      return await createVehicle(event, userId, requestId);
+      return await withIdempotency(event, userId, requestId, () => createVehicle(event, userId, requestId));
     }
 
     // GET /v1/vehicles/{vehicleId} — get vehicle detail
