@@ -26,7 +26,7 @@ export function useToggleAdmin() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) =>
-      apiClient<User>(`/v1/admin/users/${userId}`, {
+      apiClient<User>(`/v1/admin/users/${userId}/admin`, {
         method: 'PATCH',
         body: JSON.stringify({ isAdmin }),
       }),
