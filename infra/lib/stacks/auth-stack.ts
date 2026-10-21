@@ -33,6 +33,9 @@ export class AuthStack extends cdk.Stack {
       removalPolicy: config.envName === 'production'
         ? cdk.RemovalPolicy.RETAIN
         : cdk.RemovalPolicy.DESTROY,
+      // RETAIN only covers stack deletion; this also blocks deleting the pool directly
+      // (console/API), which would remove every user. Non-prod pools stay disposable.
+      deletionProtection: config.envName === 'production',
     });
 
     // Google identity provider — client ID from context, secret from Secrets Manager
