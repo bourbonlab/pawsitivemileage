@@ -280,6 +280,7 @@ pawsitivemileage/
 │   │   ├── migrate-account.ts   # Re-runnable account migration (users, tables, photos, verify, freeze, lock)
 │   │   ├── parity-check.ts      # Post-migration parity + write smoke tests via direct Lambda invocation
 │   │   ├── contract-check.ts    # Live check: every read endpoint's response vs packages/contracts
+│   │   ├── relocate-files.ts    # Move files stored under a non-owner's ID to the vehicle owner (#2)
 │   │   ├── migrate/remap.ts     # User-ID remapping helpers (unit tested)
 │   │   ├── release/version.ts   # Semantic version from conventional commits (used by GitHub Actions)
 │   │   ├── backfill-gsi2.ts     # Backfill GSI2PK/GSI2SK on fillup items
@@ -987,6 +988,7 @@ pm logout
 | `cli/src/migrate-account.ts` (`npm run migrate -w cli -- …`) | Account migration, cutover and lock | [docs/account-migration.md](docs/account-migration.md) |
 | `cli/src/parity-check.ts` | Post-migration parity and write smoke tests | [docs/account-migration.md](docs/account-migration.md) |
 | `cli/src/release/version.ts` | Next semantic version from conventional commits (used by GitHub Actions) | [docs/ci-cd.md#versioning](docs/ci-cd.md#versioning) |
+| `cli/src/relocate-files.ts` | Find photo-bucket files stored under someone other than the vehicle owner (scan by default); `--fix` copies each under the owner, repoints the record and deletes the old object. Re-runnable. Ran on production 2026-10-21 (2 receipts). `--env staging\|production`, `--fix --yes` | — |
 | `cli/src/backfill-gsi2.ts` | Backfill GSI2 attributes on fillups | below |
 | `cli/src/backfill-is-business.ts` | Backfill `isBusiness=false` on fillups (same `FILLUPS_TABLE` / `DRY_RUN` usage as below) | — |
 
