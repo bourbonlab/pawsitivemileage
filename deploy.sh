@@ -208,6 +208,8 @@ if [[ "$CLEAR_CACHE" == true ]]; then
         info "Response: ${CF_RESPONSE}"
       fi
     fi
+  elif [[ -n "${CLOUDFLARE_ZONE_ID:-}" ]]; then
+    warn "CLOUDFLARE_API_TOKEN is empty — skipping CloudFlare cache purge"
   fi
 
   echo ""
@@ -463,6 +465,8 @@ if [[ -n "${CLOUDFLARE_ZONE_ID:-}" && -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
       info "Response: ${CF_RESPONSE}"
     fi
   fi
+elif [[ -n "${CLOUDFLARE_ZONE_ID:-}" ]]; then
+  warn "CLOUDFLARE_API_TOKEN is empty — skipping CloudFlare cache purge"
 fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────
