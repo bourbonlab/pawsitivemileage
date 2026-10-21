@@ -84,17 +84,19 @@ Staging is a single-user rehearsal environment, so it has no formal cutover: no 
 
 ## Phase 3 — Final cutover (outage, about 30 minutes)
 
-### Pre-cutover checklist
-Last full preflight: 2026-10-21.
+> **Done: production was cut over and locked on 2026-10-21** (log below). The new account is the source of truth. What's left is [Teardown](#teardown-about-30-days-after-cutover), not before 2026-11-20.
 
-- [ ] **Lambda concurrency quota is at least 1000 in us-east-1** (`aws lambda get-account-settings --region us-east-1`). The quota is per region; on 2026-10-21 it was 1000 in us-east-2 but still 10 in us-east-1.
+### Pre-cutover checklist
+Last full preflight: 2026-10-21, just before the cutover.
+
+- [x] **Lambda concurrency quota is at least 1000 in us-east-1** (`aws lambda get-account-settings --region us-east-1`). The quota is per region; it reached 1000 in us-east-1 on 2026-10-21.
 - [x] Google sign-in on https://pawsitivemileage.app lands on the migrated garage (confirmed 2026-10-21).
 - [x] `migrate --env production --dry-run` shows no unexpected deletes, and `verify` passes.
 - [x] `parity-check --env production --skip-writes` passes, while the old Lambdas are still live.
 - [x] The cutover redirect rule exists, **disabled**, on bourbonlab.net (*"PawsitiveMileage cutover: old frontend → pawsitivemileage.app"*).
 - [x] `www.pawsitivemileage.app` returns 301 to the apex: an always-on Single Redirect on the pawsitivemileage.app zone, with an `AAAA 100::` proxied placeholder record.
-- [ ] Production user pool deletion protection is `ACTIVE`. This becomes true once the PR enabling it deploys to production; check with `aws cognito-idp describe-user-pool … --query UserPool.DeletionProtection`.
-- [ ] **No merges to `main` during the window.** Every push to `main` deploys staging, then production (behind GitHub approval). Code deploys don't touch data, but don't approve one mid-cutover.
+- [x] Production user pool deletion protection is `ACTIVE`. This becomes true once the PR enabling it deploys to production; check with `aws cognito-idp describe-user-pool … --query UserPool.DeletionProtection`.
+- [x] **No merges to `main` during the window.** Every push to `main` deploys staging, then production (behind GitHub approval). Code deploys don't touch data, but don't approve one mid-cutover.
 
 Tell users ahead of time. On the day:
 
@@ -102,7 +104,7 @@ Tell users ahead of time. On the day:
 |---|------|------------------|
 | 1 | Freeze the old app. Its API now fails every call. | `freeze --env production --yes` |
 | 2 | Final migration | `migrate --env production --final --yes` → **Verify passed**. It compares every item, photo and user link. `parity-check` can't run now, because it needs the old Lambdas. |
-| 3 | Smoke test on https://pawsitivemileage.app | sign-in, data spot-checks, one write |
+| 3 | Smoke test on https://pawsitivemileage.app | sign-in, data spot-checks, one write. **Delete the write again before step 6**: `complete` re-runs verify, and any extra item makes it refuse to lock. |
 | 4 | Redirect the old site | **Enable** the pre-created rule. In CloudFlare, go to bourbonlab.net → Rules → Redirect Rules → *"PawsitiveMileage cutover: old frontend → pawsitivemileage.app"*. It matches `http.host eq "pawsitivemileage.bourbonlab.net"` and sends a 301 to `concat("https://pawsitivemileage.app", http.request.uri.path)`, keeping the query string. It answers at CloudFlare's edge and never reaches the old AWS resources. Check it with `curl -I https://pawsitivemileage.bourbonlab.net/garage`, which should return a 301 to `https://pawsitivemileage.app/garage`. |
 | 5 | **Go / no-go** | |
 | 6 | Lock the target | `complete --env production --yes` |
@@ -110,6 +112,20 @@ Tell users ahead of time. On the day:
 **Rollback before step 6:** disable the redirect rule again, then `unfreeze --env production --yes`. The old app is back exactly as it was. Writes made on the new app since step 2 are lost, so keep the no-go window short.
 
 **After step 6:** there is no automated rollback. The new account is the source of truth.
+
+### Cutover log — 2026-10-21 (UTC)
+
+| Time | Step |
+|------|------|
+| before 20:55 | Preflight. Checklist green; fresh rehearsal (`migrate --yes`) verified; `parity-check --skip-writes` passed. Dry run: no deletes, 5/5 users linked. |
+| 20:55:08 | 1. `freeze`: 12 old functions at reserved concurrency 0. |
+| 20:55:22 | 2. `migrate --final`: 5 users, 6 vehicles, 172 fill-ups, 29 maintenance, 1 schema, 2 shares, 12 photos. **Verify passed.** |
+| 20:56 | 3. Smoke test: every user's profile, vehicles, fill-ups, maintenance, reminders and analytics by direct invoke (counts match), site, photos and API auth over HTTP, then a browser sign-in, spot-checks and one write. |
+| 20:58 | 4. Redirect rule enabled; `/garage`, deep links and query strings return 301 to pawsitivemileage.app. |
+| 20:58 | 5. Go. |
+| 20:58:57 | 6. Lock set. `complete` refused because the step-3 test record counted as an extra item (0 missing, 0 different), so the lock parameter was written directly with the same value and description. The test record was then deleted, and `verify` passed with the lock reported. |
+
+The outage lasted about 4 minutes, from freeze to redirect.
 
 The old API host (`pawsitivemileageapi.bourbonlab.net`) stays frozen and is not redirected. Its tokens are from the old user pool and wouldn't work against the new API anyway. Stale browser tabs fail, reload, and follow the 301.
 
@@ -125,7 +141,7 @@ The old stacks were deployed from the pre-migration config, and `main` now targe
 - **Anything not prefixed `pawsitivemileage` / `PawsitiveMileage`.** The legacy account is the Organization management account and hosts other workloads.
 
 ### 1. Preconditions
-- Production cutover was locked with `complete` at least 30 days ago. `verify` is no longer meaningful, because the new account has moved on.
+- Production cutover was locked at least 30 days ago (locked 2026-10-21, so **not before 2026-11-20**). `verify` is no longer meaningful, because the new account has moved on.
 - The old API is idle apart from the frozen-call errors: API Gateway `Count` for `pawsitivemileage-production-api` is near zero.
 
 ### 2. Archive the old production data (optional, cheap)
