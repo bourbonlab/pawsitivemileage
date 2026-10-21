@@ -61,7 +61,11 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - Response schemas for analytics, year-over-year, exports, the report, imports and admin, matching what the API returns, including the drift above.
    - A route table covering all 39 routes.
    - Unit tests that pin the request rules to the handlers' current behavior.
-2. **`openapi.json`:** generated from the route table and committed. CI regenerates it and fails on any difference, so the Kotlin client always matches.
+2. **`openapi.json`** (`packages/contracts/openapi.json`, OpenAPI 3.1): generated from the route table and committed.
+   - Regenerate it with `npm run openapi -w @pawsitivemileage/contracts`.
+   - A unit test fails if the committed copy is stale, and CI runs it on every PR, so the Kotlin client always matches.
+   - Every entity and request becomes a named component, so the generated Kotlin classes get readable names; each route also gets a `<OperationId>Response` envelope.
+   - It passes Redocly's recommended lint rules with no warnings.
 3. **Live conformance check** (`cli/src/contract-check.ts`): calls every read endpoint in an environment as a real user and validates each response against the contract. It's read-only and runs in rehearsals and after deploys.
 4. **`packages/sdk`** (`@pawsitivemileage/sdk`): `createClient({ baseUrl, getToken, fetch? })`, with one typed method per operation. It unwraps the envelope, turns errors into a typed `ApiError`, and optionally validates responses. It's tested against a mocked `fetch`; no app uses it yet.
 
