@@ -516,6 +516,7 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 # Options
 ./deploy.sh --skip-tests # Skip running test suites
 ./deploy.sh --verbose    # Show detailed command output
+./deploy.sh --stage --clear-cache  # Only purge CloudFront + CloudFlare caches (no build or deploy)
 ```
 
 **Pipeline steps:**
@@ -578,7 +579,7 @@ npx cdk deploy --all \
 
 > **CloudFlare note:** ACM certificate DNS validation requires either temporarily disabling the proxy or using CNAME validation records that work through the proxy.
 
-> **CloudFlare caching note:** CloudFlare's proxy adds its own caching layer on top of CloudFront. After deploying changes that affect CloudFront behaviors or error responses, you may need to purge the CloudFlare cache as well (Caching → Configuration → Purge Cache in the CloudFlare dashboard). CloudFront cache invalidations alone won't clear stale responses cached by CloudFlare.
+> **CloudFlare caching note:** CloudFlare's proxy adds its own caching layer on top of CloudFront. `deploy.sh` purges both caches only when frontend files change ([What a deploy changes](docs/ci-cd.md#what-a-deploy-changes)). A change to CloudFront itself, such as its behaviors, error responses or response headers, changes no files, so nothing is purged: run `./deploy.sh --stage --clear-cache` (or `--prod --yes --clear-cache`) after deploying it. This needs `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_API_TOKEN` in `.env`.
 
 ### Google OAuth Setup
 
