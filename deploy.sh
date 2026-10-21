@@ -486,30 +486,41 @@ else
   info "${#CHANGED_KEYS[@]} new or changed, ${#REMOVED_KEYS[@]} removed"
 
   # index.html goes last and removals after it, so a viewer never gets an index.html that points
-  # at assets that aren't there yet, or that are already gone.
-  for key in "${CHANGED_KEYS[@]}"; do
-    if [[ "$key" != index.html ]]; then
-      aws s3 cp "web/dist/${key}" "s3://${FRONTEND_BUCKET}/${key}" --only-show-errors || fail "Upload of ${key} failed"
-    fi
-  done
+  # at assets that aren't there yet, or that are already gone. Each step is one `aws s3 sync`
+  # (parallel transfers) limited to the keys that differ.
+  UPLOAD_FILTER=()
+  INDEX_CHANGED=false
   for key in "${CHANGED_KEYS[@]}"; do
     if [[ "$key" == index.html ]]; then
-      aws s3 cp web/dist/index.html "s3://${FRONTEND_BUCKET}/index.html" --only-show-errors || fail "Upload of index.html failed"
+      INDEX_CHANGED=true
+    else
+      UPLOAD_FILTER+=(--include "$key")
     fi
   done
-  for key in "${REMOVED_KEYS[@]}"; do
-    aws s3 rm "s3://${FRONTEND_BUCKET}/${key}" --only-show-errors || fail "Removal of ${key} failed"
-  done
+  if [[ ${#UPLOAD_FILTER[@]} -gt 0 ]]; then
+    # cp, not sync: sync skips a same-size file whose S3 copy looks newer (e.g. version.json)
+    aws s3 cp web/dist/ "s3://${FRONTEND_BUCKET}" --recursive --exclude '*' "${UPLOAD_FILTER[@]}" --only-show-errors \
+      || fail "S3 upload failed"
+  fi
+  if [[ "$INDEX_CHANGED" == true ]]; then
+    aws s3 cp web/dist/index.html "s3://${FRONTEND_BUCKET}/index.html" --only-show-errors \
+      || fail "Upload of index.html failed"
+  fi
+  if [[ ${#REMOVED_KEYS[@]} -gt 0 ]]; then
+    REMOVE_FILTER=()
+    for key in "${REMOVED_KEYS[@]}"; do
+      REMOVE_FILTER+=(--include "$key")
+    done
+    aws s3 sync web/dist/ "s3://${FRONTEND_BUCKET}" --delete --exclude '*' "${REMOVE_FILTER[@]}" --only-show-errors \
+      || fail "S3 removal failed"
+  fi
   ok "Frontend synced to s3://${FRONTEND_BUCKET}"
 
   # Files under assets/ have content-hashed names: changed content is a new URL, so no cached copy
   # is stale. Only the fixed-name files need purging (index.html, version.json, public/ files).
   PURGE_KEYS=()
-  INDEX_CHANGED=false
   for key in "${CHANGED_KEYS[@]}" "${REMOVED_KEYS[@]}"; do
-    if [[ "$key" == index.html ]]; then
-      INDEX_CHANGED=true
-    elif [[ "$key" != assets/* ]]; then
+    if [[ "$key" != index.html && "$key" != assets/* ]]; then
       PURGE_KEYS+=("$key")
     fi
   done
