@@ -73,8 +73,11 @@ async function invoke(side: SideName, user: { sub: string; email: string }, call
 
 /** Drop per-request and time-varying fields before comparing */
 const VOLATILE = new Set(['requestId', 'downloadUrl', 'url', 'expiresIn', 'generatedAt']);
-/** DynamoDB storage keys: not API data, and no longer returned since #20, so ignored on both sides */
-const STORAGE_KEY = /^(GSI\d+(PK|SK)|fillupDateId|serviceDateId|vehicleEmailKey)$/;
+/**
+ * Ignored on both sides: DynamoDB storage keys (no longer returned since #20) and media URLs
+ * (added in #21; derived from photoKey/receiptPhotoKey, which are still compared).
+ */
+const STORAGE_KEY = /^(GSI\d+(PK|SK)|fillupDateId|serviceDateId|vehicleEmailKey|photoUrl|receiptPhotoUrl)$/;
 function strip(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(strip);
   if (value && typeof value === 'object') {
