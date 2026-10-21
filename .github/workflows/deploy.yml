@@ -27,6 +27,8 @@ jobs:
     uses: ./.github/workflows/deploy-environment.yml
     with:
       environment: staging
+    # Needed for the called job to see the environment's secrets (CLOUDFLARE_API_TOKEN)
+    secrets: inherit
     permissions:
       contents: read
       id-token: write
@@ -41,6 +43,7 @@ jobs:
     uses: ./.github/workflows/deploy-environment.yml
     with:
       environment: production
+    secrets: inherit
     permissions:
       contents: read
       id-token: write
