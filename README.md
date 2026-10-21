@@ -143,7 +143,7 @@ All infrastructure is serverless — zero cost when idle, scales automatically. 
 ## Project Structure
 
 ```
-pawsitive-mileage/
+pawsitivemileage/
 ├── web/                    # React frontend (Vite + TypeScript)
 │   ├── src/
 │   │   ├── api/            # API client functions (typed fetch wrappers)
@@ -204,7 +204,8 @@ pawsitive-mileage/
 │   │   ├── router.tsx      # React Router v7 route definitions
 │   │   ├── main.tsx        # Entry point (configureAmplify → render)
 │   │   └── app.css         # Global styles (Tailwind CSS v4)
-│   └── public/             # Static assets (logo)
+│   ├── public/             # Static assets (logo)
+│   └── tests/              # Vitest unit + component tests
 │
 ├── api/                    # Lambda handlers (Node.js 24.x + esbuild)
 │   ├── src/
@@ -242,13 +243,10 @@ pawsitive-mileage/
 │   │       ├── sharing.ts  # ShareRecord, SharePermission, SharedVehicle
 │   │       ├── schema.ts   # MaintenanceSchema interface
 │   │       └── config.ts   # EnvironmentConfig interface
-│   └── tests/              # API tests
-│       └── unit/
-│           ├── metrics.test.ts      # Derived metric calculation tests
-│           ├── reminders.test.ts    # Reminder calculation tests
-│           └── userProfile.test.ts  # User profile handler tests
+│   └── tests/unit/         # API unit + property-based tests (see Testing)
 │
 ├── infra/                  # AWS CDK infrastructure-as-code
+│   ├── test/               # Stack synthesis + GitHub access tests
 │   ├── bin/app.ts          # CDK app entry point (stack wiring + dependency ordering)
 │   ├── bin/github-access.ts # Separate CDK app: GitHub OIDC provider + deploy roles (deployed by hand)
 │   └── lib/
@@ -291,7 +289,11 @@ pawsitive-mileage/
 │
 ├── deploy.sh               # Full CI/CD pipeline script (run locally and by GitHub Actions)
 ├── setup-github.sh         # Copy .env config into the GitHub staging/production environments
+├── unit-test.sh            # Run the API + frontend test suites
+├── package.json            # npm workspaces root (build/test/lint/audit scripts)
+├── .nvmrc                  # Node.js version (24), used by GitHub Actions
 ├── Project.md              # Complete project charter and specification
+├── Roadmap.md              # Planned features
 ├── StartingPrompt          # Original project prompt
 ├── tsconfig.base.json      # Shared TypeScript config (ES2022, strict, bundler resolution)
 ├── .env.example            # Environment variable template
@@ -348,13 +350,11 @@ pawsitive-mileage/
 ### 1. Clone and install
 
 ```bash
-git clone <repository-url>
-cd pawsitive-mileage
+git clone https://github.com/bourbonlab/pawsitivemileage.git
+cd pawsitivemileage
 
-# Install all workspaces
-cd api && npm install && cd ..
-cd web && npm install && cd ..
-cd infra && npm install && cd ..
+# Install all workspaces (api, web, cli, infra) from the root lockfile
+npm ci
 ```
 
 ### 2. Configure environment
@@ -422,7 +422,7 @@ cd web && npm run dev
 # → http://localhost:5173
 ```
 
-API calls go to the deployed test environment. The Cognito app client includes `http://localhost:5173` in its callback URLs for non-production environments.
+API calls go to the deployed staging environment. The Cognito app client includes `http://localhost:5173` in its callback URLs for non-production environments.
 
 ### 6. Build and test API locally
 
@@ -491,9 +491,17 @@ The Cognito values come from CDK stack outputs after deployment. The branding va
 
 ### GitHub Actions
 
-Pull requests run lint, all tests, the build and a CDK synth ([`ci.yml`](.github/workflows/ci.yml)). Every push to `main` deploys **staging**, then **production** once approved in the `production` GitHub environment ([`deploy.yml`](.github/workflows/deploy.yml)). Deploy jobs reach AWS through GitHub OIDC with a per-environment role; there are no AWS keys in GitHub. Setup, configuration and access details are in [docs/ci-cd.md](docs/ci-cd.md).
+Pull requests run lint, all tests, the build and a CDK synth ([`ci.yml`](.github/workflows/ci.yml)), plus a PR title check ([`pr-title.yml`](.github/workflows/pr-title.yml)). Every push to `main` deploys **staging**, then **production** once approved in the `production` GitHub environment ([`deploy.yml`](.github/workflows/deploy.yml)). Deploy jobs reach AWS through GitHub OIDC with a per-environment role; there are no AWS keys in GitHub. Setup, configuration and access details are in [docs/ci-cd.md](docs/ci-cd.md).
 
 Every merge to `main` is a release: it is tagged `vX.Y.Z` with the next [semantic version](https://semver.org) from its conventional commits (`feat` → minor, `!`/`BREAKING CHANGE` → major, anything else → patch), gets a GitHub Release, and shows that version in the app footer. PR titles must be conventional commits; a check shows the version merging will release. See [Versioning](docs/ci-cd.md#versioning).
+
+**Workflow:** branch from `main` (`feat/`, `fix/`, `refactor/`, `chore/`, `docs/`), open a PR, and merge it once CI is green. The merge deploys staging automatically; check the change there, and fix any issue in a follow-up PR. Production deploys only after a reviewer approves the run in the `production` environment.
+
+```bash
+git push -u origin fix/short-description
+gh pr create --title "fix: short description" --base main
+gh pr merge <number> --merge --delete-branch
+```
 
 ### Deploy Script (`deploy.sh`)
 
@@ -514,7 +522,7 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 1. Prerequisite checks (Node.js 24+, npm, AWS CLI, CDK)
 2. AWS credential verification (`sts get-caller-identity`) — aborts if the account doesn't match `AWS_ACCOUNT_ID_<ENV>`
 3. Load and validate `.env` (all required variables present, no placeholders). In GitHub Actions (`CI=true`) there is no `.env`: the same variables come from the GitHub environment, unsuffixed
-4. `npm install` in api/, web/, infra/ + `npm audit --audit-level=high` after each
+4. `npm ci` at the repo root (all workspaces), then `npm audit --audit-level=high`
 5. API build (esbuild → `api/dist/`)
 6. API tests (vitest, skippable with `--skip-tests`)
 7. CDK synth with environment context variables (per-environment secret ARN, domains)
@@ -907,6 +915,14 @@ All resources are tagged with:
 
 ## CLI Tools
 
+| Script | Purpose | Docs |
+|--------|---------|------|
+| `cli/src/migrate-account.ts` (`npm run migrate -w cli -- …`) | Account migration, cutover and lock | [docs/account-migration.md](docs/account-migration.md) |
+| `cli/src/parity-check.ts` | Post-migration parity and write smoke tests | [docs/account-migration.md](docs/account-migration.md) |
+| `cli/src/release/version.ts` | Next semantic version from conventional commits (used by GitHub Actions) | [docs/ci-cd.md#versioning](docs/ci-cd.md#versioning) |
+| `cli/src/backfill-gsi2.ts` | Backfill GSI2 attributes on fillups | below |
+| `cli/src/backfill-is-business.ts` | Backfill `isBusiness=false` on fillups (same `FILLUPS_TABLE` / `DRY_RUN` usage as below) | — |
+
 ### GSI2 Backfill Script (`cli/src/backfill-gsi2.ts`)
 
 Backfills `GSI2PK` and `GSI2SK` attributes on fillup items that were written before the GSI2 index was added. Required for admin stats queries that use GSI2.
@@ -931,28 +947,25 @@ The script scans the entire Fillups table, identifies items missing GSI2 attribu
 ## Testing
 
 ```bash
-# Run all tests (API + Frontend)
-./unit-test.sh
+# Run all tests (api, web, cli, infra) — what CI runs
+npm test
 
-# API tests (unit + property-based)
-cd api && npm test
+# One workspace
+npm test -w api
+npm test -w web
 
-# With coverage
+# API with coverage
 cd api && npx vitest run --coverage
 
-# Frontend tests
-cd web && npm test
-
-# Type checking (no emit)
-cd api && npm run lint
-cd web && npm run lint
-cd infra && npm run lint
-cd cli && npm run lint
+# Type checking (tsc --noEmit per workspace) — must be clean
+npm run lint --workspaces --if-present
 ```
+
+`./unit-test.sh` still runs the API and frontend suites only.
 
 ### Test Stack
 
-- **Vitest 4.x** as the test runner across all packages
+- **Vitest 5.x** as the test runner across all packages
 - **fast-check 4.x** for property-based testing (API metrics, reminders)
 - **@testing-library/react** + **jsdom** for frontend component tests
 - **v8** coverage provider
@@ -968,6 +981,11 @@ cd cli && npm run lint
 | `api/tests/unit/csv-parser.test.ts` | Fuelly CSV import parsing (fuelups + maintenance) |
 | `api/tests/unit/s3.test.ts` | S3 key construction |
 | `api/tests/unit/authSharing.test.ts` | Sharing authorization logic |
+| `web/tests/unit/*.test.ts(x)` | API client, admin API paths, metric formatting, photo URLs, sharing permissions |
+| `web/tests/components/*.test.tsx` | AppVersion, PaginationControls, ReminderBanner |
+| `cli/tests/remap.test.ts` | Account-migration user-ID remapping |
+| `cli/tests/version.test.ts` | Release version calculation from conventional commits |
+| `infra/test/*.test.ts` | Stack synthesis, Cognito auth config, GitHub OIDC deploy roles |
 
 ### Coverage Configuration
 
@@ -1040,7 +1058,7 @@ Useful for development seeding and testing metric calculations.
 
 ## Security
 
-A full security assessment is documented in [docs/security.md](docs/security.md). 12 of 14 findings have been remediated.
+A full security assessment is documented in [docs/security.md](docs/security.md). 11 of 14 findings have been remediated, and one (F-12, no interactive IAM approval on deploy) is an accepted risk.
 
 ### Key security measures
 
@@ -1054,7 +1072,8 @@ A full security assessment is documented in [docs/security.md](docs/security.md)
 - API Gateway throttling (100 burst / 50 requests per second)
 - CloudFront security response headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - Production stack trace suppression in Lambda logs
-- `npm audit --audit-level=high` runs after each `npm install` in the deploy pipeline
+- `npm audit --audit-level=high` runs on every PR (a separate CI job) and after `npm ci` in `deploy.sh`
+- GitHub Actions reaches AWS through OIDC with per-environment deploy roles; there are no AWS keys in GitHub ([docs/ci-cd.md](docs/ci-cd.md))
 
 ### Remaining items (not yet addressed)
 

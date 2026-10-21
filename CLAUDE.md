@@ -31,6 +31,7 @@ npm run audit                         # npm audit --audit-level=high
 ```
 
 - **Merging to `main` deploys.** GitHub Actions deploys staging on every push to `main`, then production after approval in the `production` environment ([docs/ci-cd.md](docs/ci-cd.md)). PRs run lint, tests, build and synth. Local `./deploy.sh --stage` / `--prod` still work.
+- **Standard flow: push, open the PR and merge it** once lint and tests pass locally and the PR checks are green; no separate go-ahead is needed. Staging is where post-merge issues get caught; fix them in a follow-up PR. Production approval in GitHub is the user's step, never Claude's.
 - Deploys take 3–5 minutes; run them in the background.
 - Deploys run without an interactive IAM approval prompt (`--require-approval never`), because the account is dedicated to this app. So **review IAM changes in the PR**: for changes to `infra/`, check `cdk diff --security-only` before deploying to production (security finding F-12, accepted risk).
 - After infra changes, run `./deploy.sh` with no args first, to catch synth errors before deploying.
