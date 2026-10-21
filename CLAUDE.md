@@ -31,7 +31,7 @@ npm run audit                         # npm audit --audit-level=high
 ```
 
 - Deploys take 3–5 minutes; run them in the background.
-- A production deploy stops at CDK's IAM approval prompt (`--require-approval broadening`) whenever permissions are added or widened. Answer it in an interactive terminal; never pipe `yes` into it.
+- Deploys run without an interactive IAM approval prompt (`--require-approval never`), because the account is dedicated to this app. So **review IAM changes in the PR**: for changes to `infra/`, check `cdk diff --security-only` before deploying to production (security finding F-12, accepted risk).
 - After infra changes, run `./deploy.sh` with no args first, to catch synth errors before deploying.
 
 ## Git workflow

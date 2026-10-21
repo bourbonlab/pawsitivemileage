@@ -504,7 +504,7 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 5. API build (esbuild → `api/dist/`)
 6. API tests (vitest, skippable with `--skip-tests`)
 7. CDK synth with environment context variables (per-environment secret ARN, domains)
-8. CDK deploy all stacks (if environment flag provided; production uses `--require-approval broadening`)
+8. CDK deploy all stacks (if environment flag provided; `--require-approval never`, so IAM changes are reviewed in PRs)
 9. Fetch Cognito outputs from CloudFormation stack
 10. Build frontend with `VITE_*` env vars baked in
 11. S3 sync of `web/dist/` to frontend bucket
@@ -1040,7 +1040,6 @@ A full security assessment is documented in [docs/security.md](docs/security.md)
 - API Gateway throttling (100 burst / 50 requests per second)
 - CloudFront security response headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - Production stack trace suppression in Lambda logs
-- Production CDK deployments require approval for IAM/security-broadening changes (`--require-approval broadening`)
 - `npm audit --audit-level=high` runs after each `npm install` in the deploy pipeline
 
 ### Remaining items (not yet addressed)

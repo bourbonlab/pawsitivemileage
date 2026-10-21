@@ -20,11 +20,12 @@ That said, the review identified 14 findings across critical, high, medium, and 
 
 ## Remediation Status
 
-**12 of 14 findings remediated** as part of the `feat/security-hardening` branch.
+**11 of 14 findings remediated** as part of the `feat/security-hardening` branch; one accepted as a risk.
 
 | Status | Count | Findings |
 |--------|-------|----------|
-| ✅ Remediated | 12 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-09, F-10, F-11, F-12, F-13 |
+| ✅ Remediated | 11 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-09, F-10, F-11, F-13 |
+| ⚠️ Accepted risk | 1 | F-12 (no interactive IAM approval — dedicated account, IAM reviewed in PRs; since 2026-10-20) |
 | ⬚ Not addressed | 2 | F-08 (admin audit trail — new feature, deferred), F-14 (table name prefix — breaking change, requires migration) |
 
 ---
@@ -222,6 +223,10 @@ if [[ "$DEPLOY_ENV" == "production" ]]; then
   APPROVAL_FLAG="--require-approval broadening"
 fi
 ```
+
+**Status: accepted risk (2026-10-20).** This was remediated with `--require-approval broadening` for production, then reverted to `--require-approval never` for every environment.
+- **Why:** the app moved to a dedicated AWS account (`376784708284`) that holds nothing else, so the blast radius of a bad IAM change is limited to this app. Also, the interactive prompt blocked non-interactive deploys.
+- **Compensating control:** IAM changes are reviewed in PRs. For changes to `infra/`, run `cdk diff --security-only` before a production deploy.
 
 ---
 

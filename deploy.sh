@@ -354,12 +354,9 @@ if ! aws cloudformation describe-stacks --stack-name CDKToolkit --region us-east
   fail "CDK is not bootstrapped in ${AWS_ACCOUNT_ID}/us-east-1. Run (outside infra/): npx cdk bootstrap aws://${AWS_ACCOUNT_ID}/us-east-1"
 fi
 
-# Production deployments require approval for security-broadening changes (IAM, security groups)
-if [[ "$DEPLOY_ENV" == "production" ]]; then
-  APPROVAL_FLAG="--require-approval broadening"
-else
-  APPROVAL_FLAG="--require-approval never"
-fi
+# No interactive IAM approval in any environment: the account (376784708284) is dedicated to
+# this app, and IAM changes are reviewed in PRs (security finding F-12, accepted risk).
+APPROVAL_FLAG="--require-approval never"
 
 info "Running: cdk deploy --all ${APPROVAL_FLAG} -c environment=${DEPLOY_ENV}"
 
