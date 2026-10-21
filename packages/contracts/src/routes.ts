@@ -6,7 +6,7 @@
  * the caller's profile to have isAdmin. Success bodies are `{ data, requestId }`, errors
  * `{ error, code, requestId }`.
  */
-import { z } from 'zod';
+import * as z from 'zod';
 import { Deleted, Ulid, UserId } from './common.js';
 import {
   MaintenanceRecord, MaintenanceSchema, Fillup, Reminder, Share, SharedVehicle, User, Vehicle,

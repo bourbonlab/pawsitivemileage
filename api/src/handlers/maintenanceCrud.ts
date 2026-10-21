@@ -4,7 +4,9 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { MaintenanceCreate, MaintenanceUpdate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { deleteObject, photoKeyFieldError } from '../lib/s3.js';
 import { calculateReminder } from '../lib/reminders.js';
@@ -150,49 +152,16 @@ async function createMaintenance(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  // Validate required fields
-  const requiredErrors = validateRequired(body, ['datePerformed', 'odometerAtService', 'cost']);
-  if (requiredErrors.length > 0) {
-    return error('VALIDATION_ERROR', requiredErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate types
-  const typeErrors = validateTypes(body, {
-    datePerformed: 'string',
-    odometerAtService: 'number',
-    cost: 'number',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
+  // Validate against the API contract (#18): required fields, types, ranges, lengths, coordinates,
+  // and schemaId-or-customTypeName
+  const valid = validate(MaintenanceCreate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, undefined, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
-  }
-
-  // Validate ranges
-  const rangeErrors = validateRange(body, {
-    odometerAtService: { min: 0 },
-    cost: { min: 0 },
-  });
-  if (rangeErrors.length > 0) {
-    return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate string field lengths
-  const lengthErrors = validateStringLength(body, {
-    notes: 1000,
-    customTypeName: 255,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate location coordinates if provided
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join('; '), requestId);
   }
 
   // Must provide either schemaId or customTypeName
@@ -276,6 +245,12 @@ async function updateMaintenance(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
+  // Validate against the API contract (#18) before touching the database
+  const valid = validate(MaintenanceUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
+  }
+
   // Find the existing record
   const existing = await findRecordById(vehicleId, recordId);
   if (!existing) {
@@ -285,46 +260,6 @@ async function updateMaintenance(
   const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, existing.receiptPhotoKey, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
-  }
-
-  // Validate types if provided
-  const typeChecks: Record<string, 'string' | 'number' | 'boolean'> = {};
-  if (body.datePerformed !== undefined) typeChecks.datePerformed = 'string';
-  if (body.odometerAtService !== undefined) typeChecks.odometerAtService = 'number';
-  if (body.cost !== undefined) typeChecks.cost = 'number';
-
-  if (Object.keys(typeChecks).length > 0) {
-    const typeErrors = validateTypes(body, typeChecks);
-    if (typeErrors.length > 0) {
-      return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
-    }
-  }
-
-  // Validate ranges if provided
-  const rangeChecks: Record<string, { min?: number }> = {};
-  if (body.odometerAtService !== undefined) rangeChecks.odometerAtService = { min: 0 };
-  if (body.cost !== undefined) rangeChecks.cost = { min: 0 };
-
-  if (Object.keys(rangeChecks).length > 0) {
-    const rangeErrors = validateRange(body, rangeChecks);
-    if (rangeErrors.length > 0) {
-      return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-    }
-  }
-
-  // Validate string field lengths
-  const lengthErrors = validateStringLength(body, {
-    notes: 1000,
-    customTypeName: 255,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate location coordinates if provided
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join('; '), requestId);
   }
 
   // If schemaId is being changed, look up the new schema

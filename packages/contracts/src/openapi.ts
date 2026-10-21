@@ -3,7 +3,7 @@
  * packages/contracts/openapi.json; regenerate it with `npm run openapi -w @pawsitivemileage/contracts`.
  * A test fails when the committed copy is stale, so Android's generated client always matches.
  */
-import { z } from 'zod';
+import * as z from 'zod';
 import { Deleted, ErrorResponse, successEnvelope } from './common.js';
 import * as entities from './entities.js';
 import * as requests from './requests.js';

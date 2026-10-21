@@ -128,6 +128,7 @@ describe('ShareCreate / ProfileUpdate', () => {
   it('validates email format and permission', () => {
     ok(ShareCreate, { email: 'friend@example.com', permission: 'fuel' });
     bad(ShareCreate, { email: 'not-an-email', permission: 'fuel' });
+    ok(ShareCreate, { email: '  Friend@Example.com ', permission: 'readonly' }); // trimmed first, like the handler
     bad(ShareCreate, { email: 'friend@example.com', permission: 'owner' });
   });
 

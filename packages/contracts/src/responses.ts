@@ -1,7 +1,7 @@
 /**
  * Computed (non-entity) responses, as the API actually returns them (probed 2026-10-21).
  */
-import { z } from 'zod';
+import * as z from 'zod';
 import { IsoDate, YearMonth, responseObject } from './common.js';
 import { User } from './entities.js';
 

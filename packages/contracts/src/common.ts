@@ -1,7 +1,7 @@
 /**
  * Shared primitives and the response envelope for every /v1 endpoint.
  */
-import { z } from 'zod';
+import * as z from 'zod';
 
 /** App-generated IDs (vehicles, fill-ups, maintenance records, shares, schemas) */
 export const Ulid = z.string().regex(/^[0-9A-HJKMNP-TV-Z]{26}$/).describe('ULID');

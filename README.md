@@ -872,7 +872,8 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 - **`auth.ts`** — `getUserId()` extracts Cognito `sub` claim from API Gateway JWT authorizer event
 - **`authSharing.ts`** — `getUserEmail()`, `getSharedPermission()`, `isOperationAllowed()`, `verifyAccess()` — shared vehicle authorization helpers used by all data handlers
 - **`response.ts`** — `success(data, requestId)` and `error(code, message, requestId)` response builders
-- **`validation.ts`** — `validateRequired()`, `validateTypes()`, `validateRange()`, `validateStringLength()`, `validateCoordinates()`, `sanitizeFilename()`, `parseBody()` (with 64 KB size limit) for request validation
+- **`contract.ts`** — `validate(schema, body)`: validates request bodies against the API contract (`@pawsitivemileage/contracts`), with field-specific messages such as `gallonsAdded must be at least 0.01`
+- **`validation.ts`** — `parseBody()` (64 KB size limit, invalid JSON → null) and `sanitizeFilename()`
 - **`logger.ts`** — `createLogger(handler)` returns structured JSON logger with `info()`, `warn()`, `error()` methods
 - **`metrics.ts`** — `calculateDerivedMetrics()` for single fillup, `recalculateAllMetrics()` for full sequence recalculation with partial fill accumulation
 - **`reminders.ts`** — `calculateReminder()` with 500-mile and 30-day thresholds

@@ -2,7 +2,7 @@
  * Resources returned by the API. Optional fields may be omitted, or null when a client stored
  * null (the handlers accept null for optional fields).
  */
-import { z } from 'zod';
+import * as z from 'zod';
 import { IsoDate, IsoDateTime, Ulid, UserId, responseObject } from './common.js';
 
 const optional = <T extends z.ZodType>(schema: T) => schema.nullish();

@@ -10,7 +10,7 @@ Plan for one API contract shared by the web app, a user-facing CLI, and a native
 
 ## Where we are today
 
-The API is 12 Lambda handlers with hand-rolled validation (`api/src/lib/validation.ts`). The web app keeps its own copy of the types (`web/src/types/`) and request shapes (`web/src/api/*.ts`). Probing the live API (2026-10-21) shows the two copies have drifted:
+The API is 12 Lambda handlers. Their validation was hand-rolled (`api/src/lib/validation.ts`) until #18 moved it to the contract. The web app keeps its own copy of the types (`web/src/types/`) and request shapes (`web/src/api/*.ts`). Probing the live API (2026-10-21) shows the two copies have drifted:
 
 | Area | What clients are told | What the API actually returns |
 |---|---|---|
@@ -86,6 +86,10 @@ Production is moving to the new AWS account (see [account-migration.md](account-
 ## Phase B — adopt & harden (after cutover)
 
 1. **The API validates requests with the contract schemas**, replacing `validation.ts` rule by rule, with error messages kept compatible. Handlers then can't drift from the contract.
+   - *Done on the branch.* Every handler calls `validate(Schema, body)` from `api/src/lib/contract.ts`. Messages keep the existing wording, and the contract's own messages win.
+   - Updates are validated before the database read.
+   - The handler gaps are closed: for example, `PUT` fill-up now rejects `"currencySpent": "42.50"`.
+   - Bundles use `import * as z from 'zod'`, so esbuild can drop zod's locales. That took a handler from 473 KB to 122 KB minified.
 2. **The web app moves to the SDK.** Delete `web/src/types/` and the hand-written request types in `web/src/api/`, and fix the drifted year-over-year and admin types.
 3. **Response cleanup:** strip the internal DynamoDB keys, then make the response schemas strict.
 4. **Mobile readiness:**

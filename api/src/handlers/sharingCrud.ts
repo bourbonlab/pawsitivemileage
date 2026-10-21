@@ -5,14 +5,14 @@ import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { getUserEmail } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes } from '../lib/validation.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { ShareCreate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import type { ShareRecord, SharePermission, SharedVehicle } from '../types/sharing.js';
 
 const logger = createLogger('sharingCrud');
 
-const VALID_PERMISSIONS: SharePermission[] = ['readonly', 'fuel', 'maintenance', 'full'];
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const requestId = event.requestContext?.requestId ?? ulid();
@@ -217,30 +217,14 @@ async function createOrUpdateShare(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  // Validate required fields
-  const requiredErrors = validateRequired(body, ['email', 'permission']);
-  if (requiredErrors.length > 0) {
-    return error('VALIDATION_ERROR', requiredErrors.map(e => e.message).join(', '), requestId);
+  // Validate against the API contract (#18): email format (after trimming) and permission
+  const valid = validate(ShareCreate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
-  // Validate types
-  const typeErrors = validateTypes(body, { email: 'string', permission: 'string' });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  const email = (body.email as string).toLowerCase().trim();
-  const permission = body.permission as string;
-
-  // Validate email format
-  if (!EMAIL_REGEX.test(email)) {
-    return error('VALIDATION_ERROR', 'Invalid email format', requestId);
-  }
-
-  // Validate permission value
-  if (!VALID_PERMISSIONS.includes(permission as SharePermission)) {
-    return error('VALIDATION_ERROR', `permission must be one of: ${VALID_PERMISSIONS.join(', ')}`, requestId);
-  }
+  const email = valid.data.email.toLowerCase();
+  const { permission } = valid.data;
 
   // Reject self-sharing
   const ownerEmail = await getUserEmail(userId);

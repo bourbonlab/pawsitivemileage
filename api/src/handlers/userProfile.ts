@@ -4,7 +4,9 @@ import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/c
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateStringLength } from '../lib/validation.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { ProfileUpdate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import type { User } from '../types/user.js';
 
@@ -108,15 +110,10 @@ async function updateProfile(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  if (typeof body.displayName !== 'string' || body.displayName.trim() === '') {
-    return error('VALIDATION_ERROR', 'displayName is required and must be a non-empty string', requestId);
-  }
-
-  const lengthErrors = validateStringLength(body, {
-    displayName: 255,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
+  // Validate against the API contract (#18): non-blank displayName, at most 255 characters
+  const valid = validate(ProfileUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const docClient = getDocClient();

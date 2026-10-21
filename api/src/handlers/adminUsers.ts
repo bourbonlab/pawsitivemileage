@@ -5,6 +5,8 @@ import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
 import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { AdminSetAdmin } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import type { User } from '../types/user.js';
 
@@ -194,8 +196,10 @@ async function toggleAdminFlag(
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
   const body = parseBody(event.body);
-  if (!body || typeof body.isAdmin !== 'boolean') {
-    return error('VALIDATION_ERROR', 'Request body must contain isAdmin (boolean)', requestId);
+  // Validate against the API contract (#18): isAdmin (boolean)
+  const valid = validate(AdminSetAdmin, body ?? {});
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const tableName = getTableName('USERS_TABLE');
@@ -225,14 +229,14 @@ async function toggleAdminFlag(
         '#updatedAt': 'updatedAt',
       },
       ExpressionAttributeValues: {
-        ':isAdmin': body.isAdmin,
+        ':isAdmin': valid.data.isAdmin,
         ':updatedAt': now,
       },
       ReturnValues: 'ALL_NEW',
     }),
   );
 
-  const action = body.isAdmin ? 'Granted' : 'Revoked';
+  const action = valid.data.isAdmin ? 'Granted' : 'Revoked';
   logger.info(`${action} admin flag for user ${targetUserId}`, requestId, userId);
   return success(result.Attributes as User, requestId);
 }

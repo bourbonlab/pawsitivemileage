@@ -10,6 +10,8 @@ import { success, error } from '../lib/response.js';
 import { parseFuelupsCsv, parseMaintenanceCsv } from '../lib/csv-parser.js';
 import { recalculateAllMetrics } from '../lib/metrics.js';
 import { isOwnCsvImportKey } from '../lib/s3.js';
+import { validate } from '../lib/contract.js';
+import { ImportRequest } from '@pawsitivemileage/contracts';
 import type { Fillup } from '../types/fillup.js';
 
 const logger = createLogger('importData');
@@ -378,10 +380,12 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
     }
 
-    const s3Key = body.s3Key;
-    if (!s3Key || typeof s3Key !== 'string') {
-      return error('VALIDATION_ERROR', 's3Key is required', requestId);
+    // Validate against the API contract (#18): s3Key (non-empty string)
+    const valid = validate(ImportRequest, body);
+    if (!valid.ok) {
+      return error('VALIDATION_ERROR', valid.message, requestId);
     }
+    const { s3Key } = valid.data;
 
     // Only allow importing a CSV uploaded for this vehicle — presignUrl stores it under the
     // vehicle owner's ID — so one user can't read another user's uploads by passing an arbitrary key.

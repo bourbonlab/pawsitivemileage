@@ -10,7 +10,7 @@
  * - Unknown fields are ignored.
  * - Bodies are capped at 64 KB.
  */
-import { z } from 'zod';
+import * as z from 'zod';
 import { DateInput, Ulid } from './common.js';
 import { SharePermission } from './entities.js';
 
@@ -20,7 +20,8 @@ const maxLen = (n: number) => z.string().max(n);
 
 /** Vehicle model years: 1900 to two years after the current year */
 const ModelYear = z.number().int().min(1900).refine((y) => y <= new Date().getFullYear() + 2, {
-  message: 'year must be at most two years from now',
+  // Computed per validation, not baked into the schema, so openapi.json doesn't go stale each January
+  error: () => `year must be at most ${new Date().getFullYear() + 2}`,
 });
 
 const Latitude = z.number().min(-90).max(90);
@@ -150,7 +151,8 @@ export type MaintenanceUpdate = z.infer<typeof MaintenanceUpdate>;
 // ── Sharing, profile, uploads, imports, exports ─────────────────────────────
 
 export const ShareCreate = z.object({
-  email: z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'email must be a valid email address'),
+  // Trimmed before the format check, like the handler (which also lowercases it)
+  email: z.string().trim().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'email must be a valid email address'),
   permission: SharePermission,
 }).describe('Creates the share, or updates the permission of an existing share for this email (200 vs 201)');
 export type ShareCreate = z.infer<typeof ShareCreate>;
@@ -176,7 +178,7 @@ export const PresignRequest = z.object({
   vehicleId: Ulid,
   filename: requiredString().describe('Sanitized server-side; the stored key gets a unique prefix'),
   contentType: UploadContentType,
-  fileSize: optional(z.number().positive().max(10 * 1024 * 1024)).describe('Bytes, max 10 MB'),
+  fileSize: optional(z.number().positive().max(10 * 1024 * 1024, { error: 'File size exceeds maximum of 10 MB' })).describe('Bytes, max 10 MB'),
 });
 export type PresignRequest = z.infer<typeof PresignRequest>;
 

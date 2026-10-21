@@ -4,7 +4,9 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { FillupCreate, FillupUpdate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { calculateDerivedMetrics, recalculateAllMetrics } from '../lib/metrics.js';
 import { deleteObject, photoKeyFieldError } from '../lib/s3.js';
@@ -135,54 +137,15 @@ async function createFillup(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  // Validate required fields (Req 3.1)
-  const requiredErrors = validateRequired(body, ['date', 'currencySpent', 'gallonsAdded', 'odometerReading']);
-  if (requiredErrors.length > 0) {
-    return error('VALIDATION_ERROR', requiredErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate types
-  const typeErrors = validateTypes(body, {
-    date: 'string',
-    currencySpent: 'number',
-    gallonsAdded: 'number',
-    odometerReading: 'number',
-    isPartialFill: 'boolean',
-    isBusiness: 'boolean',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
+  // Validate against the API contract (#18): required fields, types, ranges, lengths, coordinates
+  const valid = validate(FillupCreate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, undefined, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
-  }
-
-  // Validate ranges — all numeric values must be positive (Req 3.1, Property 16)
-  const rangeErrors = validateRange(body, {
-    currencySpent: { min: 0.01 },
-    gallonsAdded: { min: 0.01 },
-    odometerReading: { min: 0.01 },
-  });
-  if (rangeErrors.length > 0) {
-    return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate string field lengths (Req 3.3)
-  const lengthErrors = validateStringLength(body, {
-    stationName: 255,
-    address: 1000,
-    notes: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate coordinate ranges (Req 4.1, 4.2, 4.3)
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join(', '), requestId);
   }
 
   const date = body.date as string;
@@ -297,6 +260,12 @@ async function updateFillup(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
+  // Validate against the API contract (#18) before touching the database
+  const valid = validate(FillupUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
+  }
+
   const docClient = getDocClient();
   const tableName = getTableName('FILLUPS_TABLE');
 
@@ -322,35 +291,6 @@ async function updateFillup(
   const updatedIsBusiness = body.isBusiness !== undefined
     ? (body.isBusiness as boolean)
     : existing.isBusiness;
-
-  // Validate numeric ranges if provided
-  const rangeChecks: Record<string, { min?: number }> = {};
-  if (body.currencySpent !== undefined) rangeChecks.currencySpent = { min: 0.01 };
-  if (body.gallonsAdded !== undefined) rangeChecks.gallonsAdded = { min: 0.01 };
-  if (body.odometerReading !== undefined) rangeChecks.odometerReading = { min: 0.01 };
-
-  if (Object.keys(rangeChecks).length > 0) {
-    const rangeErrors = validateRange(body, rangeChecks);
-    if (rangeErrors.length > 0) {
-      return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-    }
-  }
-
-  // Validate string field lengths (Req 3.3)
-  const lengthErrors = validateStringLength(body, {
-    stationName: 255,
-    address: 1000,
-    notes: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate coordinate ranges (Req 4.1, 4.2, 4.3)
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join(', '), requestId);
-  }
 
   const now = new Date().toISOString();
   const oldSortKey = `${existing.date}#${fillupId}`;

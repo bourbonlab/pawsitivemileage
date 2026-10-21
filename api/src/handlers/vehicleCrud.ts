@@ -5,7 +5,9 @@ import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength } from '../lib/validation.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { VehicleArchive, VehicleCreate, VehicleUpdate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { photoKeyFieldError } from '../lib/s3.js';
 import type { Vehicle } from '../types/vehicle.js';
@@ -113,54 +115,16 @@ async function createVehicle(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  const requiredErrors = validateRequired(body, ['nickname', 'make', 'model', 'year']);
-  if (requiredErrors.length > 0) {
-    return error('VALIDATION_ERROR', requiredErrors.map((e) => e.message).join(', '), requestId);
-  }
-
-  const typeErrors = validateTypes(body, {
-    nickname: 'string',
-    make: 'string',
-    model: 'string',
-    year: 'number',
-    trim: 'string',
-    color: 'string',
-    vin: 'string',
-    licensePlate: 'string',
-    tankSize: 'number',
-    fuelType: 'string',
-    photoKey: 'string',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
+  // Validate against the API contract (#18): required fields, types, year/tankSize ranges, lengths
+  const valid = validate(VehicleCreate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   // The vehicle doesn't exist yet, so accept any vehicle segment under the caller's own prefix
   const photoKeyError = photoKeyFieldError('photoKey', body.photoKey, undefined, userId, null, 'vehicle-photo');
   if (photoKeyError) {
     return error('VALIDATION_ERROR', photoKeyError, requestId);
-  }
-
-  const rangeErrors = validateRange(body, {
-    year: { min: 1900, max: new Date().getFullYear() + 2 },
-    tankSize: { min: 0.1 },
-  });
-  if (rangeErrors.length > 0) {
-    return error('VALIDATION_ERROR', rangeErrors.map((e) => e.message).join(', '), requestId);
-  }
-
-  // Validate string field lengths (Req 3.4)
-  const lengthErrors = validateStringLength(body, {
-    make: 100,
-    model: 100,
-    trim: 100,
-    color: 50,
-    vin: 17,
-    licensePlate: 20,
-    notes: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
   }
 
   const now = new Date().toISOString();
@@ -285,6 +249,12 @@ async function updateVehicle(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
+  // Validate against the API contract (#18) before touching the database
+  const valid = validate(VehicleUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
+  }
+
   // Verify vehicle exists and belongs to user
   const tableName = getTableName('VEHICLES_TABLE');
   const docClient = getDocClient();
@@ -300,59 +270,9 @@ async function updateVehicle(
     return error('NOT_FOUND', 'Vehicle not found', requestId);
   }
 
-  // Validate types for any provided fields
-  const typeErrors = validateTypes(body, {
-    nickname: 'string',
-    make: 'string',
-    model: 'string',
-    year: 'number',
-    trim: 'string',
-    color: 'string',
-    vin: 'string',
-    licensePlate: 'string',
-    tankSize: 'number',
-    fuelType: 'string',
-    photoKey: 'string',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
-  }
-
   const photoKeyError = photoKeyFieldError('photoKey', body.photoKey, existing.Item.photoKey as string | undefined, userId, vehicleId, 'vehicle-photo');
   if (photoKeyError) {
     return error('VALIDATION_ERROR', photoKeyError, requestId);
-  }
-
-  if (body.year !== undefined) {
-    const rangeErrors = validateRange(body, {
-      year: { min: 1900, max: new Date().getFullYear() + 2 },
-    });
-    if (rangeErrors.length > 0) {
-      return error('VALIDATION_ERROR', rangeErrors.map((e) => e.message).join(', '), requestId);
-    }
-  }
-
-  if (body.tankSize !== undefined) {
-    const rangeErrors = validateRange(body, {
-      tankSize: { min: 0.1 },
-    });
-    if (rangeErrors.length > 0) {
-      return error('VALIDATION_ERROR', rangeErrors.map((e) => e.message).join(', '), requestId);
-    }
-  }
-
-  // Validate string field lengths (Req 3.4)
-  const lengthErrors = validateStringLength(body, {
-    make: 100,
-    model: 100,
-    trim: 100,
-    color: 50,
-    vin: 17,
-    licensePlate: 20,
-    notes: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
   }
 
   // Build update expression from allowed fields
@@ -409,8 +329,10 @@ async function archiveVehicle(
   requestId: string,
 ): Promise<APIGatewayProxyResultV2> {
   const body = parseBody(event.body);
-  if (!body || typeof body.isArchived !== 'boolean') {
-    return error('VALIDATION_ERROR', 'Request body must contain isArchived (boolean)', requestId);
+  // Validate against the API contract (#18): isArchived (boolean)
+  const valid = validate(VehicleArchive, body ?? {});
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const tableName = getTableName('VEHICLES_TABLE');
@@ -440,14 +362,14 @@ async function archiveVehicle(
         '#updatedAt': 'updatedAt',
       },
       ExpressionAttributeValues: {
-        ':isArchived': body.isArchived,
+        ':isArchived': valid.data.isArchived,
         ':updatedAt': now,
       },
       ReturnValues: 'ALL_NEW',
     }),
   );
 
-  const action = body.isArchived ? 'Archived' : 'Unarchived';
+  const action = valid.data.isArchived ? 'Archived' : 'Unarchived';
   logger.info(`${action} vehicle ${vehicleId}`, requestId, userId);
   return success(result.Attributes as Vehicle, requestId);
 }
