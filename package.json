@@ -8,6 +8,7 @@
     "api",
     "web",
     "cli",
+    "pm",
     "infra"
   ],
   "scripts": {

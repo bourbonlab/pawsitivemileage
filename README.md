@@ -25,6 +25,7 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 - [Frontend Architecture](#frontend-architecture)
 - [Backend Architecture](#backend-architecture)
 - [Infrastructure](#infrastructure)
+- [pm command line](#pm-command-line)
 - [CLI Tools](#cli-tools)
 - [Testing](#testing)
 - [Monitoring](#monitoring)
@@ -265,6 +266,14 @@ pawsitivemileage/
 │           ├── frontend-stack.ts   # S3 + CloudFront with OAC, SPA error handling
 │           ├── monitoring-stack.ts # CloudWatch Dashboard (API, Lambda, DynamoDB widgets)
 │           └── github-access-stack.ts # GitHub Actions OIDC provider + per-environment deploy roles
+│
+├── pm/                     # pm: the user-facing command line, on the SDK (see "pm command line")
+│   ├── src/
+│   │   ├── main.ts              # Command dispatch, login/logout, error reporting
+│   │   ├── commands.ts          # whoami, vehicles, fillups, fillup add, maintenance (add), reminders, export
+│   │   ├── auth.ts              # PKCE sign-in through the Hosted UI, loopback redirect, token refresh/revoke
+│   │   └── session.ts           # Per-environment sessions in ~/.config/pawsitivemileage (0600)
+│   └── tests/
 │
 ├── cli/                    # Admin CLI tools (run with npx tsx)
 │   ├── src/
@@ -944,6 +953,32 @@ All resources are tagged with:
 | Termination protection | Off | On (Database, Storage stacks) |
 
 ---
+
+## pm command line
+
+`pm` is the command line for users, built on `@pawsitivemileage/sdk` (#27). It is separate from the admin tools below.
+
+```bash
+npm run build -w @pawsitivemileage/pm    # bundles pm/dist/pm.mjs
+npm link -w @pawsitivemileage/pm         # optional: puts `pm` on your PATH
+                                          # (or: npm run pm -w @pawsitivemileage/pm -- <command>)
+
+pm login --env staging                    # opens Google sign-in in your browser
+pm vehicles
+pm fillup add outback --gallons 12.4 --cost 41.20 --odometer 52310
+pm fillups --limit 5
+pm maintenance add outback --type "Oil Change" --odometer 52310 --cost 65
+pm reminders
+pm export outback fillups --from 2026-01-01
+pm logout
+```
+
+- **Sign-in:** authorization code + PKCE through the Cognito Hosted UI with the environment's CLI app client. The redirect goes to `http://localhost:47815/callback`, where pm listens during `pm login`. The Hosted UI domain, client ID and scopes come from `GET /v1/meta`, so pm needs only the API URL (`--env production|staging`, or `--api-url`).
+- **Sessions:** one per environment in `~/.config/pawsitivemileage/session-<env>.json` (mode 0600; `PM_CONFIG_DIR` overrides). pm sends the access token and refreshes it with the refresh token (valid 30 days). `pm logout` revokes the refresh token. The environment is `--env`, then `PM_ENV`, then the last `pm login`.
+- **Vehicles** are named by nickname (case-insensitive, or a unique prefix) or ID; with one active vehicle, the name can be left out.
+- **Creates** send an `Idempotency-Key` and retry once with the same key after a network error or 5xx, so a fill-up is never recorded twice.
+- `--json` prints the API data instead of a table. Exit codes: 0 success, 1 error, 2 usage.
+- pm sends `X-Client: cli/<version>`, and `pm login` refuses to run if `/v1/meta` says the version is below `minimumVersions.cli` (`infra/lib/client-metadata.ts`).
 
 ## CLI Tools
 

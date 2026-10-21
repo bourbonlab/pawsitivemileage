@@ -134,6 +134,7 @@ Production is moving to the new AWS account (see [account-migration.md](account-
 ## Phase C — clients
 
 1. **`pm` CLI** on the SDK. `pm login` uses the Cognito PKCE flow with a localhost callback. Commands include `vehicles`, `fillup add`, `maintenance`, `export`. The admin migration and backfill scripts stay separate.
+   - *Done on the branch (#27):* the `pm/` workspace, bundled to one file by esbuild, with no dependencies beyond the SDK. It is the first native client: sign-in settings from `/v1/meta`, PKCE with a loopback redirect on port 47815, access tokens with refresh, `Idempotency-Key` retries on creates, cursor paging for `--all`. See the README's "pm command line".
 2. **Android:**
    - `android/` (Gradle, in this repo), package `app.pawsitivemileage`.
    - The Kotlin client is generated from `openapi.json`.

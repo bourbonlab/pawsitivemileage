@@ -5,6 +5,7 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 - `api/`: Lambda handlers
 - `infra/`: AWS CDK
 - `cli/`: admin tooling, including the account migration
+- `pm/`: `pm`, the user-facing command line on the SDK (PKCE sign-in, fill-ups, maintenance, exports)
 - `packages/sdk/`: typed TypeScript client built from the contract: `createClient({ baseUrl, getToken })`, one method per operation
 - `packages/contracts/`: the API contract (zod schemas + route table), the single source of truth for requests and responses. See [docs/api-contract.md](docs/api-contract.md). When you change an endpoint:
   - update its contract
