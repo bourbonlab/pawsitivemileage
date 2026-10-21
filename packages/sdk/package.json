@@ -1,0 +1,23 @@
+{
+  "name": "@pawsitivemileage/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Typed TypeScript client for the PawsitiveMileage API, generated from @pawsitivemileage/contracts",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@pawsitivemileage/contracts": "*",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

@@ -71,7 +71,17 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - It's read-only. The CSV export GETs write a file, so they only run with `--include-exports`.
    - Failures list schema paths and messages, never values.
    - First run (2026-10-21): it found **20 production fill-ups missing `isBusiness`**, older records never backfilled (#31). It also showed **year-over-year `averageMpg` can be `null`**. The contract now reflects both, and staging and production conform: 17 and 97 responses.
-4. **`packages/sdk`** (`@pawsitivemileage/sdk`): `createClient({ baseUrl, getToken, fetch? })`, with one typed method per operation. It unwraps the envelope, turns errors into a typed `ApiError`, and optionally validates responses. It's tested against a mocked `fetch`; no app uses it yet.
+4. **`packages/sdk`** (`@pawsitivemileage/sdk`): `createClient({ baseUrl, getToken, fetch? })`, with one typed method per operation.
+   - Path params, query and body types come from the contract's input types, and results from its output types.
+   - It unwraps the envelope, and every failure is a typed `ApiError` with `status`, `code` and `requestId`. The codes are the API's own plus `CONTRACT_MISMATCH` and `NETWORK_ERROR`.
+   - It sends no request without a token.
+   - Optional `validateResponses` and `validateRequests` check against the contract.
+   - It's tested against a mocked `fetch`, with compile-time type assertions checked by `tsc`. No app uses it yet.
+
+   ```ts
+   const api = createClient({ baseUrl: 'https://api.pawsitivemileage.app', getToken });
+   const fillup = await api.createFillup({ params: { vehicleId }, body: { date, currencySpent, gallonsAdded, odometerReading } });
+   ```
 
 ## Phase B — adopt & harden (after cutover)
 

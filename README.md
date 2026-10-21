@@ -145,7 +145,8 @@ All infrastructure is serverless — zero cost when idle, scales automatically. 
 ```
 pawsitivemileage/
 ├── packages/
-│   └── contracts/          # API contract: zod schemas + route table for every /v1 route (docs/api-contract.md)
+│   ├── contracts/          # API contract: zod schemas + route table for every /v1 route, openapi.json (docs/api-contract.md)
+│   └── sdk/                # Typed TypeScript client generated from the contract (web + CLI)
 │
 ├── web/                    # React frontend (Vite + TypeScript)
 │   ├── src/
