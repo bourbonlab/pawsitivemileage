@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(./deploy.sh *)"
+      "Bash(./deploy.sh *)",
+      "Bash(aws dynamodb get-item --profile bourbonlab-root:*)",
+      "Bash(aws dynamodb get-item --profile pawsitivemileage:*)",
+      "Bash(aws ssm get-parameter --profile pawsitivemileage:*)"
     ]
   }
 }
