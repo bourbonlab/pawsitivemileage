@@ -270,6 +270,7 @@ pawsitivemileage/
 │   ├── src/
 │   │   ├── migrate-account.ts   # Re-runnable account migration (users, tables, photos, verify, freeze, lock)
 │   │   ├── parity-check.ts      # Post-migration parity + write smoke tests via direct Lambda invocation
+│   │   ├── contract-check.ts    # Live check: every read endpoint's response vs packages/contracts
 │   │   ├── migrate/remap.ts     # User-ID remapping helpers (unit tested)
 │   │   ├── release/version.ts   # Semantic version from conventional commits (used by GitHub Actions)
 │   │   ├── backfill-gsi2.ts     # Backfill GSI2PK/GSI2SK on fillup items

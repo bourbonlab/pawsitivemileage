@@ -31,6 +31,11 @@ describe('entities as returned today', () => {
     expect(Fillup.safeParse({ ...fillup, stationName: null, receiptPhotoKey: null }).success).toBe(true);
   });
 
+  it('accepts older fill-ups without isBusiness (production data until #31)', () => {
+    const { isBusiness: _omit, ...legacy } = fillup;
+    expect(Fillup.safeParse(legacy).success).toBe(true);
+  });
+
   it('rejects a malformed date (catches bad data via the conformance check)', () => {
     expect(Fillup.safeParse({ ...fillup, date: '10/20/2026' }).success).toBe(false);
   });
@@ -60,6 +65,7 @@ describe('documented drift from the old web types', () => {
 
   it('year-over-year is { summaries }, with year as a string', () => {
     expect(YearOverYear.safeParse({ summaries: [summary] }).success).toBe(true);
+    expect(YearOverYear.safeParse({ summaries: [{ ...summary, averageMpg: null }] }).success).toBe(true);
     expect(YearOverYear.safeParse({ years: [{ ...summary, year: 2025 }] }).success).toBe(false);
   });
 

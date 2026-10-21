@@ -66,7 +66,11 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - A unit test fails if the committed copy is stale, and CI runs it on every PR, so the Kotlin client always matches.
    - Every entity and request becomes a named component, so the generated Kotlin classes get readable names; each route also gets a `<OperationId>Response` envelope.
    - It passes Redocly's recommended lint rules with no warnings.
-3. **Live conformance check** (`cli/src/contract-check.ts`): calls every read endpoint in an environment as a real user and validates each response against the contract. It's read-only and runs in rehearsals and after deploys.
+3. **Live conformance check** (`cli/src/contract-check.ts`): calls every read endpoint in an environment as each migrated user and validates the status, the envelope and the data against the contract.
+   - Run it with `npx tsx src/contract-check.ts --env staging|production` (from `cli/`).
+   - It's read-only. The CSV export GETs write a file, so they only run with `--include-exports`.
+   - Failures list schema paths and messages, never values.
+   - First run (2026-10-21): it found **20 production fill-ups missing `isBusiness`**, older records never backfilled (#31). It also showed **year-over-year `averageMpg` can be `null`**. The contract now reflects both, and staging and production conform: 17 and 97 responses.
 4. **`packages/sdk`** (`@pawsitivemileage/sdk`): `createClient({ baseUrl, getToken, fetch? })`, with one typed method per operation. It unwraps the envelope, turns errors into a typed `ApiError`, and optionally validates responses. It's tested against a mocked `fetch`; no app uses it yet.
 
 ## Phase B — adopt & harden (after cutover)

@@ -23,7 +23,7 @@ export const YearOverYear = responseObject({
     year: z.string().regex(/^\d{4}$/),
     totalSpent: z.number(),
     totalGallons: z.number(),
-    averageMpg: z.number(),
+    averageMpg: z.number().nullable().describe('null when the year has no computable MPG (e.g. a single fill-up)'),
     totalMiles: z.number(),
     maintenanceCost: z.number(),
     trends: z.object({

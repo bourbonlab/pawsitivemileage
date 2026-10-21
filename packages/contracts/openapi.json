@@ -2992,6 +2992,7 @@
             "type": "boolean"
           },
           "isBusiness": {
+            "description": "Absent on fill-ups created before the field existed; treat as false (backfill: #31)",
             "type": "boolean"
           },
           "pricePerGallon": {
@@ -3082,7 +3083,6 @@
           "gallonsAdded",
           "odometerReading",
           "isPartialFill",
-          "isBusiness",
           "pricePerGallon",
           "milesSinceLastFillup",
           "mpg",
@@ -5067,7 +5067,11 @@
                   "type": "number"
                 },
                 "averageMpg": {
-                  "type": "number"
+                  "description": "null when the year has no computable MPG (e.g. a single fill-up)",
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "totalMiles": {
                   "type": "number"
