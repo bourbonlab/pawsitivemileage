@@ -15,13 +15,42 @@ const ERROR_STATUS_MAP: Record<ApiErrorCode, number> = {
  */
 const STORAGE_KEY = /^(GSI\d+(PK|SK)|fillupDateId|serviceDateId|vehicleEmailKey)$/;
 
-const omitStorageKeys = (key: string, value: unknown) => (STORAGE_KEY.test(key) ? undefined : value);
+/** Photo-bucket key fields and the absolute URL field added next to each (#21) */
+const MEDIA_FIELDS: Record<string, string> = { photoKey: 'photoUrl', receiptPhotoKey: 'receiptPhotoUrl' };
+
+/**
+ * Absolute URL for a photo-bucket key: served by the frontend CloudFront at /photos/{key}.
+ * Native clients have no web origin, so they need this rather than the key. Segments are encoded
+ * (keys can contain spaces). Undefined when FRONTEND_DOMAIN isn't configured.
+ */
+export function mediaUrl(key: string): string | undefined {
+  const domain = process.env.FRONTEND_DOMAIN;
+  return domain ? `https://${domain}/photos/${key.split('/').map(encodeURIComponent).join('/')}` : undefined;
+}
+
+/** JSON.stringify replacer: drop storage keys, add media URLs next to photo keys */
+function serialize(key: string, value: unknown): unknown {
+  if (STORAGE_KEY.test(key)) return undefined;
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const record = value as Record<string, unknown>;
+    let withUrls: Record<string, unknown> | undefined;
+    for (const [keyField, urlField] of Object.entries(MEDIA_FIELDS)) {
+      const mediaKey = record[keyField];
+      if (typeof mediaKey === 'string' && mediaKey && record[urlField] === undefined) {
+        const url = mediaUrl(mediaKey);
+        if (url) (withUrls ??= { ...record })[urlField] = url;
+      }
+    }
+    if (withUrls) return withUrls;
+  }
+  return value;
+}
 
 export function success<T>(data: T, requestId: string, statusCode = 200) {
   return {
     statusCode,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data, requestId }, omitStorageKeys),
+    body: JSON.stringify({ data, requestId }, serialize),
   };
 }
 

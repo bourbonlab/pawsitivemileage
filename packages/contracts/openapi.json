@@ -3055,6 +3055,18 @@
               "null"
             ]
           },
+          "receiptPhotoUrl": {
+            "description": "Absolute URL of the receipt (present when receiptPhotoKey is set)",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "notes": {
             "type": [
               "string",
@@ -3833,6 +3845,18 @@
               "null"
             ]
           },
+          "receiptPhotoUrl": {
+            "description": "Absolute URL of the receipt (present when receiptPhotoKey is set)",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time",
@@ -4462,6 +4486,17 @@
                   "string",
                   "null"
                 ]
+              },
+              "photoUrl": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "required": [
@@ -4770,6 +4805,18 @@
             "type": [
               "string",
               "null"
+            ]
+          },
+          "photoUrl": {
+            "description": "Absolute URL of the photo (present when photoKey is set)",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
             ]
           },
           "isArchived": {

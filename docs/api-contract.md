@@ -96,6 +96,7 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - `contract-check` now flags undeclared fields. Use `--allow-undeclared` for an environment still on an older build.
 4. **Mobile readiness:**
    - **Media URLs:** responses include absolute `photoUrl`/`receiptPhotoUrl` values alongside the keys.
+     - *Done on the branch:* `success()` adds `https://{FRONTEND_DOMAIN}/photos/{key}` next to every `photoKey`/`receiptPhotoKey`, at any depth, with path segments encoded.
    - **Access tokens:** the API accepts Cognito access tokens. Profile auto-creation reads email and name from `/oauth2/userInfo` when the token lacks them. Android and CLI app clients are added (public, PKCE) and listed in the JWT authorizer's audience.
    - **`GET /v1/meta`** (public): minimum supported version per platform, feature flags, and policy links (privacy, terms, account deletion).
    - **Safe retries:** an `Idempotency-Key` header on creates (fill-ups, maintenance, vehicles, shares).
