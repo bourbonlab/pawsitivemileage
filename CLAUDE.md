@@ -13,10 +13,11 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 | | Account | CLI profile | Domains |
 |---|---|---|---|
 | **Current** (all environments) | `376784708284` | `pawsitivemileage` | `pawsitivemileage.app`, `staging.pawsitivemileage.app` (+ `api.` / `auth.` variants) |
-| Legacy, being retired | `817281265012` (Organization management account) | `bourbonlab-root` | `*.bourbonlab.net` |
+| Legacy, frozen since the cutover | `817281265012` (Organization management account) | `bourbonlab-root` | `*.bourbonlab.net` (redirects to `pawsitivemileage.app`) |
 
 - **Never deploy to, or create resources in, the legacy account.** Every stack is pinned to `AWS_ACCOUNT_ID_<ENV>` and `deploy.sh` aborts if the active credentials don't match.
-- The production cutover and the legacy teardown follow [docs/account-migration.md](docs/account-migration.md). Until the cutover is locked with `complete`, the old production on bourbonlab.net is live and authoritative.
+- **Production was cut over and locked on 2026-10-21.** The new account is the source of truth. The old app is frozen, and `pawsitivemileage.bourbonlab.net` returns a 301 to `pawsitivemileage.app` at CloudFlare. `migrate` refuses to run against production while the lock is set. Never delete the lock parameter: re-running the mirror would wipe real data.
+- Legacy teardown follows [docs/account-migration.md](docs/account-migration.md#teardown-about-30-days-after-cutover), not before 2026-11-20.
 - All stacks run in `us-east-1`. Certificates must be in us-east-1.
 
 ## Commands
