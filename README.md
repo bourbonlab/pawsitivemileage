@@ -144,6 +144,9 @@ All infrastructure is serverless — zero cost when idle, scales automatically. 
 
 ```
 pawsitivemileage/
+├── packages/
+│   └── contracts/          # API contract: zod schemas + route table for every /v1 route (docs/api-contract.md)
+│
 ├── web/                    # React frontend (Vite + TypeScript)
 │   ├── src/
 │   │   ├── api/            # API client functions (typed fetch wrappers)
@@ -278,6 +281,7 @@ pawsitivemileage/
 │
 ├── docs/
 │   ├── account-migration.md # Account migration, cutover, and legacy teardown runbook
+│   ├── api-contract.md     # API contract, SDKs and Android readiness plan
 │   ├── ci-cd.md            # GitHub Actions pipelines, OIDC deploy roles, setup
 │   ├── code-review-2026-05.md # May 2026 code review findings
 │   ├── cost.md             # Detailed AWS cost estimate breakdown

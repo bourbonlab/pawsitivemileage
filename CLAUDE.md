@@ -5,6 +5,7 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 - `api/`: Lambda handlers
 - `infra/`: AWS CDK
 - `cli/`: admin tooling, including the account migration
+- `packages/contracts/`: the API contract (zod schemas + route table), the single source of truth for requests and responses. See [docs/api-contract.md](docs/api-contract.md). When you change an endpoint, update its contract and run `npm test -w @pawsitivemileage/contracts`; the route-coverage test fails if the route table and `api-stack.ts` disagree.
 
 [README.md](README.md) is the full reference for architecture, API routes and environment variables.
 
