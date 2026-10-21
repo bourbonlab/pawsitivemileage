@@ -73,7 +73,7 @@ export default function GaragePage() {
 /*  Vehicle Grid                                                       */
 /* ------------------------------------------------------------------ */
 
-import type { Vehicle } from '@/types';
+import type { Vehicle } from '@pawsitivemileage/sdk';
 
 interface VehicleGridProps {
   vehicles: Vehicle[] | undefined;
@@ -168,18 +168,13 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
           const { url, key } = await presignMutation.mutateAsync({
             uploadType: 'vehicle-photo',
             vehicleId: vehicle.vehicleId,
-            contentType: pendingFile.type,
-            fileName: pendingFile.name,
-            fileSize: pendingFile.size,
+            file: pendingFile,
           });
           await uploadFileToS3(url, pendingFile);
 
           // Fire-and-forget update — vehicle is already created
-          const { apiClient } = await import('@/api/client');
-          await apiClient(`/v1/vehicles/${vehicle.vehicleId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ photoKey: key }),
-          });
+          const { api } = await import('@/api/client');
+          await api.updateVehicle({ params: { vehicleId: vehicle.vehicleId }, body: { photoKey: key } });
         } catch {
           // Vehicle created successfully, photo upload failed — not blocking
           console.warn('Vehicle photo upload failed, vehicle was still created');

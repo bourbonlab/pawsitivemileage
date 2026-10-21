@@ -15,7 +15,7 @@ import {
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useAuth } from '@/auth/AuthProvider';
-import { apiClient } from '@/api/client';
+import { api } from '@/api/client';
 
 export default function AccountPage() {
   const { user, isAdmin, isLoading, signOut } = useAuth();
@@ -41,7 +41,7 @@ export default function AccountPage() {
     setIsDeleting(true);
     setDeleteError(null);
     try {
-      await apiClient('/v1/user/profile', { method: 'DELETE' });
+      await api.deleteAccount();
       await signOut();
       navigate('/login');
     } catch {

@@ -23,7 +23,7 @@ import {
 import {
   useAdminSchemas, useCreateSchema, useUpdateSchema, useToggleSchemaActive,
 } from '@/api/admin';
-import type { MaintenanceSchema } from '@/types';
+import type { MaintenanceSchema } from '@pawsitivemileage/sdk';
 
 /* ------------------------------------------------------------------ */
 /*  Constants                                                          */

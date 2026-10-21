@@ -91,6 +91,9 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - The handler gaps are closed: for example, `PUT` fill-up now rejects `"currencySpent": "42.50"`.
    - Bundles use `import * as z from 'zod'`, so esbuild can drop zod's locales. That took a handler from 473 KB to 122 KB minified.
 2. **The web app moves to the SDK.** Delete `web/src/types/` and the hand-written request types in `web/src/api/`, and fix the drifted year-over-year and admin types.
+   - *Done on the branch (#19):* `web/src/api/*` hooks call `api.<operation>()` (`web/src/api/client.ts`); `web/src/types/` is gone and types come from the SDK. Responses are validated in development.
+   - Fixed along the way: toggling a schema's active flag PATCHed `/v1/admin/schemas/{id}` instead of `/active` (a 404); year-over-year showed `0.0` MPG for years without one (now `—`) and reads `summaries` directly; components now accept the `null`s the API returns for unset optional fields; the presign hook takes the `File`. Dead code removed: `useMaintenanceRecord` (no such route), and `schemaName`/`fillupId` request fields the API ignored.
+   - Cost: zod and the route table join the web bundle, about 32 KB gzipped (`vendor-zod` 25.6 KB plus about 6 KB in `index`).
 3. **Response cleanup:** strip the internal DynamoDB keys.
    - *Done on the branch.* `success()` drops `GSI*PK/SK`, `fillupDateId`, `serviceDateId` and `vehicleEmailKey` at any depth.
    - `contract-check` now flags undeclared fields. Use `--allow-undeclared` for an environment still on an older build.

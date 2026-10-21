@@ -17,7 +17,7 @@ import { PhotoUpload } from '@/components/PhotoUpload';
 import { LocationPicker } from '@/components/LocationPicker';
 import { PaginationControls } from '@/components/PaginationControls';
 import { usePagination } from '@/lib/use-pagination';
-import type { MaintenanceRecord } from '@/types';
+import type { MaintenanceRecord } from '@pawsitivemileage/sdk';
 
 type SortField = 'datePerformed' | 'odometerAtService' | 'cost';
 
@@ -240,10 +240,10 @@ function EditMaintenanceDialog({
   const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | null | undefined>(
     record.receiptPhotoKey,
   );
-  const [locationLat, setLocationLat] = useState<number | undefined>(record.locationLat);
-  const [locationLng, setLocationLng] = useState<number | undefined>(record.locationLng);
-  const [stationName, setStationName] = useState<string | undefined>(record.stationName);
-  const [locationAddress, setLocationAddress] = useState<string | undefined>(record.address);
+  const [locationLat, setLocationLat] = useState<number | undefined>(record.locationLat ?? undefined);
+  const [locationLng, setLocationLng] = useState<number | undefined>(record.locationLng ?? undefined);
+  const [stationName, setStationName] = useState<string | undefined>(record.stationName ?? undefined);
+  const [locationAddress, setLocationAddress] = useState<string | undefined>(record.address ?? undefined);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();

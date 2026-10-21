@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { icon } from 'leaflet';
 import { MapPinOff } from 'lucide-react';
-import type { Fillup } from '@/types';
+import type { Fillup } from '@pawsitivemileage/sdk';
 
 import 'leaflet/dist/leaflet.css';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';

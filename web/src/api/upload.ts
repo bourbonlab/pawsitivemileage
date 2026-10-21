@@ -1,37 +1,23 @@
 import { useMutation } from '@tanstack/react-query';
-import { apiClient } from './client';
+import type { OperationBody } from '@pawsitivemileage/sdk';
+import { api } from './client';
 
-interface PresignRequest {
-  uploadType: 'vehicle-photo' | 'receipt-photo' | 'csv-import';
-  vehicleId: string;
-  fillupId?: string;
-  contentType: string;
-  fileName: string;
-  fileSize: number;
-}
+type PresignBody = OperationBody<'presignUpload'>;
 
-interface PresignResponse {
-  url: string;
-  key: string;
-  expiresIn: number;
-}
-
+/**
+ * Presigned S3 PUT URL for `file`. The content type defaults to the browser's `file.type`; the
+ * API rejects types it doesn't accept.
+ */
 export function usePresignedUpload() {
   return useMutation({
-    mutationFn: (data: PresignRequest) =>
-      apiClient<PresignResponse>('/v1/upload/presign', {
-        method: 'POST',
-        body: JSON.stringify({
-          uploadType: data.uploadType,
-          vehicleId: data.vehicleId,
-          filename: data.fileName,
-          contentType: data.contentType,
-          fileSize: data.fileSize,
-        }),
+    mutationFn: ({ file, contentType, ...rest }: Pick<PresignBody, 'uploadType' | 'vehicleId'> & { file: File; contentType?: PresignBody['contentType'] }) =>
+      api.presignUpload({
+        body: { ...rest, filename: file.name, fileSize: file.size, contentType: contentType ?? (file.type as PresignBody['contentType']) },
       }),
   });
 }
 
+/** PUT the file to the presigned S3 URL (not an API call, so no token) */
 export async function uploadFileToS3(
   presignedUrl: string,
   file: File,
@@ -43,5 +29,3 @@ export async function uploadFileToS3(
   });
   if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
 }
-
-

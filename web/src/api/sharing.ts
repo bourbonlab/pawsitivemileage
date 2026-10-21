@@ -1,18 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './client';
-import type { SharedVehicle, ShareRecord, SharePermission } from '../types';
+import type { OperationBody } from '@pawsitivemileage/sdk';
+import { api } from './client';
 
 export function useSharedVehicles() {
   return useQuery({
     queryKey: ['sharedVehicles'],
-    queryFn: () => apiClient<SharedVehicle[]>('/v1/vehicles/shared'),
+    queryFn: () => api.listSharedVehicles(),
   });
 }
 
 export function useVehicleShares(vehicleId: string) {
   return useQuery({
     queryKey: ['vehicleShares', vehicleId],
-    queryFn: () => apiClient<ShareRecord[]>(`/v1/vehicles/${vehicleId}/sharing`),
+    queryFn: () => api.listShares({ params: { vehicleId } }),
     enabled: !!vehicleId,
   });
 }
@@ -20,11 +20,7 @@ export function useVehicleShares(vehicleId: string) {
 export function useCreateShare(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { email: string; permission: SharePermission }) =>
-      apiClient<ShareRecord>(`/v1/vehicles/${vehicleId}/sharing`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: (data: OperationBody<'shareVehicle'>) => api.shareVehicle({ params: { vehicleId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vehicleShares', vehicleId] });
       qc.invalidateQueries({ queryKey: ['sharedVehicles'] });
@@ -35,10 +31,7 @@ export function useCreateShare(vehicleId: string) {
 export function useDeleteShare(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ shareId }: { shareId: string }) =>
-      apiClient<void>(`/v1/vehicles/${vehicleId}/sharing/${shareId}`, {
-        method: 'DELETE',
-      }),
+    mutationFn: ({ shareId }: { shareId: string }) => api.unshareVehicle({ params: { vehicleId, shareId } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vehicleShares', vehicleId] });
       qc.invalidateQueries({ queryKey: ['sharedVehicles'] });

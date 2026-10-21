@@ -150,8 +150,8 @@ pawsitivemileage/
 │
 ├── web/                    # React frontend (Vite + TypeScript)
 │   ├── src/
-│   │   ├── api/            # API client functions (typed fetch wrappers)
-│   │   │   ├── client.ts   # Base apiClient with auth token injection
+│   │   ├── api/            # React Query hooks over the SDK
+│   │   │   ├── client.ts   # `api`: the @pawsitivemileage/sdk client with the Amplify ID token
 │   │   │   ├── vehicles.ts # Vehicle CRUD calls
 │   │   │   ├── fillups.ts  # Fillup CRUD calls
 │   │   │   ├── maintenance.ts
@@ -203,7 +203,6 @@ pawsitivemileage/
 │   │   │   ├── PrivacyPolicyPage.tsx
 │   │   │   ├── TermsOfServicePage.tsx
 │   │   │   └── NotFoundPage.tsx
-│   │   ├── types/          # TypeScript type definitions (mirrors api/src/types/)
 │   │   ├── App.tsx         # Root: QueryClientProvider + AuthProvider + RouterProvider
 │   │   ├── router.tsx      # React Router v7 route definitions
 │   │   ├── main.tsx        # Entry point (configureAmplify → render)
@@ -780,7 +779,7 @@ All tables use on-demand billing and have Point-in-Time Recovery (PITR) enabled.
 6. Cognito redirects to `{frontendDomain}/callback` with tokens
 7. Amplify JS stores tokens in browser storage
 8. `AuthProvider` fetches user attributes and profile (including admin flag from DynamoDB)
-9. `apiClient` automatically injects the ID token into all API requests
+9. The SDK client (`api` in `web/src/api/client.ts`) sends the ID token with every API request
 
 ### Sign Out
 
@@ -826,11 +825,13 @@ The `AuthProvider` wraps the entire app and provides `useAuth()` hook with: `use
 
 ### API Client
 
-`web/src/api/client.ts` provides a typed `apiClient<T>(path, options)` function that:
-1. Fetches the current auth token from Amplify
-2. Injects `Authorization: Bearer <token>` and `Content-Type: application/json`
-3. Unwraps the `{ data, requestId }` response envelope
-4. Throws typed `ApiError` on non-2xx responses
+`web/src/api/client.ts` exports `api`, a client from `@pawsitivemileage/sdk` with one typed method per contract operation (`api.listFillups({ params: { vehicleId } })`). It:
+1. Fetches the current ID token from Amplify and sends it as `Authorization: Bearer <token>`
+2. Builds paths, query strings and JSON bodies from the contract, so a contract change is a compile error in the web
+3. Unwraps the `{ data, requestId }` envelope and throws `ApiError` (status, code, requestId) on non-2xx responses
+4. In development (`vite dev`), validates every response against the contract
+
+Entity and response types come from the SDK too (`import type { Fillup } from '@pawsitivemileage/sdk'`); `OperationBody<'createFillup'>` and `OperationResult<'getYearOverYear'>` name an operation's request and response. The web has no type definitions of its own.
 
 ### Pages
 

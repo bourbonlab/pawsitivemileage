@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router';
 import { Car } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type { Vehicle } from '@/types';
+import type { Vehicle } from '@pawsitivemileage/sdk';
 
 interface VehicleCardProps {
   vehicle: Vehicle;

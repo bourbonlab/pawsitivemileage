@@ -1,6 +1,6 @@
 import { AlertTriangle, Clock, Gauge } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import type { Reminder } from '@/types';
+import type { Reminder } from '@pawsitivemileage/sdk';
 
 interface ReminderBannerProps {
   reminders: Reminder[];

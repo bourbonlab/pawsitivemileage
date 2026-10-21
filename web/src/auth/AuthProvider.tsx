@@ -13,6 +13,7 @@ import {
   signInWithRedirect,
   signOut as amplifySignOut,
 } from 'aws-amplify/auth';
+import { api } from '@/api/client';
 
 interface AuthUser {
   userId: string;
@@ -36,20 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchUserProfile = useCallback(async (idToken?: string) => {
-    if (!idToken) return;
-    const apiUrl = import.meta.env.VITE_API_URL;
-    if (!apiUrl) return;
-
+  const fetchUserProfile = useCallback(async () => {
+    if (!import.meta.env.VITE_API_URL) return;
     try {
-      const res = await fetch(`${apiUrl}/v1/user/profile`, {
-        headers: { Authorization: `Bearer ${idToken}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        const profile = json.data ?? json;
-        setIsAdmin(profile.isAdmin === true);
-      }
+      const profile = await api.getProfile();
+      setIsAdmin(profile.isAdmin === true);
     } catch {
       // Profile fetch failed — default to non-admin
     }
@@ -79,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       setUser(authUser);
 
-      await fetchUserProfile(session.tokens.idToken?.toString());
+      await fetchUserProfile();
     } catch {
       // Not authenticated or token refresh failed — redirect handled by ProtectedRoute
       setUser(null);

@@ -27,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useVehicleShares, useCreateShare, useDeleteShare } from '@/api/sharing';
 import { permissionLabel, permissionVariant, selectablePermissions as permissions } from '@/lib/sharing';
-import type { SharePermission } from '@/types';
+import type { SharePermission } from '@pawsitivemileage/sdk';
 
 interface SharingManagementDialogProps {
   vehicleId: string;

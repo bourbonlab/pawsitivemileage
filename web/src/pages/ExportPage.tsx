@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { useVehicle } from '@/api/vehicles';
-import { apiClient } from '@/api/client';
+import { api } from '@/api/client';
 
 /* ------------------------------------------------------------------ */
 /*  Date helpers                                                       */
@@ -26,20 +26,6 @@ function oneYearAgoISO(): string {
   const d = new Date();
   d.setFullYear(d.getFullYear() - 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-/* ------------------------------------------------------------------ */
-/*  API response types                                                 */
-/* ------------------------------------------------------------------ */
-
-interface CsvExportResponse {
-  downloadUrl: string;
-  recordCount: number;
-}
-
-interface PdfExportResponse {
-  downloadUrl: string;
-  [key: string]: unknown;
 }
 
 /* ------------------------------------------------------------------ */
@@ -69,48 +55,25 @@ export default function ExportPage() {
 
   /* ---- Export mutations ---- */
 
+  /** Empty inputs mean "no bound" */
+  const dateRange = () => ({ startDate: startDate || undefined, endDate: endDate || undefined });
+
   const exportFillups = useMutation({
-    mutationFn: () => {
-      const params = new URLSearchParams();
-      if (startDate) params.set('startDate', startDate);
-      if (endDate) params.set('endDate', endDate);
-      const qs = params.toString();
-      return apiClient<CsvExportResponse>(
-        `/v1/vehicles/${vehicleId}/export/fillups${qs ? `?${qs}` : ''}`,
-      );
-    },
+    mutationFn: () => api.exportFillups({ params: { vehicleId: vehicleId! }, query: dateRange() }),
     onSuccess: (data) => {
       triggerDownload(data.downloadUrl, `fillups-${vehicleId}.csv`);
     },
   });
 
   const exportMaintenance = useMutation({
-    mutationFn: () => {
-      const params = new URLSearchParams();
-      if (startDate) params.set('startDate', startDate);
-      if (endDate) params.set('endDate', endDate);
-      const qs = params.toString();
-      return apiClient<CsvExportResponse>(
-        `/v1/vehicles/${vehicleId}/export/maintenance${qs ? `?${qs}` : ''}`,
-      );
-    },
+    mutationFn: () => api.exportMaintenance({ params: { vehicleId: vehicleId! }, query: dateRange() }),
     onSuccess: (data) => {
       triggerDownload(data.downloadUrl, `maintenance-${vehicleId}.csv`);
     },
   });
 
   const exportPdf = useMutation({
-    mutationFn: () =>
-      apiClient<PdfExportResponse>(
-        `/v1/vehicles/${vehicleId}/export/pdf`,
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            startDate: startDate || undefined,
-            endDate: endDate || undefined,
-          }),
-        },
-      ),
+    mutationFn: () => api.exportReport({ params: { vehicleId: vehicleId! }, body: dateRange() }),
     onSuccess: (data) => {
       triggerDownload(data.downloadUrl, `report-${vehicleId}.json`);
     },

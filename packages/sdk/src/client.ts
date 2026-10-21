@@ -57,6 +57,12 @@ export type OperationArgs<R extends RouteDefinition> =
 /** The `data` an operation resolves to */
 export type OperationData<R extends RouteDefinition> = z.output<R['response']>;
 
+/** What an operation takes as `body`, by operation id: `OperationBody<'createFillup'>` */
+export type OperationBody<K extends OperationId> = Routes[K] extends { body: z.ZodType } ? Input<Routes[K]['body']> : never;
+
+/** What an operation resolves to, by operation id: `OperationResult<'getYearOverYear'>` */
+export type OperationResult<K extends OperationId> = OperationData<Routes[K]>;
+
 type RequiredKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? never : K }[keyof T];
 
 /** Operations that accept limit/cursor/order and may return nextCursor */

@@ -1,24 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './client';
-import type { User, MaintenanceSchema } from '../types';
+import type { OperationBody, OperationResult } from '@pawsitivemileage/sdk';
+import { api } from './client';
 
-export interface AdminUserStats extends User {
-  vehicleCount: number;
-  fillupCount: number;
-  lastActive?: string;
-}
-
-interface PlatformStats {
-  totalUsers: number;
-  activeUsers: number;
-  totalFillups: number;
-  totalVehicles: number;
-}
+export type AdminUserStats = OperationResult<'adminListUsers'>[number];
 
 export function useAdminUsers() {
   return useQuery({
     queryKey: ['admin', 'users'],
-    queryFn: () => apiClient<AdminUserStats[]>('/v1/admin/users'),
+    queryFn: () => api.adminListUsers(),
   });
 }
 
@@ -26,10 +15,7 @@ export function useToggleAdmin() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ userId, isAdmin }: { userId: string; isAdmin: boolean }) =>
-      apiClient<User>(`/v1/admin/users/${userId}/admin`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isAdmin }),
-      }),
+      api.adminSetAdmin({ params: { userId }, body: { isAdmin } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'users'] });
     },
@@ -39,20 +25,14 @@ export function useToggleAdmin() {
 export function useAdminSchemas() {
   return useQuery({
     queryKey: ['admin', 'schemas'],
-    queryFn: () => apiClient<MaintenanceSchema[]>('/v1/admin/schemas'),
+    queryFn: () => api.adminListSchemas(),
   });
 }
-
-type SchemaInput = Omit<MaintenanceSchema, 'schemaId' | 'isActive' | 'createdAt' | 'updatedAt'>;
 
 export function useCreateSchema() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: SchemaInput) =>
-      apiClient<MaintenanceSchema>('/v1/admin/schemas', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: (data: OperationBody<'adminCreateSchema'>) => api.adminCreateSchema({ body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'schemas'] });
     },
@@ -62,25 +42,18 @@ export function useCreateSchema() {
 export function useUpdateSchema(schemaId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<SchemaInput>) =>
-      apiClient<MaintenanceSchema>(`/v1/admin/schemas/${schemaId}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: (data: OperationBody<'adminUpdateSchema'>) => api.adminUpdateSchema({ params: { schemaId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'schemas'] });
     },
   });
 }
 
+/** PATCH /v1/admin/schemas/{schemaId}/active (the web used to PATCH the schema itself, a 404) */
 export function useToggleSchemaActive(schemaId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (isActive: boolean) =>
-      apiClient<MaintenanceSchema>(`/v1/admin/schemas/${schemaId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ isActive }),
-      }),
+    mutationFn: (isActive: boolean) => api.adminSetSchemaActive({ params: { schemaId }, body: { isActive } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin', 'schemas'] });
     },
@@ -90,6 +63,6 @@ export function useToggleSchemaActive(schemaId: string) {
 export function useAdminStats() {
   return useQuery({
     queryKey: ['admin', 'stats'],
-    queryFn: () => apiClient<PlatformStats>('/v1/admin/stats'),
+    queryFn: () => api.adminStats(),
   });
 }

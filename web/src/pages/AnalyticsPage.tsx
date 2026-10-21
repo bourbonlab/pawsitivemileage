@@ -160,7 +160,10 @@ function YearOverYearSection({
     );
   }
 
-  if (!data || data.years.length === 0) return null;
+  const summaries = data?.summaries ?? [];
+  if (summaries.length === 0) return null;
+  // The top-level indicators compare the latest year with the one before it
+  const trends = summaries[summaries.length - 1].trends;
 
   return (
     <section aria-label="Year-over-year comparison" className="space-y-4">
@@ -168,14 +171,14 @@ function YearOverYearSection({
 
       {/* Trend indicators */}
       <div className="flex flex-wrap gap-3">
-        <TrendBadge label="Spending" direction={data.trends.spending} invertColor />
-        <TrendBadge label="MPG" direction={data.trends.mpg} />
-        <TrendBadge label="Miles" direction={data.trends.miles} />
+        <TrendBadge label="Spending" direction={trends.totalSpent} invertColor />
+        <TrendBadge label="MPG" direction={trends.averageMpg} />
+        <TrendBadge label="Miles" direction={trends.totalMiles} />
       </div>
 
       {/* Yearly stats cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {data.years.map((yr) => (
+        {summaries.map((yr) => (
           <Card key={yr.year}>
             <CardContent className="p-4 space-y-2">
               <h3 className="text-lg font-bold">{yr.year}</h3>
@@ -185,7 +188,7 @@ function YearOverYearSection({
                 <dt className="text-muted-foreground">Gallons</dt>
                 <dd className="text-right font-medium">{yr.totalGallons.toFixed(1)}</dd>
                 <dt className="text-muted-foreground">Avg MPG</dt>
-                <dd className="text-right font-medium">{yr.averageMpg.toFixed(1)}</dd>
+                <dd className="text-right font-medium">{yr.averageMpg === null ? '—' : yr.averageMpg.toFixed(1)}</dd>
                 <dt className="text-muted-foreground">Total Miles</dt>
                 <dd className="text-right font-medium">{yr.totalMiles.toLocaleString()}</dd>
                 <dt className="text-muted-foreground">Maintenance</dt>

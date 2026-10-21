@@ -80,7 +80,6 @@ export default function AddMaintenancePage() {
     createMaintenance.mutate(
       {
         schemaId: isCustom ? undefined : selectedSchemaId,
-        schemaName: isCustom ? undefined : selectedSchema?.name,
         customTypeName: isCustom ? customTypeName.trim() : undefined,
         datePerformed: date,
         odometerAtService: odometer,
