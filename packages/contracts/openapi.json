@@ -3367,7 +3367,6 @@
             "type": "boolean"
           },
           "isBusiness": {
-            "description": "Absent on fill-ups created before the field existed; treat as false (backfill: #31)",
             "type": "boolean"
           },
           "pricePerGallon": {
@@ -3470,6 +3469,7 @@
           "gallonsAdded",
           "odometerReading",
           "isPartialFill",
+          "isBusiness",
           "pricePerGallon",
           "milesSinceLastFillup",
           "mpg",

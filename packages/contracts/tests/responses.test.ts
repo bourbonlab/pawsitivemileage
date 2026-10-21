@@ -31,9 +31,9 @@ describe('entities as returned today', () => {
     expect(Fillup.safeParse({ ...fillup, stationName: null, receiptPhotoKey: null }).success).toBe(true);
   });
 
-  it('accepts older fill-ups without isBusiness (production data until #31)', () => {
+  it('requires isBusiness (backfilled in production, #31)', () => {
     const { isBusiness: _omit, ...legacy } = fillup;
-    expect(Fillup.safeParse(legacy).success).toBe(true);
+    expect(Fillup.safeParse(legacy).success).toBe(false);
   });
 
   it('rejects a malformed date (catches bad data via the conformance check)', () => {

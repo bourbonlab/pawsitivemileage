@@ -5,8 +5,11 @@
  * Existing fillups were created before the isBusiness field was added.
  * This script scans the entire table and sets isBusiness=false where missing.
  *
+ * Each update is conditional on the field still being missing, so a value set by an edit
+ * between the scan and the update is never overwritten, and re-runs are no-ops.
+ *
  * Usage:
- *   FILLUPS_TABLE=pawsitivemileage-fillups-dev npx tsx src/backfill-is-business.ts
+ *   AWS_PROFILE=pawsitivemileage FILLUPS_TABLE=pawsitivemileage-fillups-production npx tsx src/backfill-is-business.ts
  *
  * Optional:
  *   AWS_REGION=us-east-1 (defaults to us-east-1)
@@ -76,12 +79,17 @@ async function run(): Promise<void> {
             fillupDateId: item.fillupDateId,
           },
           UpdateExpression: 'SET isBusiness = :val',
+          ConditionExpression: 'attribute_exists(vehicleId) AND attribute_not_exists(isBusiness)',
           ExpressionAttributeValues: {
             ':val': false,
           },
         }));
         updated++;
       } catch (err) {
+        if ((err as Error).name === 'ConditionalCheckFailedException') {
+          skipped++; // set (or deleted) since the scan
+          continue;
+        }
         errors++;
         console.error(`  ERROR updating vehicleId=${item.vehicleId} fillupDateId=${item.fillupDateId}:`, err);
       }

@@ -58,7 +58,7 @@ export const Fillup = responseObject({
   gallonsAdded: z.number(),
   odometerReading: z.number(),
   isPartialFill: z.boolean(),
-  isBusiness: z.boolean().optional().describe('Absent on fill-ups created before the field existed; treat as false (backfill: #31)'),
+  isBusiness: z.boolean(),
   pricePerGallon: z.number().nullable(),
   milesSinceLastFillup: z.number().nullable(),
   mpg: z.number().nullable(),

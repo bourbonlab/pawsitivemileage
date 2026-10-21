@@ -988,7 +988,7 @@ pm logout
 | `cli/src/parity-check.ts` | Post-migration parity and write smoke tests | [docs/account-migration.md](docs/account-migration.md) |
 | `cli/src/release/version.ts` | Next semantic version from conventional commits (used by GitHub Actions) | [docs/ci-cd.md#versioning](docs/ci-cd.md#versioning) |
 | `cli/src/backfill-gsi2.ts` | Backfill GSI2 attributes on fillups | below |
-| `cli/src/backfill-is-business.ts` | Backfill `isBusiness=false` on fillups (same `FILLUPS_TABLE` / `DRY_RUN` usage as below) | — |
+| `cli/src/backfill-is-business.ts` | Backfill `isBusiness=false` on fillups where it's missing; conditional, so re-runs are no-ops (ran on production 2026-10-21, #31). `AWS_PROFILE=pawsitivemileage FILLUPS_TABLE=… [DRY_RUN=true]` | — |
 
 ### GSI2 Backfill Script (`cli/src/backfill-gsi2.ts`)
 

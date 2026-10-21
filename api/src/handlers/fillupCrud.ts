@@ -308,7 +308,7 @@ async function updateFillup(
     : existing.isPartialFill;
   const updatedIsBusiness = body.isBusiness !== undefined
     ? (body.isBusiness as boolean)
-    : existing.isBusiness;
+    : existing.isBusiness ?? false;
 
   const now = new Date().toISOString();
   const oldSortKey = `${existing.date}#${fillupId}`;
