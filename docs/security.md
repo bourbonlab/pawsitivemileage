@@ -227,6 +227,7 @@ fi
 **Status: accepted risk (2026-10-20).** This was remediated with `--require-approval broadening` for production, then reverted to `--require-approval never` for every environment.
 - **Why:** the app moved to a dedicated AWS account (`376784708284`) that holds nothing else, so the blast radius of a bad IAM change is limited to this app. Also, the interactive prompt blocked non-interactive deploys.
 - **Compensating control:** IAM changes are reviewed in PRs. For changes to `infra/`, run `cdk diff --security-only` before a production deploy.
+- **CI/CD (2026-10-20):** GitHub Actions deploys through OIDC roles that are effectively account admin (via the CDK bootstrap roles). Production deploys wait for approval in the `production` GitHub environment, and both environments only accept `main`. Pull requests get no AWS access. See [ci-cd.md](ci-cd.md).
 
 ---
 

@@ -30,9 +30,11 @@ npm run audit                         # npm audit --audit-level=high
 ./deploy.sh --prod --yes              # deploy production
 ```
 
+- **Merging to `main` deploys.** GitHub Actions deploys staging on every push to `main`, then production after approval in the `production` environment ([docs/ci-cd.md](docs/ci-cd.md)). PRs run lint, tests, build and synth. Local `./deploy.sh --stage` / `--prod` still work.
 - Deploys take 3–5 minutes; run them in the background.
 - Deploys run without an interactive IAM approval prompt (`--require-approval never`), because the account is dedicated to this app. So **review IAM changes in the PR**: for changes to `infra/`, check `cdk diff --security-only` before deploying to production (security finding F-12, accepted risk).
 - After infra changes, run `./deploy.sh` with no args first, to catch synth errors before deploying.
+- The GitHub deploy roles (`infra/lib/stacks/github-access-stack.ts`) are a separate CDK app, deployed by hand, never by CI. After changing `.env`, re-run `./setup-github.sh` so the GitHub environments match.
 
 ## Git workflow
 

@@ -249,6 +249,7 @@ pawsitive-mileage/
 │
 ├── infra/                  # AWS CDK infrastructure-as-code
 │   ├── bin/app.ts          # CDK app entry point (stack wiring + dependency ordering)
+│   ├── bin/github-access.ts # Separate CDK app: GitHub OIDC provider + deploy roles (deployed by hand)
 │   └── lib/
 │       ├── config.ts       # Environment configs (test, staging, production) with context overrides
 │       ├── tags.ts         # Resource tagging utility (Environment, Project, ManagedBy)
@@ -260,7 +261,8 @@ pawsitive-mileage/
 │           ├── storage-stack.ts    # S3 buckets (Photos, Exports with 7-day lifecycle)
 │           ├── api-stack.ts        # API Gateway v2, 12 Lambda functions, JWT authorizer, routes
 │           ├── frontend-stack.ts   # S3 + CloudFront with OAC, SPA error handling
-│           └── monitoring-stack.ts # CloudWatch Dashboard (API, Lambda, DynamoDB widgets)
+│           ├── monitoring-stack.ts # CloudWatch Dashboard (API, Lambda, DynamoDB widgets)
+│           └── github-access-stack.ts # GitHub Actions OIDC provider + per-environment deploy roles
 │
 ├── cli/                    # Admin CLI tools (run with npx tsx)
 │   ├── src/
@@ -276,14 +278,17 @@ pawsitive-mileage/
 │
 ├── docs/
 │   ├── account-migration.md # Account migration, cutover, and legacy teardown runbook
+│   ├── ci-cd.md            # GitHub Actions pipelines, OIDC deploy roles, setup
 │   ├── code-review-2026-05.md # May 2026 code review findings
 │   ├── cost.md             # Detailed AWS cost estimate breakdown
 │   └── security.md         # Security assessment with remediation status
 │
+├── .github/workflows/      # CI (PRs) and Deploy (main → staging → production) — see docs/ci-cd.md
 ├── .claude/settings.json   # Shared Claude Code project settings
 ├── CLAUDE.md               # Project conventions for AI assistants (accounts, workflow, commands)
 │
-├── deploy.sh               # Full CI/CD pipeline script
+├── deploy.sh               # Full CI/CD pipeline script (run locally and by GitHub Actions)
+├── setup-github.sh         # Copy .env config into the GitHub staging/production environments
 ├── Project.md              # Complete project charter and specification
 ├── StartingPrompt          # Original project prompt
 ├── tsconfig.base.json      # Shared TypeScript config (ES2022, strict, bundler resolution)
@@ -481,6 +486,10 @@ The Cognito values come from CDK stack outputs after deployment. The branding va
 
 ## Deployment
 
+### GitHub Actions
+
+Pull requests run lint, all tests, the build and a CDK synth ([`ci.yml`](.github/workflows/ci.yml)). Every push to `main` deploys **staging**, then **production** once approved in the `production` GitHub environment ([`deploy.yml`](.github/workflows/deploy.yml)). Deploy jobs reach AWS through GitHub OIDC with a per-environment role; there are no AWS keys in GitHub. Setup, configuration and access details are in [docs/ci-cd.md](docs/ci-cd.md).
+
 ### Deploy Script (`deploy.sh`)
 
 The `deploy.sh` script handles the full CI/CD pipeline:
@@ -499,7 +508,7 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 
 1. Prerequisite checks (Node.js 24+, npm, AWS CLI, CDK)
 2. AWS credential verification (`sts get-caller-identity`) — aborts if the account doesn't match `AWS_ACCOUNT_ID_<ENV>`
-3. Load and validate `.env` (all required variables present, no placeholders)
+3. Load and validate `.env` (all required variables present, no placeholders). In GitHub Actions (`CI=true`) there is no `.env`: the same variables come from the GitHub environment, unsuffixed
 4. `npm install` in api/, web/, infra/ + `npm audit --audit-level=high` after each
 5. API build (esbuild → `api/dist/`)
 6. API tests (vitest, skippable with `--skip-tests`)

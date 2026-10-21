@@ -1,0 +1,93 @@
+name: CI
+
+# Runs on every pull request, and as the first stage of the Deploy workflow.
+# No AWS access: the CDK apps are synthesized with placeholder values.
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Newer pushes to a PR cancel its older runs. Calls from Deploy get a unique group.
+  group: ci-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  NPM_VERSION: 12.0.2
+
+jobs:
+  test:
+    name: Lint, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install npm ${{ env.NPM_VERSION }}
+        run: npm install --global "npm@${NPM_VERSION}"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (tsc --noEmit, all workspaces)
+        run: npm run lint
+
+      - name: Test (all workspaces)
+        run: npm test
+
+      - name: Build (all workspaces)
+        run: npm run build
+
+      - name: Synthesize CDK apps
+        working-directory: infra
+        run: |
+          cert=arn:aws:acm:us-east-1:123456789012:certificate/00000000-0000-0000-0000-000000000000
+          for env in staging production; do
+            echo "::group::cdk synth ($env)"
+            npx cdk synth --quiet --output "cdk.out/$env" \
+              -c environment="$env" \
+              -c account=123456789012 \
+              -c apiCertificateArn="$cert" \
+              -c frontendCertificateArn="$cert" \
+              -c authCertificateArn="$cert" \
+              -c googleClientId=ci.apps.googleusercontent.com \
+              -c googleClientSecretArn=ci-google-client-secret \
+              -c frontendDomain="$env.example.com" \
+              -c apiDomain="api.$env.example.com" \
+              -c authDomain="auth.$env.example.com" \
+              -c resourcePrefix="ci-$env"
+            echo "::endgroup::"
+          done
+          npx cdk synth --quiet --output cdk.out/github-access \
+            --app "npx tsx bin/github-access.ts" \
+            -c account=123456789012 -c resourcePrefix=ci
+
+  audit:
+    # Separate job so a newly published advisory shows up without failing the build.
+    name: npm audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install npm ${{ env.NPM_VERSION }}
+        run: npm install --global "npm@${NPM_VERSION}"
+
+      - name: npm audit (high and critical)
+        run: npm run audit
