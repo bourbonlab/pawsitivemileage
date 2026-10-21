@@ -73,10 +73,12 @@ async function invoke(side: SideName, user: { sub: string; email: string }, call
 
 /** Drop per-request and time-varying fields before comparing */
 const VOLATILE = new Set(['requestId', 'downloadUrl', 'url', 'expiresIn', 'generatedAt']);
+/** DynamoDB storage keys: not API data, and no longer returned since #20, so ignored on both sides */
+const STORAGE_KEY = /^(GSI\d+(PK|SK)|fillupDateId|serviceDateId|vehicleEmailKey)$/;
 function strip(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(strip);
   if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).filter(([k]) => !VOLATILE.has(k)).map(([k, v]) => [k, strip(v)]));
+    return Object.fromEntries(Object.entries(value).filter(([k]) => !VOLATILE.has(k) && !STORAGE_KEY.test(k)).map(([k, v]) => [k, strip(v)]));
   }
   return value;
 }
