@@ -91,7 +91,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # ── Load .env secrets ────────────────────────────────────────────────────────
-if [[ ! -f "$SCRIPT_DIR/.env" ]]; then
+# In GitHub Actions (CI=true) there is no .env: the workflow sets the same variables from the
+# GitHub environment, and the validation below catches anything missing.
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+  set -a
+  source "$SCRIPT_DIR/.env"
+  set +a
+elif [[ "${CI:-}" != true ]]; then
   echo ""
   echo -e "${RED}╔══════════════════════════════════════════════════════════════╗${NC}"
   echo -e "${RED}║  Missing .env file                                         ║${NC}"
@@ -100,16 +106,13 @@ if [[ ! -f "$SCRIPT_DIR/.env" ]]; then
   exit 1
 fi
 
-set -a
-source "$SCRIPT_DIR/.env"
-set +a
-
 # Target environment for synth/deploy (synth-only runs default to staging)
 CDK_ENV="${DEPLOY_ENV:-staging}"
 CDK_ENV_UPPER=$(echo "$CDK_ENV" | tr '[:lower:]' '[:upper:]')
 
-# Resolve per-environment values (e.g. FRONTEND_DOMAIN_STAGING → FRONTEND_DOMAIN)
-env_var() { local name="${1}_${CDK_ENV_UPPER}"; echo "${!name:-}"; }
+# Resolve per-environment values (e.g. FRONTEND_DOMAIN_STAGING → FRONTEND_DOMAIN). The unsuffixed
+# name is the fallback, which is how GitHub environment variables arrive in CI.
+env_var() { local name="${1}_${CDK_ENV_UPPER}"; echo "${!name:-${!1:-}}"; }
 AWS_ACCOUNT_ID=$(env_var AWS_ACCOUNT_ID)
 FRONTEND_DOMAIN=$(env_var FRONTEND_DOMAIN)
 API_DOMAIN=$(env_var API_DOMAIN)

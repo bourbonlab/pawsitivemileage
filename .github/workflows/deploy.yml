@@ -1,0 +1,46 @@
+name: Deploy
+
+# Every push to main: CI → staging → production. Production waits for approval in the
+# `production` GitHub environment. Run manually to redeploy one environment from main.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy (production still waits for approval)
+        type: choice
+        options: [staging, production]
+        default: staging
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  staging:
+    needs: ci
+    if: github.event_name == 'push' || inputs.environment == 'staging'
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: staging
+    permissions:
+      contents: read
+      id-token: write
+
+  production:
+    needs: [ci, staging]
+    # On push, only after staging succeeded. Manual production runs skip staging.
+    if: >-
+      !cancelled() && needs.ci.result == 'success' &&
+      (needs.staging.result == 'success' ||
+       (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
+    uses: ./.github/workflows/deploy-environment.yml
+    with:
+      environment: production
+    permissions:
+      contents: read
+      id-token: write

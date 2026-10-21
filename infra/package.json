@@ -8,7 +8,9 @@
     "synth": "cdk synth",
     "deploy": "cdk deploy --all",
     "test": "vitest run",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "synth:github-access": "cdk synth --app \"npx tsx bin/github-access.ts\"",
+    "deploy:github-access": "cdk deploy --app \"npx tsx bin/github-access.ts\""
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
