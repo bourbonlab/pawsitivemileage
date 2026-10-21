@@ -21,6 +21,12 @@ describe('success', () => {
     expect(res.data.record).toEqual({ recordId: 'R' });
   });
 
+  it('sets an ETag from updatedAt on single records, not on lists (#25)', () => {
+    expect(success({ updatedAt: '2026-10-01T10:00:00.000Z' }, 'r').headers).toMatchObject({ ETag: '"2026-10-01T10:00:00.000Z"' });
+    expect(success([{ updatedAt: 'x' }], 'r').headers).not.toHaveProperty('ETag');
+    expect(success({ deleted: true }, 'r').headers).not.toHaveProperty('ETag');
+  });
+
   it('keeps fields that only look similar', () => {
     expect(body(success({ GSI: 1, userGSI1PK: 2, fillupId: 'F' }, 'r')).data).toEqual({ GSI: 1, userGSI1PK: 2, fillupId: 'F' });
   });

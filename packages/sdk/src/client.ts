@@ -46,6 +46,7 @@ export type OperationArgs<R extends RouteDefinition> =
   & (R extends { body: z.ZodType }
     ? R extends { bodyOptional: true } ? { body?: Input<R['body']> } : { body: Input<R['body']> }
     : { body?: never })
+  & (R extends { conditional: true } ? { /** Sent as If-Match: the record's updatedAt; 409 if it changed since */ ifMatch?: string } : { ifMatch?: never })
   & (R extends { idempotent: true } ? { /** Sent as Idempotency-Key; reuse it when retrying the same create */ idempotencyKey?: string } : { idempotencyKey?: never })
   & { signal?: AbortSignal; headers?: Record<string, string> };
 
@@ -81,6 +82,7 @@ interface RequestArgs {
   query?: Record<string, unknown>;
   body?: unknown;
   idempotencyKey?: string;
+  ifMatch?: string;
   signal?: AbortSignal;
   headers?: Record<string, string>;
 }
@@ -107,6 +109,7 @@ export function createClient(options: ClientOptions): Client {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(args.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...(args.idempotencyKey ? { 'Idempotency-Key': args.idempotencyKey } : {}),
+          ...(args.ifMatch ? { 'If-Match': args.ifMatch } : {}),
           ...options.headers,
           ...args.headers,
         },

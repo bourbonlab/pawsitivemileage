@@ -41,6 +41,17 @@ describe('openapi.json', () => {
     expect((byId.updateFillup as unknown as Op).parameters.some((p) => p.name === 'Idempotency-Key')).toBe(false);
   });
 
+  it('documents If-Match and 409 on conditional updates, and ETag on single-record responses', () => {
+    type Op = { parameters: Array<{ name: string }>; responses: Record<string, { headers?: Record<string, unknown> }> };
+    for (const id of ['updateVehicle', 'archiveVehicle', 'updateFillup', 'updateMaintenance']) {
+      const op = byId[id] as unknown as Op;
+      expect(op.parameters.some((p) => p.name === 'If-Match'), id).toBe(true);
+      expect(op.responses['409'], id).toBeDefined();
+    }
+    expect((byId.getVehicle as unknown as Op).responses['200'].headers?.ETag).toBeDefined();
+    expect((byId.listVehicles as unknown as Op).responses['200'].headers).toBeUndefined();
+  });
+
   it('marks the public route as needing no security', () => {
     expect((byId.getMeta as unknown as { security?: unknown[] }).security).toEqual([]);
     expect((byId.listVehicles as unknown as { security?: unknown[] }).security).toBeUndefined();

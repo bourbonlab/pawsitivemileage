@@ -46,6 +46,8 @@ export interface RouteDefinition {
   public?: true;
   /** Accepts an Idempotency-Key header: a retry returns the original response (#24) */
   idempotent?: true;
+  /** Accepts If-Match (the record's updatedAt / ETag): 409 if it changed since (#25) */
+  conditional?: true;
 }
 
 const defineRoute = <const R extends RouteDefinition>(route: R): R => route;
@@ -92,11 +94,11 @@ export const routes = {
     summary: 'A vehicle the caller owns or has been shared',
   }),
   updateVehicle: defineRoute({
-    method: 'PUT', path: '/v1/vehicles/{vehicleId}', tag: 'Vehicles', status: 200, params: VehicleParams, body: VehicleUpdate,
+    method: 'PUT', path: '/v1/vehicles/{vehicleId}', tag: 'Vehicles', status: 200, params: VehicleParams, body: VehicleUpdate, conditional: true,
     response: Vehicle, summary: 'Update a vehicle (owner only)',
   }),
   archiveVehicle: defineRoute({
-    method: 'PATCH', path: '/v1/vehicles/{vehicleId}/archive', tag: 'Vehicles', status: 200, params: VehicleParams,
+    method: 'PATCH', path: '/v1/vehicles/{vehicleId}/archive', tag: 'Vehicles', status: 200, params: VehicleParams, conditional: true,
     body: VehicleArchive, response: Vehicle, summary: 'Archive or unarchive a vehicle (owner only)',
   }),
 
@@ -114,7 +116,7 @@ export const routes = {
     response: Fillup, summary: 'One fill-up',
   }),
   updateFillup: defineRoute({
-    method: 'PUT', path: '/v1/vehicles/{vehicleId}/fillups/{fillupId}', tag: 'Fill-ups', status: 200, params: FillupParams,
+    method: 'PUT', path: '/v1/vehicles/{vehicleId}/fillups/{fillupId}', tag: 'Fill-ups', status: 200, params: FillupParams, conditional: true,
     body: FillupUpdate, response: Fillup, summary: 'Update a fill-up; receiptPhotoKey: null removes the receipt',
   }),
   deleteFillup: defineRoute({
@@ -132,7 +134,7 @@ export const routes = {
     body: MaintenanceCreate, response: MaintenanceRecord, summary: 'Add a maintenance record',
   }),
   updateMaintenance: defineRoute({
-    method: 'PUT', path: '/v1/vehicles/{vehicleId}/maintenance/{recordId}', tag: 'Maintenance', status: 200,
+    method: 'PUT', path: '/v1/vehicles/{vehicleId}/maintenance/{recordId}', tag: 'Maintenance', status: 200, conditional: true,
     params: RecordParams, body: MaintenanceUpdate, response: MaintenanceRecord,
     summary: 'Update a maintenance record; receiptPhotoKey: null removes the receipt',
   }),

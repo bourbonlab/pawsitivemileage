@@ -4,6 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
+import { checkIfMatch } from '../lib/concurrency.js';
 import { withIdempotency } from '../lib/idempotency.js';
 import { parseBody } from '../lib/validation.js';
 import { validate } from '../lib/contract.js';
@@ -275,6 +276,10 @@ async function updateFillup(
   if (!existing) {
     return error('NOT_FOUND', 'Fillup not found', requestId);
   }
+
+  // If-Match (#25). Checked right after the read: the batch rewrite below can't be conditional
+  const stale = checkIfMatch(event, existing.updatedAt, requestId);
+  if (stale) return stale;
 
   const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, existing.receiptPhotoKey, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {

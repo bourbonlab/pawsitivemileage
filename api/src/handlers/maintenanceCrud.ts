@@ -4,6 +4,7 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
+import { CONFLICT_MESSAGE, checkIfMatch, ifMatchCondition, isConditionFailure } from '../lib/concurrency.js';
 import { withIdempotency } from '../lib/idempotency.js';
 import { parseBody } from '../lib/validation.js';
 import { validate } from '../lib/contract.js';
@@ -263,6 +264,11 @@ async function updateMaintenance(
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
   }
 
+  // If-Match (#25): refuse to overwrite a newer version
+  const stale = checkIfMatch(event, existing.updatedAt, requestId);
+  if (stale) return stale;
+  const condition = ifMatchCondition(event);
+
   // If schemaId is being changed, look up the new schema
   let schemaName = existing.schemaName;
   if (body.schemaId !== undefined) {
@@ -282,12 +288,21 @@ async function updateMaintenance(
   const docClient = getDocClient();
   const tableName = getTableName('MAINTENANCE_TABLE');
 
-  // If the date changed, delete the old item (sort key changed)
-  if (oldSortKey !== newSortKey) {
-    await docClient.send(new DeleteCommand({
-      TableName: tableName,
-      Key: { vehicleId, serviceDateId: oldSortKey },
-    }));
+  // If the date changed, delete the old item (sort key changed). With If-Match, the delete carries
+  // the condition, so a concurrent edit stops the update before anything is written.
+  const keyChanged = oldSortKey !== newSortKey;
+  if (keyChanged) {
+    try {
+      await docClient.send(new DeleteCommand({
+        TableName: tableName,
+        Key: { vehicleId, serviceDateId: oldSortKey },
+        ConditionExpression: condition.ConditionExpression,
+        ...(condition.ConditionExpression && { ExpressionAttributeNames: condition.names, ExpressionAttributeValues: condition.values }),
+      }));
+    } catch (err) {
+      if (isConditionFailure(err)) return error('CONFLICT', CONFLICT_MESSAGE, requestId);
+      throw err;
+    }
   }
 
   const updated: MaintenanceRecord = {
@@ -311,30 +326,46 @@ async function updateMaintenance(
     updatedAt: now,
   };
 
-  // If receiptPhotoKey is explicitly null, remove the photo from S3 and strip the field
-  if (body.receiptPhotoKey === null && existing.receiptPhotoKey) {
-    const photosBucket = process.env.PHOTOS_BUCKET;
-    if (photosBucket) {
-      try {
-        await deleteObject(photosBucket, existing.receiptPhotoKey);
-        logger.info(`Deleted receipt photo ${existing.receiptPhotoKey} from S3`, requestId, userId);
-      } catch (s3Err) {
-        logger.error('Failed to delete receipt photo from S3', requestId, userId, s3Err);
-        // Continue — don't fail the update if S3 delete fails
-      }
-    }
+  // receiptPhotoKey: null removes the receipt: strip the field now, delete the file after the write
+  const removeReceipt = body.receiptPhotoKey === null && existing.receiptPhotoKey;
+  if (removeReceipt) {
     delete (updated as unknown as Record<string, unknown>).receiptPhotoKey;
   }
 
-  await docClient.send(new PutCommand({
-    TableName: tableName,
-    Item: {
-      ...updated,
-      serviceDateId: newSortKey,
-      GSI1PK: ownerUserId,
-      GSI1SK: updatedDate,
-    },
-  }));
+  try {
+    await docClient.send(new PutCommand({
+      TableName: tableName,
+      Item: {
+        ...updated,
+        serviceDateId: newSortKey,
+        GSI1PK: ownerUserId,
+        GSI1SK: updatedDate,
+      },
+      // Same key: If-Match is enforced atomically here (a changed key was guarded by the delete)
+      ...(!keyChanged && condition.ConditionExpression && {
+        ConditionExpression: condition.ConditionExpression,
+        ExpressionAttributeNames: condition.names,
+        ExpressionAttributeValues: condition.values,
+      }),
+    }));
+  } catch (err) {
+    if (isConditionFailure(err)) return error('CONFLICT', CONFLICT_MESSAGE, requestId);
+    throw err;
+  }
+
+  // Only after the record no longer references it
+  if (removeReceipt) {
+    const photosBucket = process.env.PHOTOS_BUCKET;
+    if (photosBucket) {
+      try {
+        await deleteObject(photosBucket, existing.receiptPhotoKey!);
+        logger.info(`Deleted receipt photo ${existing.receiptPhotoKey} from S3`, requestId, userId);
+      } catch (s3Err) {
+        logger.error('Failed to delete receipt photo from S3', requestId, userId, s3Err);
+        // Continue — the update succeeded; an orphaned file is harmless
+      }
+    }
+  }
 
   logger.info(`Updated maintenance record ${recordId}`, requestId, userId);
   return success(updated, requestId);

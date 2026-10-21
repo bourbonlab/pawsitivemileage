@@ -5,6 +5,7 @@ import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
+import { CONFLICT_MESSAGE, checkIfMatch, ifMatchCondition, isConditionFailure } from '../lib/concurrency.js';
 import { withIdempotency } from '../lib/idempotency.js';
 import { parseBody } from '../lib/validation.js';
 import { validate } from '../lib/contract.js';
@@ -303,16 +304,28 @@ async function updateVehicle(
   expressionNames['#updatedAt'] = 'updatedAt';
   expressionValues[':updatedAt'] = now;
 
-  const result = await docClient.send(
-    new UpdateCommand({
-      TableName: tableName,
-      Key: { userId, vehicleId },
-      UpdateExpression: `SET ${updates.join(', ')}`,
-      ExpressionAttributeNames: expressionNames,
-      ExpressionAttributeValues: expressionValues,
-      ReturnValues: 'ALL_NEW',
-    }),
-  );
+  // If-Match (#25): refuse to overwrite a newer version, atomically
+  const stale = checkIfMatch(event, existing.Item.updatedAt, requestId);
+  if (stale) return stale;
+  const condition = ifMatchCondition(event);
+
+  let result;
+  try {
+    result = await docClient.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { userId, vehicleId },
+        UpdateExpression: `SET ${updates.join(', ')}`,
+        ConditionExpression: condition.ConditionExpression,
+        ExpressionAttributeNames: { ...expressionNames, ...condition.names },
+        ExpressionAttributeValues: { ...expressionValues, ...condition.values },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+  } catch (err) {
+    if (isConditionFailure(err)) return error('CONFLICT', CONFLICT_MESSAGE, requestId);
+    throw err;
+  }
 
   logger.info(`Updated vehicle ${vehicleId}`, requestId, userId);
   return success(result.Attributes as Vehicle, requestId);
@@ -351,24 +364,38 @@ async function archiveVehicle(
     return error('NOT_FOUND', 'Vehicle not found', requestId);
   }
 
+  // If-Match (#25): refuse to overwrite a newer version, atomically
+  const stale = checkIfMatch(event, existing.Item.updatedAt, requestId);
+  if (stale) return stale;
+  const condition = ifMatchCondition(event);
+
   const now = new Date().toISOString();
 
-  const result = await docClient.send(
-    new UpdateCommand({
-      TableName: tableName,
-      Key: { userId, vehicleId },
-      UpdateExpression: 'SET #isArchived = :isArchived, #updatedAt = :updatedAt',
-      ExpressionAttributeNames: {
-        '#isArchived': 'isArchived',
-        '#updatedAt': 'updatedAt',
-      },
-      ExpressionAttributeValues: {
-        ':isArchived': valid.data.isArchived,
-        ':updatedAt': now,
-      },
-      ReturnValues: 'ALL_NEW',
-    }),
-  );
+  let result;
+  try {
+    result = await docClient.send(
+      new UpdateCommand({
+        TableName: tableName,
+        Key: { userId, vehicleId },
+        UpdateExpression: 'SET #isArchived = :isArchived, #updatedAt = :updatedAt',
+        ConditionExpression: condition.ConditionExpression,
+        ExpressionAttributeNames: {
+          '#isArchived': 'isArchived',
+          '#updatedAt': 'updatedAt',
+          ...condition.names,
+        },
+        ExpressionAttributeValues: {
+          ':isArchived': valid.data.isArchived,
+          ':updatedAt': now,
+          ...condition.values,
+        },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+  } catch (err) {
+    if (isConditionFailure(err)) return error('CONFLICT', CONFLICT_MESSAGE, requestId);
+    throw err;
+  }
 
   const action = valid.data.isArchived ? 'Archived' : 'Unarchived';
   logger.info(`${action} vehicle ${vehicleId}`, requestId, userId);

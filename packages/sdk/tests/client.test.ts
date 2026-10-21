@@ -91,6 +91,24 @@ describe('idempotency keys', () => {
   });
 });
 
+describe('conditional updates', () => {
+  it('sends If-Match on conditional routes when given', async () => {
+    const f = mockFetch(200, { data: {}, requestId: 'r' });
+    await client(f).updateVehicle({ params: { vehicleId: VID }, body: { nickname: 'x' }, ifMatch: TS });
+    expect((f.mock.calls[0][1]?.headers as Record<string, string>)['If-Match']).toBe(TS);
+    const neverRun = () => {
+      // @ts-expect-error: only conditional (update) routes accept ifMatch
+      void client(f).createVehicle({ body: { nickname: 'x', make: 'x', model: 'x', year: 2020 }, ifMatch: TS });
+    };
+    expect(neverRun).toBeTypeOf('function');
+  });
+
+  it('surfaces a stale update as ApiError CONFLICT', async () => {
+    const f = mockFetch(409, { error: 'This record was changed after you loaded it; reload it and try again', code: 'CONFLICT', requestId: 'r' });
+    await expect(client(f).updateVehicle({ params: { vehicleId: VID }, body: {}, ifMatch: TS })).rejects.toMatchObject({ status: 409, code: 'CONFLICT' });
+  });
+});
+
 describe('public routes', () => {
   it('calls getMeta without a token or Authorization header', async () => {
     const meta = { apiVersion: 'v1', minimumVersions: { android: '1.0.0' }, features: {}, serverTime: '2026-10-21T12:00:00.000Z',

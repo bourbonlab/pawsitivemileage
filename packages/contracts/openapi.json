@@ -131,6 +131,14 @@
         "responses": {
           "201": {
             "description": "Created",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -191,6 +199,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -251,6 +267,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -390,6 +414,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -512,6 +544,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -522,6 +562,14 @@
           },
           "201": {
             "description": "Created",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -567,6 +615,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -710,6 +766,14 @@
         "responses": {
           "201": {
             "description": "Created",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -761,6 +825,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -802,6 +874,15 @@
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "The record's `updatedAt` (or the ETag from a previous response). The update is refused with 409 if the record changed since; omit it to overwrite unconditionally.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -817,6 +898,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -836,6 +925,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorStale"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -956,6 +1048,15 @@
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "The record's `updatedAt` (or the ETag from a previous response). The update is refused with 409 if the record changed since; omit it to overwrite unconditionally.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -971,6 +1072,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -990,6 +1099,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorStale"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -1307,6 +1419,14 @@
         "responses": {
           "201": {
             "description": "Created",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1368,6 +1488,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1419,6 +1547,15 @@
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "The record's `updatedAt` (or the ETag from a previous response). The update is refused with 409 if the record changed since; omit it to overwrite unconditionally.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -1434,6 +1571,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1453,6 +1598,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorStale"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -1674,6 +1822,14 @@
         "responses": {
           "201": {
             "description": "Created",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1730,6 +1886,15 @@
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": false,
+            "description": "The record's `updatedAt` (or the ETag from a previous response). The update is refused with 409 if the record changed since; omit it to overwrite unconditionally.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -1745,6 +1910,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -1764,6 +1937,9 @@
           },
           "404": {
             "$ref": "#/components/responses/Error404"
+          },
+          "409": {
+            "$ref": "#/components/responses/ErrorStale"
           },
           "500": {
             "$ref": "#/components/responses/Error500"
@@ -2059,6 +2235,14 @@
         "responses": {
           "200": {
             "description": "OK",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2069,6 +2253,14 @@
           },
           "201": {
             "description": "Created",
+            "headers": {
+              "ETag": {
+                "description": "The record's version (its `updatedAt`, quoted); send it back in If-Match",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
             "content": {
               "application/json": {
                 "schema": {
@@ -2304,6 +2496,16 @@
       },
       "Error500": {
         "description": "INTERNAL_ERROR",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "ErrorStale": {
+        "description": "CONFLICT: the record changed since the If-Match version; reload it and try again",
         "content": {
           "application/json": {
             "schema": {

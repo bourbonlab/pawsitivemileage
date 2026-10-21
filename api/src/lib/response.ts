@@ -46,10 +46,21 @@ function serialize(key: string, value: unknown): unknown {
   return value;
 }
 
+/**
+ * ETag for a single record: its updatedAt, quoted. Clients send it back in If-Match to update
+ * only if nobody else changed the record in between (#25).
+ */
+function etag(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return undefined;
+  const updatedAt = (data as { updatedAt?: unknown }).updatedAt;
+  return typeof updatedAt === 'string' ? `"${updatedAt}"` : undefined;
+}
+
 export function success<T>(data: T, requestId: string, statusCode = 200) {
+  const tag = etag(data);
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(tag && { ETag: tag }) },
     body: JSON.stringify({ data, requestId }, serialize),
   };
 }

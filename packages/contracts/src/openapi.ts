@@ -66,6 +66,21 @@ const IDEMPOTENCY_HEADER = {
   schema: { type: 'string', pattern: '^[A-Za-z0-9_-]{1,255}$' },
 };
 
+const IF_MATCH_HEADER = {
+  name: 'If-Match',
+  in: 'header',
+  required: false,
+  description: "The record's `updatedAt` (or the ETag from a previous response). The update is refused with 409 if the record changed since; omit it to overwrite unconditionally.",
+  schema: { type: 'string' },
+};
+
+const ETAG_HEADER = {
+  ETag: { description: "The record's version (its `updatedAt`, quoted); send it back in If-Match", schema: { type: 'string' } },
+};
+
+/** Routes returning a single record with updatedAt also return an ETag header */
+const hasVersion = (schema: z.ZodType) => schema.def.type === 'object' && 'updatedAt' in (schema as z.ZodObject).shape;
+
 const ERROR_RESPONSES = {
   400: 'VALIDATION_ERROR: invalid or missing input',
   401: 'UNAUTHORIZED: missing or invalid token',
@@ -96,6 +111,7 @@ export function buildOpenApiDocument() {
 
     const success = Object.fromEntries([route.status, ...(route.alsoReturns ?? [])].map((status) => [status, {
       description: status === 201 ? 'Created' : 'OK',
+      ...(hasVersion(route.response) ? { headers: ETAG_HEADER } : {}),
       content: { 'application/json': { schema: ref(envelopeId) } },
     }]));
     const errors = Object.fromEntries(Object.keys(ERROR_RESPONSES).map((status) => [status, { $ref: `#/components/responses/Error${status}` }]));
@@ -107,12 +123,18 @@ export function buildOpenApiDocument() {
       tags: [route.tag],
       ...(route.public ? { security: [] } : {}),
       ...(route.admin ? { description: 'Admin only: requires isAdmin on the caller\'s profile.', 'x-admin': true } : {}),
-      parameters: [...parameters(route.params, 'path'), ...parameters(route.query, 'query'), ...(route.idempotent ? [IDEMPOTENCY_HEADER] : [])],
+      parameters: [
+        ...parameters(route.params, 'path'),
+        ...parameters(route.query, 'query'),
+        ...(route.idempotent ? [IDEMPOTENCY_HEADER] : []),
+        ...(route.conditional ? [IF_MATCH_HEADER] : []),
+      ],
       ...(bodyRef ? { requestBody: { required: !route.bodyOptional, content: { 'application/json': { schema: ref(bodyRef) } } } } : {}),
       responses: {
         ...success,
         ...errors,
         ...(route.idempotent ? { 409: { $ref: '#/components/responses/ErrorIdempotency' } } : {}),
+        ...(route.conditional ? { 409: { $ref: '#/components/responses/ErrorStale' } } : {}),
       },
     };
   }
@@ -155,6 +177,10 @@ export function buildOpenApiDocument() {
           description,
           content: { 'application/json': { schema: ref('ErrorResponse') } },
         }])),
+        ErrorStale: {
+          description: 'CONFLICT: the record changed since the If-Match version; reload it and try again',
+          content: { 'application/json': { schema: ref('ErrorResponse') } },
+        },
         ErrorIdempotency: {
           description: 'CONFLICT: the Idempotency-Key was used for a different request, or that request is still in progress',
           content: { 'application/json': { schema: ref('ErrorResponse') } },

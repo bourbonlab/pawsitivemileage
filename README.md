@@ -620,6 +620,10 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 - Reusing a key with a different body returns `409`, as does a retry while the first request is still running.
 - Keys are per user and expire after 24 hours.
 
+**Conflict detection:** single-record responses include `ETag: "<updatedAt>"`.
+- `PUT`/`PATCH` on vehicles, fill-ups and maintenance accept `If-Match` with that value. If the record changed since, the response is `409 CONFLICT` instead of an overwrite.
+- Without `If-Match`, the last write wins, as before.
+
 ### Meta (public)
 
 | Method | Path | Description |

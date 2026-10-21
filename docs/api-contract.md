@@ -109,6 +109,12 @@ Production is moving to the new AWS account (see [account-migration.md](account-
      - A 5xx clears the record, so the client can retry.
      - The SDK takes `idempotencyKey` on these four operations only.
    - **Conflict detection:** `updatedAt`-based `If-Match` on updates, returning `409 CONFLICT` when stale.
+     - *Done on the branch:* single-record responses carry `ETag: "<updatedAt>"`.
+     - Vehicle update/archive and vehicle/fill-up/maintenance updates accept `If-Match`: the raw `updatedAt`, `"…"` or `W/"…"`.
+     - Vehicles, and maintenance updates where the date doesn't change, use a DynamoDB condition, so the check is atomic. When the maintenance date changes, the delete of the old item carries the condition instead.
+     - Fill-ups check right after the read, because their batch rewrite can't be conditional.
+     - Maintenance now deletes a removed receipt's file **after** the record is written.
+     - CORS now allows `Idempotency-Key`, `If-Match` and `X-Client`, and exposes `ETag` and `Idempotent-Replayed`.
    - **Pagination:** one cursor format for every list (`?limit&cursor` returning `nextCursor`), staying backward compatible: no `limit` means today's full list.
 
 ## Phase C — clients

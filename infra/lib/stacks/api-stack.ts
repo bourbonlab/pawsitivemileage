@@ -207,7 +207,10 @@ export class ApiStack extends cdk.Stack {
           apigwv2.CorsHttpMethod.DELETE,
           apigwv2.CorsHttpMethod.OPTIONS,
         ],
-        allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key'],
+        // Idempotency-Key (#24), If-Match (#25) and X-Client (#23) must pass browser preflights
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key', 'Idempotency-Key', 'If-Match', 'X-Client'],
+        // Let browser JS read these response headers
+        exposeHeaders: ['ETag', 'Idempotent-Replayed'],
         maxAge: cdk.Duration.hours(1),
       },
       defaultDomainMapping: domainName ? { domainName } : undefined,
