@@ -163,7 +163,7 @@ pawsitivemileage/
 │   │   │   └── AdminRoute.tsx     # Redirects non-admin users
 │   │   ├── components/     # UI components
 │   │   │   ├── Layout.tsx          # App shell with nav, sidebar, mobile menu
-│   │   │   ├── AppVersion.tsx      # Footer release version (links to the GitHub release)
+│   │   │   ├── AppVersion.tsx      # Footer release version from /version.json (links to the GitHub release)
 │   │   │   ├── VehicleCard.tsx     # Garage vehicle card
 │   │   │   ├── FillupList.tsx      # Fillup history table
 │   │   │   ├── FillupMap.tsx       # Leaflet map of fillup locations
@@ -465,9 +465,10 @@ The `.env` file is in `.gitignore` and should never be committed. Only the targe
 | `VITE_COGNITO_DOMAIN` | Cognito Hosted UI custom domain (e.g. `auth-staging.pawsitivemileage.app`) |
 | `VITE_SOURCE_CODE_URL` | Source code repository URL (optional; hides link if blank) |
 | `VITE_SUPPORT_EMAIL` | Support email shown on Privacy Policy and Terms of Service pages |
-| `VITE_APP_VERSION` | Release version in the footer, linked to its GitHub release. Set by `deploy.sh`: the release tag in GitHub Actions (`APP_VERSION`), else `git describe` |
 
 The Cognito values come from CDK stack outputs after deployment. The branding values (`VITE_SOURCE_CODE_URL`, `VITE_SUPPORT_EMAIL`) are passed through from the root `.env` file by `deploy.sh`. The deploy script automatically injects them during the frontend build step.
+
+The footer's release version isn't a build variable: `deploy.sh` writes it to `version.json` beside the build (the release tag in GitHub Actions, `APP_VERSION`, else `git describe`), and the app fetches it at runtime. It is hidden in local dev, where the file doesn't exist.
 
 ### Lambda (set automatically by CDK)
 
@@ -491,9 +492,9 @@ The Cognito values come from CDK stack outputs after deployment. The branding va
 
 ### GitHub Actions
 
-Pull requests run lint, all tests, the build and a CDK synth ([`ci.yml`](.github/workflows/ci.yml)), plus a PR title check ([`pr-title.yml`](.github/workflows/pr-title.yml)). Every push to `main` deploys **staging**, then **production** once approved in the `production` GitHub environment ([`deploy.yml`](.github/workflows/deploy.yml)). Deploy jobs reach AWS through GitHub OIDC with a per-environment role; there are no AWS keys in GitHub. Setup, configuration and access details are in [docs/ci-cd.md](docs/ci-cd.md).
+Pull requests run lint, all tests, the build and a CDK synth ([`ci.yml`](.github/workflows/ci.yml)), plus a PR title check ([`pr-title.yml`](.github/workflows/pr-title.yml)). Every push to `main` that changes more than docs deploys **staging**, then **production** once approved in the `production` GitHub environment ([`deploy.yml`](.github/workflows/deploy.yml)). Deploy jobs reach AWS through GitHub OIDC with a per-environment role; there are no AWS keys in GitHub. Setup, configuration and access details are in [docs/ci-cd.md](docs/ci-cd.md).
 
-Every merge to `main` is a release: it is tagged `vX.Y.Z` with the next [semantic version](https://semver.org) from its conventional commits (`feat` → minor, `!`/`BREAKING CHANGE` → major, anything else → patch), gets a GitHub Release, and shows that version in the app footer. PR titles must be conventional commits; a check shows the version merging will release. See [Versioning](docs/ci-cd.md#versioning).
+Every deploying merge to `main` is a release: it is tagged `vX.Y.Z` with the next [semantic version](https://semver.org) from its conventional commits (`feat` → minor, `!`/`BREAKING CHANGE` → major, anything else → patch), gets a GitHub Release, and shows that version in the app footer. PR titles must be conventional commits; a check shows the version merging will release. Docs-only merges (`*.md`, `docs/`, `LICENSE`, `.claude/`) don't deploy and ship with the next release. See [Versioning](docs/ci-cd.md#versioning).
 
 **Workflow:** branch from `main` (`feat/`, `fix/`, `refactor/`, `chore/`, `docs/`), open a PR, and merge it once CI is green. The merge deploys staging automatically; check the change there, and fix any issue in a follow-up PR. Production deploys only after a reviewer approves the run in the `production` environment.
 
@@ -526,11 +527,13 @@ The `deploy.sh` script handles the full CI/CD pipeline:
 5. API build (esbuild → `api/dist/`)
 6. API tests (vitest, skippable with `--skip-tests`)
 7. CDK synth with environment context variables (per-environment secret ARN, domains)
-8. CDK deploy all stacks (if environment flag provided; `--require-approval never`, so IAM changes are reviewed in PRs)
+8. CDK deploy all stacks (if environment flag provided; `--require-approval never`, so IAM changes are reviewed in PRs). Unchanged stacks are skipped, and independent stacks deploy in parallel
 9. Fetch Cognito outputs from CloudFormation stack
-10. Build frontend with `VITE_*` env vars baked in
-11. S3 sync of `web/dist/` to frontend bucket
-12. CloudFront cache invalidation
+10. Build frontend with `VITE_*` env vars baked in, and write the release version to `web/dist/version.json`
+11. Upload only the files that differ from the frontend bucket (by MD5), `index.html` last
+12. Purge CloudFront and Cloudflare only if something changed: everything if `index.html` changed, else just the changed fixed-name files
+
+See [What a deploy changes](docs/ci-cd.md#what-a-deploy-changes).
 
 ### Environments
 

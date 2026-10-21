@@ -165,6 +165,55 @@ else
   info "Mode: ${YELLOW}synth only${NC} (no deploy flag provided)"
 fi
 
+# ── Cache helpers ───────────────────────────────────────────────────────────
+
+# invalidate_cloudfront <path>...  (e.g. "/*", or "/version.json")
+invalidate_cloudfront() {
+  local dist_id
+  dist_id=$(aws cloudformation describe-stacks \
+    --stack-name "PawsitiveMileage-${CDK_ENV}-Frontend" \
+    --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
+    --output text 2>/dev/null || true)
+  if [[ -z "$dist_id" || "$dist_id" == "None" ]]; then
+    warn "Could not find CloudFront distribution ID — skipping cache invalidation"
+    info "You can manually invalidate via: aws cloudfront create-invalidation --distribution-id <ID> --paths '/*'"
+    return 0
+  fi
+  info "Invalidating CloudFront distribution ${dist_id}: $*"
+  if aws cloudfront create-invalidation --distribution-id "$dist_id" --paths "$@" > /dev/null 2>&1; then
+    ok "CloudFront cache invalidation requested"
+  else
+    warn "CloudFront invalidation failed (non-fatal)"
+  fi
+}
+
+# purge_cloudflare <json body>  ('{"purge_everything":true}' or '{"files":["https://…"]}')
+# Optional: needs CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN.
+purge_cloudflare() {
+  if [[ -z "${CLOUDFLARE_ZONE_ID:-}" ]]; then
+    return 0
+  fi
+  if [[ -z "${CLOUDFLARE_API_TOKEN:-}" ]]; then
+    warn "CLOUDFLARE_API_TOKEN is empty — skipping CloudFlare cache purge"
+    return 0
+  fi
+  info "Purging CloudFlare cache for zone ${CLOUDFLARE_ZONE_ID}"
+  local response
+  response=$(curl -s -X POST \
+    "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
+    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
+    -H "Content-Type: application/json" \
+    --data "$1" 2>/dev/null || true)
+  if echo "$response" | grep -q '"success":\s*true'; then
+    ok "CloudFlare cache purged"
+  else
+    warn "CloudFlare cache purge failed (non-fatal)"
+    if [[ "$VERBOSE" == true ]]; then
+      info "Response: ${response}"
+    fi
+  fi
+}
+
 # ── Clear-cache shortcut ────────────────────────────────────────────────────
 # Skips the entire build/deploy pipeline — just purges caches and exits.
 
@@ -177,40 +226,8 @@ if [[ "$CLEAR_CACHE" == true ]]; then
 
   verify_account
 
-  # Resolve CloudFront distribution ID
-  FRONTEND_STACK_NAME="PawsitiveMileage-${DEPLOY_ENV}-Frontend"
-  CF_DIST_ID=$(aws cloudformation describe-stacks \
-    --stack-name "$FRONTEND_STACK_NAME" \
-    --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
-    --output text 2>/dev/null || true)
-
-  if [[ -n "$CF_DIST_ID" && "$CF_DIST_ID" != "None" ]]; then
-    info "Invalidating CloudFront distribution ${CF_DIST_ID}"
-    aws cloudfront create-invalidation --distribution-id "$CF_DIST_ID" --paths "/*" > /dev/null 2>&1 || warn "CloudFront invalidation failed (non-fatal)"
-    ok "CloudFront cache invalidation requested"
-  else
-    warn "Could not find CloudFront distribution ID — skipping"
-  fi
-
-  if [[ -n "${CLOUDFLARE_ZONE_ID:-}" && -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-    info "Purging CloudFlare cache for zone ${CLOUDFLARE_ZONE_ID}"
-    CF_RESPONSE=$(curl -s -X POST \
-      "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-      -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-      -H "Content-Type: application/json" \
-      --data '{"purge_everything":true}' 2>/dev/null || true)
-
-    if echo "$CF_RESPONSE" | grep -q '"success":\s*true'; then
-      ok "CloudFlare cache purged"
-    else
-      warn "CloudFlare cache purge failed (non-fatal)"
-      if [[ "$VERBOSE" == true ]]; then
-        info "Response: ${CF_RESPONSE}"
-      fi
-    fi
-  elif [[ -n "${CLOUDFLARE_ZONE_ID:-}" ]]; then
-    warn "CLOUDFLARE_API_TOKEN is empty — skipping CloudFlare cache purge"
-  fi
+  invalidate_cloudfront "/*"
+  purge_cloudflare '{"purge_everything":true}'
 
   echo ""
   echo -e "${GREEN}  Cache clear complete for ${DEPLOY_ENV}${NC}"
@@ -363,12 +380,17 @@ fi
 # this app, and IAM changes are reviewed in PRs (security finding F-12, accepted risk).
 APPROVAL_FLAG="--require-approval never"
 
-info "Running: cdk deploy --all ${APPROVAL_FLAG} -c environment=${DEPLOY_ENV}"
+# Stacks without a dependency between them (Auth, Database, Storage) deploy in parallel. CDK skips
+# any stack whose template and assets are unchanged ("no changes"), so a run only touches what
+# changed; infra/cdk.json turns off version reporting, which otherwise changed every template.
+CDK_DEPLOY_FLAGS=(--all --concurrency 3 ${APPROVAL_FLAG})
+
+info "Running: cdk deploy ${CDK_DEPLOY_FLAGS[*]} -c environment=${DEPLOY_ENV}"
 
 if [[ "$VERBOSE" == true ]]; then
-  (cd infra && npx cdk deploy --all ${APPROVAL_FLAG} "${CDK_CONTEXT[@]}")
+  (cd infra && npx cdk deploy "${CDK_DEPLOY_FLAGS[@]}" "${CDK_CONTEXT[@]}")
 else
-  (cd infra && npx cdk deploy --all ${APPROVAL_FLAG} "${CDK_CONTEXT[@]}") || fail "CDK deploy failed"
+  (cd infra && npx cdk deploy "${CDK_DEPLOY_FLAGS[@]}" "${CDK_CONTEXT[@]}") || fail "CDK deploy failed"
 fi
 
 ok "All stacks deployed to ${DEPLOY_ENV}"
@@ -411,11 +433,12 @@ export VITE_COGNITO_DOMAIN="$COGNITO_DOMAIN"
 export VITE_SOURCE_CODE_URL="${SOURCE_CODE_URL:-}"
 export VITE_SUPPORT_EMAIL="${SUPPORT_EMAIL:-}"
 # Release version shown in the footer: the Deploy workflow sets APP_VERSION to the release tag;
-# local deploys describe the checkout (e.g. v1.2.0-3-gabc1234-dirty).
-export VITE_APP_VERSION="${APP_VERSION:-$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --always --dirty 2>/dev/null || echo dev)}"
+# local deploys describe the checkout (e.g. v1.2.0-3-gabc1234-dirty). It goes in version.json, not
+# the JS bundle, so a release that doesn't touch web/ leaves the bundle byte-for-byte unchanged.
+RELEASE_VERSION="${APP_VERSION:-$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --always --dirty 2>/dev/null || echo dev)}"
 
 info "VITE_API_URL=${VITE_API_URL}"
-info "VITE_APP_VERSION=${VITE_APP_VERSION}"
+info "Release version: ${RELEASE_VERSION}"
 info "Building frontend with Cognito config baked in..."
 
 if [[ "$VERBOSE" == true ]]; then
@@ -424,53 +447,90 @@ else
   (cd web && npm run build 2>&1) || fail "Frontend build failed"
 fi
 
+printf '{"version":"%s"}\n' "$RELEASE_VERSION" > web/dist/version.json
+
 ok "Frontend built — output in web/dist/"
 
-# ── Step 8: Sync frontend to S3 ─────────────────────────────────────────────
+# ── Step 8: Upload what changed, purge caches only if needed ────────────────
 
 step "Syncing frontend assets to S3"
 
 FRONTEND_BUCKET="${RESOURCE_PREFIX}-${CDK_ENV}-frontend"
 info "Bucket: ${FRONTEND_BUCKET}"
 
-aws s3 sync web/dist/ "s3://${FRONTEND_BUCKET}" --delete || fail "S3 sync failed"
-ok "Frontend assets synced to s3://${FRONTEND_BUCKET}"
-
-# Invalidate CloudFront cache
-FRONTEND_STACK_NAME="PawsitiveMileage-${CDK_ENV}-Frontend"
-CF_DIST_ID=$(aws cloudformation describe-stacks \
-  --stack-name "$FRONTEND_STACK_NAME" \
-  --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" \
-  --output text 2>/dev/null || true)
-
-if [[ -n "$CF_DIST_ID" && "$CF_DIST_ID" != "None" ]]; then
-  info "Invalidating CloudFront distribution ${CF_DIST_ID}"
-  aws cloudfront create-invalidation --distribution-id "$CF_DIST_ID" --paths "/*" > /dev/null 2>&1 || warn "CloudFront invalidation failed (non-fatal)"
-  ok "CloudFront cache invalidation requested"
-else
-  warn "Could not find CloudFront distribution ID — skipping cache invalidation"
-  info "You can manually invalidate via: aws cloudfront create-invalidation --distribution-id <ID> --paths '/*'"
-fi
-
-# Purge CloudFlare cache (optional — requires CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN in .env)
-if [[ -n "${CLOUDFLARE_ZONE_ID:-}" && -n "${CLOUDFLARE_API_TOKEN:-}" ]]; then
-  info "Purging CloudFlare cache for zone ${CLOUDFLARE_ZONE_ID}"
-  CF_RESPONSE=$(curl -s -X POST \
-    "https://api.cloudflare.com/client/v4/zones/${CLOUDFLARE_ZONE_ID}/purge_cache" \
-    -H "Authorization: Bearer ${CLOUDFLARE_API_TOKEN}" \
-    -H "Content-Type: application/json" \
-    --data '{"purge_everything":true}' 2>/dev/null || true)
-
-  if echo "$CF_RESPONSE" | grep -q '"success":\s*true'; then
-    ok "CloudFlare cache purged"
-  else
-    warn "CloudFlare cache purge failed (non-fatal)"
-    if [[ "$VERBOSE" == true ]]; then
-      info "Response: ${CF_RESPONSE}"
-    fi
+# Compare the build with the bucket by content. The bucket is SSE-S3 and every file is uploaded in
+# one part, so an object's ETag is its MD5.
+REMOTE_LISTING=$(aws s3api list-objects-v2 --bucket "$FRONTEND_BUCKET" \
+  --query 'Contents[].[Key,ETag]' --output text) || fail "Could not list s3://${FRONTEND_BUCKET}"
+declare -A REMOTE_ETAGS=()
+while IFS=$'\t' read -r key etag; do
+  if [[ -n "$key" && "$key" != "None" ]]; then
+    REMOTE_ETAGS["$key"]="${etag//\"/}"
   fi
-elif [[ -n "${CLOUDFLARE_ZONE_ID:-}" ]]; then
-  warn "CLOUDFLARE_API_TOKEN is empty — skipping CloudFlare cache purge"
+done <<< "$REMOTE_LISTING"
+
+CHANGED_KEYS=()
+while IFS= read -r -d '' file; do
+  key="${file#web/dist/}"
+  sum=$(md5sum "$file" | cut -d' ' -f1)
+  if [[ "${REMOTE_ETAGS[$key]:-}" != "$sum" ]]; then
+    CHANGED_KEYS+=("$key")
+  fi
+  unset "REMOTE_ETAGS[$key]"
+done < <(find web/dist -type f -print0 | sort -z)
+REMOVED_KEYS=("${!REMOTE_ETAGS[@]}")
+
+if [[ ${#CHANGED_KEYS[@]} -eq 0 && ${#REMOVED_KEYS[@]} -eq 0 ]]; then
+  ok "Frontend unchanged — nothing uploaded, caches left as they are"
+else
+  info "${#CHANGED_KEYS[@]} new or changed, ${#REMOVED_KEYS[@]} removed"
+
+  # index.html goes last and removals after it, so a viewer never gets an index.html that points
+  # at assets that aren't there yet, or that are already gone.
+  for key in "${CHANGED_KEYS[@]}"; do
+    if [[ "$key" != index.html ]]; then
+      aws s3 cp "web/dist/${key}" "s3://${FRONTEND_BUCKET}/${key}" --only-show-errors || fail "Upload of ${key} failed"
+    fi
+  done
+  for key in "${CHANGED_KEYS[@]}"; do
+    if [[ "$key" == index.html ]]; then
+      aws s3 cp web/dist/index.html "s3://${FRONTEND_BUCKET}/index.html" --only-show-errors || fail "Upload of index.html failed"
+    fi
+  done
+  for key in "${REMOVED_KEYS[@]}"; do
+    aws s3 rm "s3://${FRONTEND_BUCKET}/${key}" --only-show-errors || fail "Removal of ${key} failed"
+  done
+  ok "Frontend synced to s3://${FRONTEND_BUCKET}"
+
+  # Files under assets/ have content-hashed names: changed content is a new URL, so no cached copy
+  # is stale. Only the fixed-name files need purging (index.html, version.json, public/ files).
+  PURGE_KEYS=()
+  INDEX_CHANGED=false
+  for key in "${CHANGED_KEYS[@]}" "${REMOVED_KEYS[@]}"; do
+    if [[ "$key" == index.html ]]; then
+      INDEX_CHANGED=true
+    elif [[ "$key" != assets/* ]]; then
+      PURGE_KEYS+=("$key")
+    fi
+  done
+
+  if [[ "$INDEX_CHANGED" == true || ${#PURGE_KEYS[@]} -gt 15 ]]; then
+    # CloudFront serves index.html for every app route (/garage, /admin/users, …) through its error
+    # responses and caches it per path, so a new index.html needs everything purged.
+    invalidate_cloudfront "/*"
+    purge_cloudflare '{"purge_everything":true}'
+  elif [[ ${#PURGE_KEYS[@]} -gt 0 ]]; then
+    PURGE_PATHS=()
+    PURGE_URLS=()
+    for key in "${PURGE_KEYS[@]}"; do
+      PURGE_PATHS+=("/${key}")
+      PURGE_URLS+=("\"https://${FRONTEND_DOMAIN}/${key}\"")
+    done
+    invalidate_cloudfront "${PURGE_PATHS[@]}"
+    purge_cloudflare "{\"files\":[$(IFS=,; echo "${PURGE_URLS[*]}")]}"
+  else
+    ok "Only content-hashed assets changed — no cache purge needed"
+  fi
 fi
 
 # ── Done ─────────────────────────────────────────────────────────────────────
@@ -484,6 +544,7 @@ echo ""
 case "$DEPLOY_ENV" in
   test|staging|production)
     # Fetch CNAME targets from stack outputs
+    FRONTEND_STACK_NAME="PawsitiveMileage-${CDK_ENV}-Frontend"
     CF_DOMAIN_NAME=$(aws cloudformation describe-stacks \
       --stack-name "$FRONTEND_STACK_NAME" \
       --query "Stacks[0].Outputs[?OutputKey=='DistributionDomainName'].OutputValue" \

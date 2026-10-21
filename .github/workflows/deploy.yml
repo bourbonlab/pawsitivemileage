@@ -1,6 +1,6 @@
 name: Deploy
 
-# Every push to main: CI → version → staging → production → release. Production waits for
+# Every push to main (except docs-only): CI → version → staging → production → release. Production waits for
 # approval in the `production` GitHub environment. Run manually to redeploy one environment
 # from main (no new version).
 #
@@ -11,6 +11,13 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Docs-only pushes don't deploy or release; they ship with the next release. Keep this list in
+    # step with the docs-only check in pr-title.yml.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.claude/**'
   workflow_dispatch:
     inputs:
       environment:

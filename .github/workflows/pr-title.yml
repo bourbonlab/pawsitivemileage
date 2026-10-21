@@ -38,6 +38,18 @@ jobs:
           set +e
           node cli/src/release/version.ts pr --base "$BASE_SHA" --title "$PR_TITLE" > summary.md
           status=$?
+          # Docs-only PRs don't trigger Deploy (paths-ignore in deploy.yml; keep the patterns in step).
+          # HEAD is the PR's merge commit, so HEAD^1..HEAD is exactly what merging changes.
+          docs_only=true
+          while IFS= read -r file; do
+            case "$file" in
+              *.md|docs/*|LICENSE|.claude/*) ;;
+              *) docs_only=false ;;
+            esac
+          done < <(git diff --name-only HEAD^1 HEAD)
+          if [[ $status -eq 0 && $docs_only == true ]]; then
+            printf '### Docs-only: merging does not deploy or release\n\nThese changes ship with the next release.\n' > summary.md
+          fi
           cat summary.md | tee -a "$GITHUB_STEP_SUMMARY"
           if [[ $status -eq 0 ]]; then
             echo "::notice title=Release::$(head -1 summary.md | sed 's/^### //; s/\*\*//g')"
