@@ -42,13 +42,14 @@ npm run audit                         # npm audit --audit-level=high
   - lint must be clean
   - tests covering the change must pass
   - include related doc updates in the same commit
-- The repo is on Gitea: `https://gitea.bourbonlab.net/bourbonlab/PawsitiveMileage`. Use the `tea` CLI:
+- The repo is on GitHub: `https://github.com/bourbonlab/pawsitivemileage` (public). Use the `gh` CLI:
   ```bash
   git push -u origin feat/short-description
-  tea pr create --title "feat: description" --head feat/short-description --base main
-  tea pr merge <index>        # merge style; then delete the branch
+  gh pr create --title "feat: description" --head feat/short-description --base main
+  gh pr merge <number> --merge --delete-branch
   git checkout main && git pull origin main
   ```
+- History before the move (PRs #1–#27, closed issues) stays on the old Gitea repo, `https://gitea.bourbonlab.net/bourbonlab/PawsitiveMileage`. `#N` references in older commit messages point there, not at GitHub. Commit SHAs differ from Gitea's, because the repo was converted from SHA-256 to SHA-1 for GitHub.
 
 ## Keep docs in sync
 

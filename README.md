@@ -443,7 +443,7 @@ All deployment configuration lives in a single `.env` file. The `deploy.sh` scri
 | `API_DOMAIN_STAGING` / `_PRODUCTION` | API domain | `api-staging.pawsitivemileage.app` / `api.pawsitivemileage.app` |
 | `AUTH_DOMAIN_STAGING` / `_PRODUCTION` | Cognito Hosted UI custom domain | `auth-staging.pawsitivemileage.app` / `auth.pawsitivemileage.app` |
 | `RESOURCE_PREFIX` | Prefix for AWS resource names (S3 bucket names are globally unique) | `pawsitivemileage-app` |
-| `SOURCE_CODE_URL` | Source code repository URL (leave blank to hide the link) | `https://gitea.example.com/org/PawsitiveMileage` |
+| `SOURCE_CODE_URL` | Source code repository URL (leave blank to hide the link) | `https://github.com/org/PawsitiveMileage` |
 | `SUPPORT_EMAIL` | Support email shown on Privacy Policy and Terms of Service pages | `support@example.com` |
 
 The `.env` file is in `.gitignore` and should never be committed. Only the target environment's `*_<ENV>` variables are required. A `--test` environment is still supported by the code; add `*_TEST` variables to use it.
