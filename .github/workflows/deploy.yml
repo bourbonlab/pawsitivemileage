@@ -1,7 +1,12 @@
 name: Deploy
 
-# Every push to main: CI → staging → production. Production waits for approval in the
-# `production` GitHub environment. Run manually to redeploy one environment from main.
+# Every push to main: CI → version → staging → production → release. Production waits for
+# approval in the `production` GitHub environment. Run manually to redeploy one environment
+# from main (no new version).
+#
+# Versioning (docs/ci-cd.md#versioning): each push to main gets the next semantic version from
+# its conventional commits, tagged vX.Y.Z with a GitHub pre-release; the release is marked
+# Latest once production has deployed it.
 
 on:
   push:
@@ -21,12 +26,56 @@ jobs:
   ci:
     uses: ./.github/workflows/ci.yml
 
-  staging:
+  version:
+    name: Version
     needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # One at a time, so two quick merges can't compute the same version
+    concurrency:
+      group: release-version
+      cancel-in-progress: false
+    permissions:
+      contents: write # create the tag and GitHub release
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history and tags
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .nvmrc
+
+      - id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          json=$(node cli/src/release/version.ts next)
+          echo "$json"
+          tag=$(jq -r .tag <<<"$json")
+          if [[ "$(jq -r .isNew <<<"$json")" == true ]]; then
+            if [[ "$EVENT" == push ]]; then
+              gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+                --title "$tag" --generate-notes --prerelease
+            else
+              # Manual run on an untagged commit: no release, label the build with git describe
+              tag=$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --always HEAD)
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "### Version: $tag" >> "$GITHUB_STEP_SUMMARY"
+
+  staging:
+    needs: [ci, version]
     if: github.event_name == 'push' || inputs.environment == 'staging'
     uses: ./.github/workflows/deploy-environment.yml
     with:
       environment: staging
+      version: ${{ needs.version.outputs.tag }}
     # Needed for the called job to see the environment's secrets (CLOUDFLARE_API_TOKEN)
     secrets: inherit
     permissions:
@@ -34,16 +83,37 @@ jobs:
       id-token: write
 
   production:
-    needs: [ci, staging]
+    needs: [ci, version, staging]
     # On push, only after staging succeeded. Manual production runs skip staging.
     if: >-
-      !cancelled() && needs.ci.result == 'success' &&
+      !cancelled() && needs.ci.result == 'success' && needs.version.result == 'success' &&
       (needs.staging.result == 'success' ||
        (github.event_name == 'workflow_dispatch' && inputs.environment == 'production'))
     uses: ./.github/workflows/deploy-environment.yml
     with:
       environment: production
+      version: ${{ needs.version.outputs.tag }}
     secrets: inherit
     permissions:
       contents: read
       id-token: write
+
+  release:
+    name: Mark release as latest
+    needs: [version, production]
+    if: needs.production.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --prerelease=false --latest
+            echo "### $TAG is in production" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No GitHub release for $TAG (manual run on an untagged commit)"
+          fi

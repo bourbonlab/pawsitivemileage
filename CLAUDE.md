@@ -40,6 +40,7 @@ npm run audit                         # npm audit --audit-level=high
 
 - Work on feature branches from `main`, prefixed `feat/`, `fix/`, `refactor/`, `chore/` or `docs/`. Don't commit to `main` unless asked.
 - Use conventional commits (`feat: …`, `fix: …`) with the summary under 72 characters, and bullet points in the body for multi-file changes.
+- **PR titles set the release version** (a check enforces the format): the title becomes the merge commit, and each merge to `main` is released as the next semver: `feat` → minor, `type!:` or `BREAKING CHANGE:` → major, anything else → patch ([docs/ci-cd.md#versioning](docs/ci-cd.md#versioning)).
 - Before committing:
   - lint must be clean
   - tests covering the change must pass

@@ -6,14 +6,44 @@ Pull requests are tested automatically. Every push to `main` deploys staging, th
 
 | Workflow | Trigger | What it does | AWS access |
 |---|---|---|---|
+| [`pr-title.yml`](../.github/workflows/pr-title.yml) | PR opened, edited or updated | Fails unless the PR title is a conventional commit; the job summary shows the version merging will release | None |
 | [`ci.yml`](../.github/workflows/ci.yml) | Every pull request; first stage of Deploy | `npm ci`, lint, all tests, build, `cdk synth` of staging, production and the GitHub access app (placeholder values); `npm audit` as a separate job | None |
-| [`deploy.yml`](../.github/workflows/deploy.yml) | Push to `main`; manual run | CI → **staging** → **production** (waits for approval) | Per environment, via OIDC |
+| [`deploy.yml`](../.github/workflows/deploy.yml) | Push to `main`; manual run | CI → version → **staging** → **production** (waits for approval) → mark release Latest | Per environment, via OIDC |
 | [`deploy-environment.yml`](../.github/workflows/deploy-environment.yml) | Called by `deploy.yml` | `./deploy.sh --stage --skip-tests` or `--prod --yes --skip-tests` | The environment's deploy role |
 
 - **Production approval:** after staging succeeds, the production job waits on the run page (or in the GitHub notification) until a reviewer of the `production` environment approves it. If it isn't approved within 30 days, the job is cancelled. If more pushes reach `main` before approval, only the newest pending production deploy is kept.
 - **Manual run:** Actions → Deploy → Run workflow, from `main`, choosing `staging` or `production`. A manual production run skips staging but still needs approval.
 - **Failures:** a failed CI stage deploys nothing. If staging fails, production doesn't run. Deploys of the same environment never run in parallel.
 - **`npm audit`:** a separate check, so a newly published advisory flags the PR without blocking tests.
+
+## Versioning
+
+Every push to `main` is a release, following [semantic versioning](https://semver.org). The **Version** job of `deploy.yml` runs [`cli/src/release/version.ts`](../cli/src/release/version.ts) over the commits since the last `vX.Y.Z` tag and takes the largest bump:
+
+| Commit (or PR title, for merge commits) | Bump |
+|---|---|
+| `type!: …`, or a `BREAKING CHANGE: …` footer | major |
+| `feat: …` | minor |
+| anything else (`fix`, `perf`, `chore`, `docs`, …, or not conventional) | patch |
+
+Every merge deploys, so even a `docs:` or `chore:` merge gets a patch release; every deployed build has its own version. The first release is `v1.0.0`.
+
+1. **On the PR:** the *PR title and version* check fails unless the title is a conventional commit. GitHub writes the PR title into the merge commit, so the title decides the bump. Its summary shows the version merging would produce, for example *Merging this PR releases v1.3.0 (minor bump from v1.2.4)*.
+2. **On merge:** the Version job creates the tag and a GitHub **pre-release** with generated notes, then staging and production build with `APP_VERSION=vX.Y.Z`. The app footer shows the version, linked to its release.
+3. **After production deploys:** the release is marked **Latest**, so *Latest* on the Releases page is what is in production.
+
+- **Re-runs:** re-running a run never creates a second version, because a commit that already has a tag keeps it. Version jobs run one at a time, so quick successive merges get consecutive versions.
+- **Failed deploys:** if staging or production fails, the tag and pre-release stay. The next merge releases the next version, which includes those changes.
+- **Manual runs** (Run workflow) don't create versions. They deploy the latest tag on that commit, or a `git describe` label such as `v1.2.0-1-gabc1234` if the commit is untagged.
+- **Local deploys** (`./deploy.sh --stage`) show `git describe` output, for example `v1.2.0-3-gabc1234-dirty`.
+- **Squash or rebase merges:** these work too. A squash commit's subject is the PR title.
+- **`package.json` versions** aren't used. The git tags are the source of truth.
+
+Check what the next version would be locally:
+
+```bash
+git fetch --tags && node cli/src/release/version.ts next
+```
 
 ## How GitHub reaches AWS
 

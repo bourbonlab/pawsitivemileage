@@ -3,6 +3,7 @@ import { LogOut, Moon, Shield, Sun } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useTheme } from '@/lib/useTheme';
 import { Button } from '@/components/ui/button';
+import { AppVersion } from '@/components/AppVersion';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { signOut, isAdmin } = useAuth();
@@ -57,6 +58,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 Source Code
               </a>
             )}
+            <AppVersion className="hover:text-foreground transition-colors" />
           </nav>
         </div>
       </footer>

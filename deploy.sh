@@ -410,8 +410,12 @@ export VITE_COGNITO_APP_CLIENT_ID="$COGNITO_APP_CLIENT_ID"
 export VITE_COGNITO_DOMAIN="$COGNITO_DOMAIN"
 export VITE_SOURCE_CODE_URL="${SOURCE_CODE_URL:-}"
 export VITE_SUPPORT_EMAIL="${SUPPORT_EMAIL:-}"
+# Release version shown in the footer: the Deploy workflow sets APP_VERSION to the release tag;
+# local deploys describe the checkout (e.g. v1.2.0-3-gabc1234-dirty).
+export VITE_APP_VERSION="${APP_VERSION:-$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --always --dirty 2>/dev/null || echo dev)}"
 
 info "VITE_API_URL=${VITE_API_URL}"
+info "VITE_APP_VERSION=${VITE_APP_VERSION}"
 info "Building frontend with Cognito config baked in..."
 
 if [[ "$VERBOSE" == true ]]; then
