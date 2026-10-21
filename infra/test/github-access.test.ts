@@ -10,7 +10,7 @@ function template(): Template {
   const app = new cdk.App();
   const stack = new GitHubAccessStack(app, 'GitHubAccess', {
     env: { account: '123456789012', region: 'us-east-1' },
-    githubRepo: 'owner/repo',
+    githubRepo: 'owner@1/repo@2',
     resourcePrefix: 'prefix',
     environments: ['staging', 'production'],
   });
@@ -54,7 +54,7 @@ describe('GitHubAccessStack', () => {
               Condition: {
                 StringEquals: {
                   'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-                  'token.actions.githubusercontent.com:sub': `repo:owner/repo:environment:${envName}`,
+                  'token.actions.githubusercontent.com:sub': `repo:owner@1/repo@2:environment:${envName}`,
                 },
               },
             }),
