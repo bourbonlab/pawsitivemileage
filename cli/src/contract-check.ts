@@ -5,6 +5,9 @@
  * against its schema in @pawsitivemileage/contracts. It checks the status and the
  * `{ data, requestId }` envelope.
  *
+ * Strict about fields: anything the contract doesn't declare is a failure (--allow-undeclared
+ * skips that, e.g. for an environment still running a build from before #20).
+ *
  * Read-only by default. The CSV export GETs write a file to the exports bucket, so they only
  * run with --include-exports. Admin routes run for users whose profile has isAdmin. Failures
  * list schema paths and messages, never response values.
@@ -20,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
 import { routes, successEnvelope, type RouteDefinition } from '@pawsitivemileage/contracts';
-import { fillPath, parseRouteHandlers, summarizeIssues } from './contract/helpers.js';
+import { countPaths, fillPath, parseRouteHandlers, summarizeIssues, undeclaredKeys } from './contract/helpers.js';
 
 const { values: opts } = parseArgs({
   options: {
@@ -29,6 +32,7 @@ const { values: opts } = parseArgs({
     prefix: { type: 'string' },
     mapping: { type: 'string' },
     'include-exports': { type: 'boolean', default: false },
+    'allow-undeclared': { type: 'boolean', default: false },
   },
 });
 const env = opts.env!;
@@ -88,6 +92,14 @@ async function check(caller: Caller, id: OperationId, params?: Record<string, st
     results.failed++;
     console.log(`  ✖ ${label} → ${status} does not match the contract:`);
     for (const line of summarizeIssues(parsed.error)) console.log(`      data${line.startsWith('[') ? '' : '.'}${line.replace(/^data\.?/, '')}`);
+    return undefined;
+  }
+  // Response schemas tolerate unknown keys (for clients); the API itself must not return any (#20)
+  const extra = opts['allow-undeclared'] ? [] : undeclaredKeys(route.response, body.data);
+  if (extra.length) {
+    results.failed++;
+    console.log(`  ✖ ${label} → ${status} returns fields the contract doesn't declare:`);
+    for (const line of countPaths(extra)) console.log(`      ${line}`);
     return undefined;
   }
   const count = Array.isArray(parsed.data.data) ? ` (${parsed.data.data.length})` : '';

@@ -33,7 +33,7 @@ packages/contracts   zod schemas + route table  ← single source of truth
 - **Contract-first in TypeScript, using zod 4.** One schema gives the TypeScript type, runtime validation, and JSON Schema for OpenAPI through zod's built-in `toJSONSchema`, with no extra generator dependency.
 - **Route table:** each operation is declared once, with its method, path, path/query/body schemas, success status and `data` schema, auth requirement, and an `operationId`. The OpenAPI document and the SDK methods are both derived from it.
 - **The envelope is part of the contract:** success responses are `{ data, requestId }`, and errors are `{ error, code, requestId }` with `code` drawn from a closed enum.
-- **Lenient now, strict later:** in phase A, response schemas allow unknown keys, so today's responses (internal keys included) conform. Phase B removes the internal keys and then makes the schemas strict.
+- **Open response schemas, strict checking:** response schemas accept unknown keys, so additive v1 changes never break an installed client. The API is held to the contract the other way: `contract-check` fails on any field the contract doesn't declare. Since #20, the API also strips DynamoDB storage keys from every response.
 
 ## Compatibility rules
 
@@ -91,7 +91,9 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - The handler gaps are closed: for example, `PUT` fill-up now rejects `"currencySpent": "42.50"`.
    - Bundles use `import * as z from 'zod'`, so esbuild can drop zod's locales. That took a handler from 473 KB to 122 KB minified.
 2. **The web app moves to the SDK.** Delete `web/src/types/` and the hand-written request types in `web/src/api/`, and fix the drifted year-over-year and admin types.
-3. **Response cleanup:** strip the internal DynamoDB keys, then make the response schemas strict.
+3. **Response cleanup:** strip the internal DynamoDB keys.
+   - *Done on the branch.* `success()` drops `GSI*PK/SK`, `fillupDateId`, `serviceDateId` and `vehicleEmailKey` at any depth.
+   - `contract-check` now flags undeclared fields. Use `--allow-undeclared` for an environment still on an older build.
 4. **Mobile readiness:**
    - **Media URLs:** responses include absolute `photoUrl`/`receiptPhotoUrl` values alongside the keys.
    - **Access tokens:** the API accepts Cognito access tokens. Profile auto-creation reads email and name from `/oauth2/userInfo` when the token lacks them. Android and CLI app clients are added (public, PKCE) and listed in the JWT authorizer's audience.

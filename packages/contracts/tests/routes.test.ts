@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
-import { z } from 'zod';
+import * as z from 'zod';
 import { routes, type RouteDefinition } from '../src/index.js';
 
 const apiStack = readFileSync(fileURLToPath(new URL('../../../infra/lib/stacks/api-stack.ts', import.meta.url)), 'utf8');

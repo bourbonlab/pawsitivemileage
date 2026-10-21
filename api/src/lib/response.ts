@@ -9,11 +9,19 @@ const ERROR_STATUS_MAP: Record<ApiErrorCode, number> = {
   INTERNAL_ERROR: 500,
 };
 
+/**
+ * DynamoDB storage keys that are never part of the API (#20): GSI keys and composite sort keys.
+ * Handlers often return items straight from DynamoDB, so they are dropped here, at any depth.
+ */
+const STORAGE_KEY = /^(GSI\d+(PK|SK)|fillupDateId|serviceDateId|vehicleEmailKey)$/;
+
+const omitStorageKeys = (key: string, value: unknown) => (STORAGE_KEY.test(key) ? undefined : value);
+
 export function success<T>(data: T, requestId: string, statusCode = 200) {
   return {
     statusCode,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ data, requestId }),
+    body: JSON.stringify({ data, requestId }, omitStorageKeys),
   };
 }
 

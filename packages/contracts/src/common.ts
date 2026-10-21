@@ -51,7 +51,8 @@ export function successEnvelope<T extends z.ZodType>(data: T) {
 export const Deleted = z.object({ deleted: z.literal(true) });
 
 /**
- * Response objects may carry extra keys today (internal DynamoDB keys such as GSI1PK, see #20),
- * so response schemas accept unknown keys until that cleanup ships.
+ * Response objects accept unknown keys, because clients must tolerate fields added within v1.
+ * The API itself must not return undeclared fields: `contract-check` fails on any it finds, and
+ * `success()` strips DynamoDB storage keys (#20).
  */
 export const responseObject = z.looseObject;
