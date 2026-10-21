@@ -8,7 +8,12 @@ const CDK_QUALIFIER = 'hnb659fds';
 const GITHUB_OIDC_HOST = 'token.actions.githubusercontent.com';
 
 export interface GitHubAccessStackProps extends cdk.StackProps {
-  /** `owner/repo` allowed to assume the deploy roles. */
+  /**
+   * Repo allowed to assume the deploy roles, as it appears in the OIDC subject claim. With
+   * GitHub's immutable subject format (`use_immutable_subject`) that is `owner@ownerId/repo@repoId`,
+   * which can't be matched by a repo recreated under the same name. Check the prefix with
+   * `gh api repos/OWNER/REPO/actions/oidc/customization/sub`.
+   */
   githubRepo: string;
   /** Same value as RESOURCE_PREFIX in .env (without the environment suffix). */
   resourcePrefix: string;

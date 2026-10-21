@@ -26,7 +26,8 @@ if (!/^\d{12}$/.test(account)) {
 
 const stack = new GitHubAccessStack(app, 'PawsitiveMileage-GitHubAccess', {
   env: { account, region: REGION },
-  githubRepo: app.node.tryGetContext('githubRepo') ?? 'bourbonlab/pawsitivemileage',
+  // Immutable OIDC subject form (owner@id/repo@id) — see GitHubAccessStackProps.githubRepo
+  githubRepo: app.node.tryGetContext('githubRepo') ?? 'bourbonlab@179869454/pawsitivemileage@1427729468',
   resourcePrefix: requireContext('resourcePrefix'),
   environments: ['staging', 'production'],
   terminationProtection: true,

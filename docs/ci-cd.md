@@ -20,7 +20,7 @@ Pull requests are tested automatically. Every push to `main` deploys staging, th
 There are no long-lived AWS keys in GitHub. Deploy jobs get short-lived credentials through GitHub's OIDC provider:
 
 1. A deploy job runs in the GitHub environment `staging` or `production`. Each environment only accepts runs from `main`.
-2. GitHub issues the job an OIDC token whose subject is `repo:bourbonlab/pawsitivemileage:environment:<env>`.
+2. GitHub issues the job an OIDC token whose subject is `repo:bourbonlab@179869454/pawsitivemileage@1427729468:environment:<env>`. The repo uses GitHub's immutable subject format, with owner and repo IDs, so a deleted and recreated repo of the same name can't match. If GitHub's subject format or the repo ID ever changes, update `githubRepo` in [`bin/github-access.ts`](../infra/bin/github-access.ts) and redeploy (see Troubleshooting).
 3. [`configure-aws-credentials`](https://github.com/aws-actions/configure-aws-credentials) exchanges it for the role `pawsitivemileage-app-github-deploy-<env>`, whose trust policy accepts only that exact subject. It also refuses to continue if the credentials are for any account other than `AWS_ACCOUNT_ID`.
 4. `deploy.sh` runs `cdk deploy` through the CDK bootstrap roles, then syncs the frontend and invalidates caches.
 
@@ -75,3 +75,16 @@ done
 ```
 
 Remove it with `aws iam delete-role-policy --role-name … --policy-name DenyAll`. To pause deploys without touching AWS, disable the workflow (Actions → Deploy → ⋯ → Disable workflow).
+
+## Troubleshooting
+
+**`Not authorized to perform sts:AssumeRoleWithWebIdentity`**: the token's subject doesn't match the role's trust policy. Compare the subject GitHub sent (CloudTrail records it on the failed call) with the trust policy:
+
+```bash
+aws cloudtrail lookup-events --region us-east-1 --max-results 1 \
+  --lookup-attributes AttributeKey=EventName,AttributeValue=AssumeRoleWithWebIdentity \
+  --query 'Events[].CloudTrailEvent' --output text | jq -r .userIdentity.userName
+aws iam get-role --role-name pawsitivemileage-app-github-deploy-staging \
+  --query 'Role.AssumeRolePolicyDocument.Statement[0].Condition'
+gh api repos/bourbonlab/pawsitivemileage/actions/oidc/customization/sub
+```
