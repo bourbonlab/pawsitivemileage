@@ -3,6 +3,7 @@ import * as certificatemanager from 'aws-cdk-lib/aws-certificatemanager';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import { EnvironmentConfig } from '../config.js';
+import { NATIVE_SCOPES, nativeRedirects } from '../client-metadata.js';
 
 export interface AuthStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
@@ -11,6 +12,8 @@ export interface AuthStackProps extends cdk.StackProps {
 export class AuthStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
+  /** Public PKCE clients for the native apps (#22) */
+  public readonly nativeClients: Record<'android' | 'cli', cognito.UserPoolClient>;
   public readonly userPoolDomain: cognito.UserPoolDomain;
   public readonly jwtIssuer: string;
   public readonly jwtAudience: string[];
@@ -108,13 +111,37 @@ export class AuthStack extends cdk.Stack {
     // Ensure Google provider is created before the client references it
     this.userPoolClient.node.addDependency(googleProvider);
 
+    // Native clients (#22): public (no secret), authorization code + PKCE through the Hosted UI,
+    // identity scopes only. They use access tokens, which the API accepts via the authorizer's
+    // client_id check; the web keeps its client and ID tokens.
+    const redirects = nativeRedirects(config.envName);
+    const nativeClient = (id: string, name: 'android' | 'cli') => {
+      const client = this.userPool.addClient(id, {
+        userPoolClientName: `${config.resourcePrefix}-${name}-client`,
+        oAuth: {
+          flows: { authorizationCodeGrant: true },
+          scopes: NATIVE_SCOPES.map((scope) => cognito.OAuthScope.custom(scope)),
+          callbackUrls: [redirects[name].callback],
+          logoutUrls: [redirects[name].logout],
+        },
+        supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.GOOGLE],
+        generateSecret: false,
+        preventUserExistenceErrors: true,
+      });
+      client.node.addDependency(googleProvider);
+      return client;
+    };
+    this.nativeClients = { android: nativeClient('AndroidClient', 'android'), cli: nativeClient('CliClient', 'cli') };
+
     // JWT configuration for API Gateway authorizer
     this.jwtIssuer = `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`;
-    this.jwtAudience = [this.userPoolClient.userPoolClientId];
+    this.jwtAudience = [this.userPoolClient, this.nativeClients.android, this.nativeClients.cli].map((c) => c.userPoolClientId);
 
     // Outputs
     new cdk.CfnOutput(this, 'UserPoolId', { value: this.userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: this.userPoolClient.userPoolClientId });
+    new cdk.CfnOutput(this, 'AndroidClientId', { value: this.nativeClients.android.userPoolClientId });
+    new cdk.CfnOutput(this, 'CliClientId', { value: this.nativeClients.cli.userPoolClientId });
     new cdk.CfnOutput(this, 'HostedUIDomain', { value: config.authDomain });
     // DNS target for the auth domain CNAME (must be DNS-only, not proxied, in CloudFlare)
     new cdk.CfnOutput(this, 'HostedUIDomainCloudFrontTarget', { value: this.userPoolDomain.cloudFrontEndpoint });

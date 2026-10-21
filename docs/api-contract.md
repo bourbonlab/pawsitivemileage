@@ -98,6 +98,11 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - **Media URLs:** responses include absolute `photoUrl`/`receiptPhotoUrl` values alongside the keys.
      - *Done on the branch:* `success()` adds `https://{FRONTEND_DOMAIN}/photos/{key}` next to every `photoKey`/`receiptPhotoKey`, at any depth, with path segments encoded.
    - **Access tokens:** the API accepts Cognito access tokens. Profile auto-creation reads email and name from `/oauth2/userInfo` when the token lacks them. Android and CLI app clients are added (public, PKCE) and listed in the JWT authorizer's audience.
+     - *Done on the branch:* `AuthStack` adds `{prefix}-android-client` and `{prefix}-cli-client`. They are public (no secret), use the code flow (PKCE) through the Hosted UI with Google, and get `openid email profile` only (no `aws.cognito.signin.user.admin`).
+     - Redirects (`infra/lib/client-metadata.ts`): Android `app.pawsitivemileage://callback` in production and `app.pawsitivemileage.<env>://callback` elsewhere, so a staging build doesn't catch production redirects. The CLI uses `http://localhost:47815/callback`.
+     - The authorizer's audience lists all three clients. Access tokens have no `aud`, and API Gateway checks their `client_id` against the audience instead. The web keeps its client and ID tokens.
+     - `getIdentity()` (`api/src/lib/auth.ts`) calls `https://{AUTH_DOMAIN}/oauth2/userInfo` with the caller's own token when `token_use` is `access`. If that fails, the profile is not created (500, retryable), so no profile ends up without an email.
+     - `GET /v1/meta` adds `auth`: issuer, Hosted UI domain, scopes, and per-platform `clientId`/`redirectUri`/`logoutUri`. A native client needs only the API base URL to sign in.
    - **`GET /v1/meta`** (public): minimum supported version per platform, feature flags, and policy links (privacy, terms, account deletion).
      - *Done on the branch:* the `meta` Lambda answers without a token, and adds `serverTime`.
      - Values are in **`infra/lib/client-metadata.ts`**: code, not SSM, so a change is a one-line PR and a deploy.

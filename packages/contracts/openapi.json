@@ -4519,6 +4519,60 @@
             "format": "date-time",
             "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
             "description": "For detecting clock skew"
+          },
+          "auth": {
+            "description": "Sign-in configuration for native clients: authorization code + PKCE through the Hosted UI",
+            "type": "object",
+            "properties": {
+              "issuer": {
+                "type": "string",
+                "format": "uri",
+                "description": "OIDC issuer; tokens are validated against it"
+              },
+              "domain": {
+                "type": "string",
+                "description": "Cognito Hosted UI host: /oauth2/authorize, /oauth2/token, /logout"
+              },
+              "scopes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Scopes to request"
+              },
+              "clients": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "clientId": {
+                      "type": "string"
+                    },
+                    "redirectUri": {
+                      "type": "string"
+                    },
+                    "logoutUri": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "clientId",
+                    "redirectUri",
+                    "logoutUri"
+                  ]
+                },
+                "description": "Public PKCE clients per platform (android, cli)"
+              }
+            },
+            "required": [
+              "issuer",
+              "domain",
+              "scopes",
+              "clients"
+            ]
           }
         },
         "required": [

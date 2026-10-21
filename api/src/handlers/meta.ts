@@ -37,6 +37,8 @@ export function buildMeta(env: NodeJS.ProcessEnv, now = new Date()) {
       accountDeletion: `${site}/account`,
     },
     serverTime: now.toISOString(),
+    // Native sign-in configuration (#22); omitted when the environment doesn't provide it
+    ...(env.AUTH_CONFIG && { auth: parseJsonObject<Record<string, unknown>>(env.AUTH_CONFIG, 'AUTH_CONFIG', {}) }),
   };
 }
 

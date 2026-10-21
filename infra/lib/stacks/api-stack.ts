@@ -9,7 +9,7 @@ import { AuthStack } from './auth-stack.js';
 import { DatabaseStack } from './database-stack.js';
 import { StorageStack } from './storage-stack.js';
 import { AppFunction } from '../constructs/lambda-function.js';
-import { CLIENT_METADATA } from '../client-metadata.js';
+import { CLIENT_METADATA, NATIVE_SCOPES, nativeRedirects } from '../client-metadata.js';
 
 export interface ApiStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
@@ -45,7 +45,12 @@ export class ApiStack extends cdk.Stack {
     this.lambdaFunctions = {};
 
     const functionDefs: Array<{ name: string; description: string; environment?: Record<string, string> }> = [
-      { name: 'userProfile', description: 'User profile CRUD and account deletion' },
+      {
+        name: 'userProfile',
+        description: 'User profile CRUD and account deletion',
+        // Profile auto-create reads email/name from /oauth2/userInfo for access tokens (#22)
+        environment: { AUTH_DOMAIN: config.authDomain },
+      },
       { name: 'vehicleCrud', description: 'Vehicle CRUD and archive/unarchive' },
       { name: 'fillupCrud', description: 'Fillup CRUD with derived metrics calculation' },
       { name: 'maintenanceCrud', description: 'Maintenance CRUD and reminders' },
@@ -63,6 +68,17 @@ export class ApiStack extends cdk.Stack {
         environment: {
           MIN_CLIENT_VERSIONS: JSON.stringify(CLIENT_METADATA.minimumVersions),
           FEATURE_FLAGS: JSON.stringify(CLIENT_METADATA.features),
+          // Sign-in configuration for native clients (#22)
+          AUTH_CONFIG: cdk.Fn.toJsonString({
+            issuer: authStack.jwtIssuer,
+            domain: config.authDomain,
+            scopes: NATIVE_SCOPES,
+            clients: Object.fromEntries(Object.entries(nativeRedirects(config.envName)).map(([name, uris]) => [name, {
+              clientId: authStack.nativeClients[name as 'android' | 'cli'].userPoolClientId,
+              redirectUri: uris.callback,
+              logoutUri: uris.logout,
+            }])),
+          }),
         },
       },
     ];

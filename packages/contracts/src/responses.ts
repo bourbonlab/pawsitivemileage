@@ -108,6 +108,16 @@ export const Meta = responseObject({
     accountDeletion: z.url().describe('Where a signed-in user can delete their account and data'),
   }),
   serverTime: z.iso.datetime().describe('For detecting clock skew'),
+  auth: z.object({
+    issuer: z.url().describe('OIDC issuer; tokens are validated against it'),
+    domain: z.string().describe('Cognito Hosted UI host: /oauth2/authorize, /oauth2/token, /logout'),
+    scopes: z.array(z.string()).describe('Scopes to request'),
+    clients: z.record(z.string(), z.object({
+      clientId: z.string(),
+      redirectUri: z.string(),
+      logoutUri: z.string(),
+    })).describe('Public PKCE clients per platform (android, cli)'),
+  }).optional().describe('Sign-in configuration for native clients: authorization code + PKCE through the Hosted UI'),
 });
 export type Meta = z.infer<typeof Meta>;
 

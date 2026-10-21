@@ -607,7 +607,7 @@ npx cdk deploy --all \
 
 Base URL: `https://{apiDomain}/v1`
 
-All endpoints except `GET /v1/meta` require a valid Cognito JWT in the `Authorization: Bearer <token>` header. Admin endpoints additionally verify the `isAdmin` flag from the user's DynamoDB profile. The full machine-readable contract is [`packages/contracts/openapi.json`](packages/contracts/openapi.json) (OpenAPI 3.1).
+All endpoints except `GET /v1/meta` require a valid Cognito JWT in the `Authorization: Bearer <token>` header: an ID token (web) or an access token (Android and CLI clients, which sign in with PKCE through the Hosted UI). Admin endpoints additionally verify the `isAdmin` flag from the user's DynamoDB profile. The full machine-readable contract is [`packages/contracts/openapi.json`](packages/contracts/openapi.json) (OpenAPI 3.1).
 
 Responses follow a consistent envelope format:
 - Success: `{ "data": <payload>, "requestId": "<id>" }`
@@ -633,7 +633,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/meta` | No sign-in needed. Minimum supported client version per platform, feature flags, policy links (privacy, terms, account deletion) and server time. Values: `infra/lib/client-metadata.ts` |
+| GET | `/v1/meta` | No sign-in needed. Minimum supported client version per platform, feature flags, policy links (privacy, terms, account deletion), server time, and `auth` (issuer, Hosted UI domain, scopes, native client IDs and redirect URIs). Values: `infra/lib/client-metadata.ts` |
 
 ### User Profile
 

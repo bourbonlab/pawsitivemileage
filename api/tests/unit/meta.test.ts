@@ -22,6 +22,19 @@ describe('buildMeta', () => {
     expect(Meta.safeParse(meta).success).toBe(true);
   });
 
+  it('includes native sign-in configuration when the environment provides it (#22)', () => {
+    const auth = {
+      issuer: 'https://cognito-idp.us-east-1.amazonaws.com/us-east-1_abc',
+      domain: 'auth-staging.example.app',
+      scopes: ['openid', 'email', 'profile'],
+      clients: { cli: { clientId: 'cli123', redirectUri: 'http://localhost:47815/callback', logoutUri: 'http://localhost:47815/signout' } },
+    };
+    const meta = buildMeta(env({ AUTH_CONFIG: JSON.stringify(auth) }));
+    expect(meta.auth).toEqual(auth);
+    expect(Meta.safeParse(meta).success).toBe(true);
+    expect(buildMeta(env())).not.toHaveProperty('auth');
+  });
+
   it('falls back to defaults when the configuration is missing or malformed', () => {
     for (const config of [env(), env({ MIN_CLIENT_VERSIONS: 'not json', FEATURE_FLAGS: '[1,2]' })]) {
       const meta = buildMeta(config);

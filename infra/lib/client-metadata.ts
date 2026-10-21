@@ -14,3 +14,21 @@ export const CLIENT_METADATA = {
   },
   features: {} as Record<string, boolean>,
 };
+
+/**
+ * Redirect URIs for the native app clients (#22). Each environment has its own Cognito clients;
+ * Android also gets its own scheme per environment so a staging build installed next to the
+ * production app doesn't catch its sign-in redirects. The CLI listens on a fixed loopback port.
+ */
+export const CLI_LOOPBACK_PORT = 47815;
+
+export function nativeRedirects(envName: string) {
+  const scheme = envName === 'production' ? 'app.pawsitivemileage' : `app.pawsitivemileage.${envName}`;
+  return {
+    android: { callback: `${scheme}://callback`, logout: `${scheme}://signout` },
+    cli: { callback: `http://localhost:${CLI_LOOPBACK_PORT}/callback`, logout: `http://localhost:${CLI_LOOPBACK_PORT}/signout` },
+  };
+}
+
+/** Scopes the native clients may request: identity only, no Cognito user-admin APIs */
+export const NATIVE_SCOPES = ['openid', 'email', 'profile'];

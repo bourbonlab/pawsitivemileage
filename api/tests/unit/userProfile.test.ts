@@ -347,3 +347,54 @@ describe('userProfile handler', () => {
     });
   });
 });
+
+describe('profile auto-create from an access token (#22)', () => {
+  const accessEvent = () => {
+    const event = makeEvent({ method: 'GET' });
+    (event.requestContext as unknown as { authorizer: unknown }).authorizer = {
+      jwt: { claims: { sub: 'user-123', token_use: 'access', client_id: 'cli123', scope: 'openid email profile' }, scopes: [] },
+    };
+    event.headers = { authorization: 'Bearer access-token-value' };
+    return event;
+  };
+  const putItems = () => mockSend.mock.calls.map(([cmd]) => cmd).filter((c) => c.constructor.name === 'PutCommand').map((c) => c.input.Item);
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.AUTH_DOMAIN = 'auth-staging.example.app';
+  });
+
+  it('reads email and name from /oauth2/userInfo with the caller\'s token', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ sub: 'user-123', email: 'native@example.com', name: 'Native User' })));
+    mockSend.mockResolvedValueOnce({ Item: undefined }).mockResolvedValueOnce({});
+
+    const { statusCode, body } = parseResponse(await handler(accessEvent()) as { statusCode: number; body: string });
+    expect(statusCode).toBe(201);
+    expect(body.data).toMatchObject({ email: 'native@example.com', displayName: 'Native User' });
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toBe('https://auth-staging.example.app/oauth2/userInfo');
+    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer access-token-value');
+    expect(putItems()[0]).toMatchObject({ email: 'native@example.com' });
+    fetchSpy.mockRestore();
+  });
+
+  it('refuses to create a profile without an email when userInfo fails', async () => {
+    for (const reply of [new Response('{}', { status: 401 }), new Response(JSON.stringify({ sub: 'user-123' }))]) {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(reply);
+      mockSend.mockReset();
+      mockSend.mockResolvedValueOnce({ Item: undefined });
+      const { statusCode } = parseResponse(await handler(accessEvent()) as { statusCode: number; body: string });
+      expect(statusCode).toBe(500);
+      expect(putItems()).toHaveLength(0);
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('does not call userInfo for an existing profile', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    mockSend.mockResolvedValueOnce({ Item: { userId: 'user-123', email: 'x@example.com' } });
+    expect((await handler(accessEvent()) as { statusCode: number }).statusCode).toBe(200);
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+});
