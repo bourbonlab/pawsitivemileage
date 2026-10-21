@@ -71,6 +71,7 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - It's read-only. The CSV export GETs write a file, so they only run with `--include-exports`.
    - Failures list schema paths and messages, never values.
    - First run (2026-10-21): it found **20 production fill-ups missing `isBusiness`**, older records never backfilled (#31). It also showed **year-over-year `averageMpg` can be `null`**. The contract now reflects both, and staging and production conform: 17 and 97 responses.
+   - #31 (2026-10-21, after the cutover): the 20 fill-ups were backfilled with `isBusiness=false`, and `Fillup.isBusiness` is now required. Production conforms: 172 responses.
 4. **`packages/sdk`** (`@pawsitivemileage/sdk`): `createClient({ baseUrl, getToken, fetch? })`, with one typed method per operation.
    - Path params, query and body types come from the contract's input types, and results from its output types.
    - It unwraps the envelope, and every failure is a typed `ApiError` with `status`, `code` and `requestId`. The codes are the API's own plus `CONTRACT_MISMATCH` and `NETWORK_ERROR`.

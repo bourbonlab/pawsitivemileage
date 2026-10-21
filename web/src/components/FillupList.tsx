@@ -364,7 +364,7 @@ function EditFillupDialog({
             <Switch
               id="edit-fillup-business"
               name="isBusiness"
-              defaultChecked={fillup.isBusiness ?? false}
+              defaultChecked={fillup.isBusiness}
             />
           </div>
 
