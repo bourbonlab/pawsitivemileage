@@ -145,6 +145,8 @@ async function checkUser(caller: Caller): Promise<void> {
 
 async function main(): Promise<void> {
   console.log(`contract-check — ${env} (${prefix}, ${mapping.users.length} user(s))${opts['include-exports'] ? ' + exports' : ''}`);
+  console.log('\n== public');
+  await check({ sub: mapping.users[0].newSub, email: mapping.users[0].email }, 'getMeta');
   for (const user of mapping.users) await checkUser({ sub: user.newSub, email: user.email });
   const getRoutes = (Object.keys(routes) as OperationId[]).filter((id) => routes[id].method === 'GET').length;
   console.log(`\n${results.checked} responses checked (the contract has ${getRoutes} GET routes${opts['include-exports'] ? '' : '; the 2 CSV exports are skipped without --include-exports'}).`);

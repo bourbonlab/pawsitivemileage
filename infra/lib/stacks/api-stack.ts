@@ -9,6 +9,7 @@ import { AuthStack } from './auth-stack.js';
 import { DatabaseStack } from './database-stack.js';
 import { StorageStack } from './storage-stack.js';
 import { AppFunction } from '../constructs/lambda-function.js';
+import { CLIENT_METADATA } from '../client-metadata.js';
 
 export interface ApiStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
@@ -42,7 +43,7 @@ export class ApiStack extends cdk.Stack {
     // Create Lambda functions
     this.lambdaFunctions = {};
 
-    const functionDefs: Array<{ name: string; description: string }> = [
+    const functionDefs: Array<{ name: string; description: string; environment?: Record<string, string> }> = [
       { name: 'userProfile', description: 'User profile CRUD and account deletion' },
       { name: 'vehicleCrud', description: 'Vehicle CRUD and archive/unarchive' },
       { name: 'fillupCrud', description: 'Fillup CRUD with derived metrics calculation' },
@@ -55,13 +56,21 @@ export class ApiStack extends cdk.Stack {
       { name: 'adminStats', description: 'Admin platform statistics' },
       { name: 'importData', description: 'Fuelly CSV import and metrics recalculation' },
       { name: 'sharingCrud', description: 'Vehicle sharing CRUD and shared vehicles listing' },
+      {
+        name: 'meta',
+        description: 'Public client metadata: minimum versions, feature flags, policy links',
+        environment: {
+          MIN_CLIENT_VERSIONS: JSON.stringify(CLIENT_METADATA.minimumVersions),
+          FEATURE_FLAGS: JSON.stringify(CLIENT_METADATA.features),
+        },
+      },
     ];
 
     for (const def of functionDefs) {
       this.lambdaFunctions[def.name] = new AppFunction(this, `${def.name}Fn`, {
         config,
         handlerFile: def.name,
-        environment: sharedEnv,
+        environment: { ...sharedEnv, ...def.environment },
         description: def.description,
       });
     }
@@ -269,6 +278,9 @@ export class ApiStack extends cdk.Stack {
     // Import and recalculate routes
     addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/import/{type}', 'importData');
     addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/recalculate', 'importData');
+
+    // Public client metadata (no auth: apps check it before signing in, #23)
+    addRoute(apigwv2.HttpMethod.GET, '/v1/meta', 'meta', false);
 
     // Sharing routes
     addRoute(apigwv2.HttpMethod.GET, '/v1/vehicles/shared', 'sharingCrud');

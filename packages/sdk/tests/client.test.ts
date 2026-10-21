@@ -78,6 +78,18 @@ describe('responses', () => {
   });
 });
 
+describe('public routes', () => {
+  it('calls getMeta without a token or Authorization header', async () => {
+    const meta = { apiVersion: 'v1', minimumVersions: { android: '1.0.0' }, features: {}, serverTime: '2026-10-21T12:00:00.000Z',
+      links: { privacyPolicy: 'https://x.app/privacy', terms: 'https://x.app/terms', accountDeletion: 'https://x.app/account' } };
+    const f = mockFetch(200, { data: meta, requestId: 'r' });
+    const getToken = vi.fn(() => null);
+    await expect(client(f, { getToken, validateResponses: true }).getMeta()).resolves.toEqual(meta);
+    expect(getToken).not.toHaveBeenCalled();
+    expect((f.mock.calls[0][1]?.headers as Record<string, string>).Authorization).toBeUndefined();
+  });
+});
+
 describe('client-side guards', () => {
   it('does not call fetch without a token', async () => {
     const f = mockFetch(200, { data: [], requestId: 'r' });

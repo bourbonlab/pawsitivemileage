@@ -607,13 +607,19 @@ npx cdk deploy --all \
 
 Base URL: `https://{apiDomain}/v1`
 
-All endpoints require a valid Cognito JWT in the `Authorization: Bearer <token>` header. Admin endpoints additionally verify the `isAdmin` flag from the user's DynamoDB profile.
+All endpoints except `GET /v1/meta` require a valid Cognito JWT in the `Authorization: Bearer <token>` header. Admin endpoints additionally verify the `isAdmin` flag from the user's DynamoDB profile. The full machine-readable contract is [`packages/contracts/openapi.json`](packages/contracts/openapi.json) (OpenAPI 3.1).
 
 Responses follow a consistent envelope format:
 - Success: `{ "data": <payload>, "requestId": "<id>" }`
 - Error: `{ "error": "<message>", "code": "<ERROR_CODE>", "requestId": "<id>" }`
 
 Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `CONFLICT` (409), `INTERNAL_ERROR` (500).
+
+### Meta (public)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/meta` | No sign-in needed. Minimum supported client version per platform, feature flags, policy links (privacy, terms, account deletion) and server time. Values: `infra/lib/client-metadata.ts` |
 
 ### User Profile
 

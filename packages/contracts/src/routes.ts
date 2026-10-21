@@ -2,7 +2,7 @@
  * Every /v1 route, declared once. The OpenAPI document (#15) and the SDK (#17) are derived from
  * this table, and a test keeps it in step with the routes deployed in infra/lib/stacks/api-stack.ts.
  *
- * All routes require a Cognito JWT (`Authorization: Bearer <token>`); admin routes also require
+ * Routes require a Cognito JWT (`Authorization: Bearer <token>`) unless marked public; admin routes also require
  * the caller's profile to have isAdmin. Success bodies are `{ data, requestId }`, errors
  * `{ error, code, requestId }`.
  */
@@ -17,7 +17,7 @@ import {
   VehicleArchive, VehicleCreate, VehicleListQuery, VehicleUpdate,
 } from './requests.js';
 import {
-  AccountDeleted, AdminStats, AdminUserStats, AnalyticsDashboard, CsvExport, ImportResult, PresignResult,
+  AccountDeleted, AdminStats, Meta, AdminUserStats, AnalyticsDashboard, CsvExport, ImportResult, PresignResult,
   RecalculateResult, Report, SummaryCard, YearOverYear,
 } from './responses.js';
 
@@ -28,7 +28,7 @@ export interface RouteDefinition {
   /** Path template with `{param}` placeholders */
   path: string;
   summary: string;
-  tag: 'Profile' | 'Vehicles' | 'Fill-ups' | 'Maintenance' | 'Analytics' | 'Exports' | 'Uploads' | 'Imports' | 'Sharing' | 'Admin';
+  tag: 'Meta' | 'Profile' | 'Vehicles' | 'Fill-ups' | 'Maintenance' | 'Analytics' | 'Exports' | 'Uploads' | 'Imports' | 'Sharing' | 'Admin';
   params?: z.ZodObject;
   query?: z.ZodObject;
   body?: z.ZodType;
@@ -42,6 +42,8 @@ export interface RouteDefinition {
   response: z.ZodType;
   /** Requires isAdmin on the caller's profile */
   admin?: boolean;
+  /** No token required */
+  public?: true;
 }
 
 const defineRoute = <const R extends RouteDefinition>(route: R): R => route;
@@ -54,6 +56,12 @@ const SchemaParams = z.object({ schemaId: Ulid });
 const ImportParams = z.object({ vehicleId: Ulid, type: z.enum(['fuelups', 'maintenance']) });
 
 export const routes = {
+  // ── Meta ──
+  getMeta: defineRoute({
+    method: 'GET', path: '/v1/meta', tag: 'Meta', status: 200, public: true, response: Meta,
+    summary: 'Minimum client versions, feature flags and policy links (no sign-in needed)',
+  }),
+
   // ── Profile ──
   getProfile: defineRoute({
     method: 'GET', path: '/v1/user/profile', tag: 'Profile', status: 200, alsoReturns: [201], response: User,

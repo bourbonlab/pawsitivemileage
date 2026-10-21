@@ -26,6 +26,10 @@
   ],
   "tags": [
     {
+      "name": "Meta",
+      "description": "Public client metadata: version gating, feature flags, policy links"
+    },
+    {
       "name": "Profile",
       "description": "The signed-in user's profile and account"
     },
@@ -390,6 +394,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AdminSetAdminResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/Error400"
+          },
+          "401": {
+            "$ref": "#/components/responses/Error401"
+          },
+          "403": {
+            "$ref": "#/components/responses/Error403"
+          },
+          "404": {
+            "$ref": "#/components/responses/Error404"
+          },
+          "500": {
+            "$ref": "#/components/responses/Error500"
+          }
+        }
+      }
+    },
+    "/v1/meta": {
+      "get": {
+        "operationId": "getMeta",
+        "summary": "Minimum client versions, feature flags and policy links (no sign-in needed)",
+        "tags": [
+          "Meta"
+        ],
+        "security": [],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetMetaResponse"
                 }
               }
             }
@@ -3373,6 +3415,21 @@
           "requestId"
         ]
       },
+      "GetMetaResponse": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/Meta"
+          },
+          "requestId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "data",
+          "requestId"
+        ]
+      },
       "GetProfileResponse": {
         "type": "object",
         "properties": {
@@ -4065,6 +4122,72 @@
             ]
           }
         }
+      },
+      "Meta": {
+        "type": "object",
+        "properties": {
+          "apiVersion": {
+            "type": "string",
+            "const": "v1"
+          },
+          "minimumVersions": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Lowest supported client version per platform (android, ios, cli). Older clients should require an update."
+          },
+          "features": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "description": "Feature flags"
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "privacyPolicy": {
+                "type": "string",
+                "format": "uri"
+              },
+              "terms": {
+                "type": "string",
+                "format": "uri"
+              },
+              "accountDeletion": {
+                "type": "string",
+                "format": "uri",
+                "description": "Where a signed-in user can delete their account and data"
+              }
+            },
+            "required": [
+              "privacyPolicy",
+              "terms",
+              "accountDeletion"
+            ]
+          },
+          "serverTime": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+            "description": "For detecting clock skew"
+          }
+        },
+        "required": [
+          "apiVersion",
+          "minimumVersions",
+          "features",
+          "links",
+          "serverTime"
+        ],
+        "additionalProperties": {}
       },
       "PresignRequest": {
         "type": "object",

@@ -88,8 +88,8 @@ export function createClient(options: ClientOptions): Client {
   const baseUrl = options.baseUrl.replace(/\/+$/, '');
 
   async function request(route: RouteDefinition, args: RequestArgs = {}) {
-    const token = await options.getToken();
-    if (!token) throw new ApiError(401, 'UNAUTHORIZED', 'Not signed in');
+    const token = route.public ? undefined : await options.getToken();
+    if (!token && !route.public) throw new ApiError(401, 'UNAUTHORIZED', 'Not signed in');
 
     if (options.validateRequests && route.body && args.body !== undefined) {
       const parsed = route.body.safeParse(args.body);
@@ -102,7 +102,7 @@ export function createClient(options: ClientOptions): Client {
       res = await doFetch(url, {
         method: route.method,
         headers: {
-          Authorization: `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
           ...(args.body !== undefined ? { 'Content-Type': 'application/json' } : {}),
           ...options.headers,
           ...args.headers,

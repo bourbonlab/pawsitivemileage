@@ -95,6 +95,22 @@ export const RecalculateResult = responseObject({ recalculatedCount: z.number().
 
 export const AccountDeleted = responseObject({ message: z.string() });
 
+/** GET /v1/meta: what installed clients need before signing in (#23) */
+export const Meta = responseObject({
+  apiVersion: z.literal('v1'),
+  minimumVersions: z.record(z.string(), z.string()).describe(
+    'Lowest supported client version per platform (android, ios, cli). Older clients should require an update.',
+  ),
+  features: z.record(z.string(), z.boolean()).describe('Feature flags'),
+  links: z.object({
+    privacyPolicy: z.url(),
+    terms: z.url(),
+    accountDeletion: z.url().describe('Where a signed-in user can delete their account and data'),
+  }),
+  serverTime: z.iso.datetime().describe('For detecting clock skew'),
+});
+export type Meta = z.infer<typeof Meta>;
+
 export const AdminStats = responseObject({
   totalUsers: z.number().int(),
   activeUsers: z.number().int().describe('Users with a fill-up in the last 30 days'),

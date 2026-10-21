@@ -59,7 +59,7 @@ Production is moving to the new AWS account (see [account-migration.md](account-
    - Entity schemas: User, Vehicle, Fillup, MaintenanceRecord, MaintenanceSchema, Reminder, Share, SharedVehicle.
    - Request schemas that encode **exactly** today's handler rules: required fields, types, ranges, string lengths, coordinates, enums, the email format.
    - Response schemas for analytics, year-over-year, exports, the report, imports and admin, matching what the API returns, including the drift above.
-   - A route table covering all 39 routes.
+   - A route table covering all `/v1` routes (40, including the public `GET /v1/meta`).
    - Unit tests that pin the request rules to the handlers' current behavior.
 2. **`openapi.json`** (`packages/contracts/openapi.json`, OpenAPI 3.1): generated from the route table and committed.
    - Regenerate it with `npm run openapi -w @pawsitivemileage/contracts`.
@@ -99,6 +99,9 @@ Production is moving to the new AWS account (see [account-migration.md](account-
      - *Done on the branch:* `success()` adds `https://{FRONTEND_DOMAIN}/photos/{key}` next to every `photoKey`/`receiptPhotoKey`, at any depth, with path segments encoded.
    - **Access tokens:** the API accepts Cognito access tokens. Profile auto-creation reads email and name from `/oauth2/userInfo` when the token lacks them. Android and CLI app clients are added (public, PKCE) and listed in the JWT authorizer's audience.
    - **`GET /v1/meta`** (public): minimum supported version per platform, feature flags, and policy links (privacy, terms, account deletion).
+     - *Done on the branch:* the `meta` Lambda answers without a token, and adds `serverTime`.
+     - Values are in **`infra/lib/client-metadata.ts`**: code, not SSM, so a change is a one-line PR and a deploy.
+     - It's marked `public` in the contract, so OpenAPI gives it `security: []` and the SDK skips the token.
    - **Safe retries:** an `Idempotency-Key` header on creates (fill-ups, maintenance, vehicles, shares).
    - **Conflict detection:** `updatedAt`-based `If-Match` on updates, returning `409 CONFLICT` when stale.
    - **Pagination:** one cursor format for every list (`?limit&cursor` returning `nextCursor`), staying backward compatible: no `limit` means today's full list.
@@ -114,5 +117,4 @@ Production is moving to the new AWS account (see [account-migration.md](account-
 
 ## Open questions
 
-- Should the `/v1/meta` minimum versions live in SSM Parameter Store, so they can change without a deploy, or in code?
 - Does pagination need to apply to fill-ups only (the only list that grows large), or to every list?

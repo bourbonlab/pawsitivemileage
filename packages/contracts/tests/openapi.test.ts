@@ -31,6 +31,11 @@ describe('openapi.json', () => {
     expect(Object.keys(byId.getProfile.responses)).toEqual(expect.arrayContaining(['200', '201']));
   });
 
+  it('marks the public route as needing no security', () => {
+    expect((byId.getMeta as unknown as { security?: unknown[] }).security).toEqual([]);
+    expect((byId.listVehicles as unknown as { security?: unknown[] }).security).toBeUndefined();
+  });
+
   it('marks optional request bodies and admin routes', () => {
     expect(byId.exportReport.requestBody?.required).toBe(false);
     expect(byId.createFillup.requestBody?.required).toBe(true);

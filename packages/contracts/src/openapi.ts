@@ -29,6 +29,7 @@ function namedSchemas(): Array<[string, z.ZodType]> {
 }
 
 const TAG_DESCRIPTIONS: Record<RouteDefinition['tag'], string> = {
+  Meta: 'Public client metadata: version gating, feature flags, policy links',
   Profile: "The signed-in user's profile and account",
   Vehicles: 'Vehicles the caller owns (shared vehicles are under Sharing)',
   'Fill-ups': 'Fuel fill-ups; derived metrics (MPG, cost per mile, …) are computed server-side',
@@ -96,6 +97,7 @@ export function buildOpenApiDocument() {
       operationId,
       summary: route.summary,
       tags: [route.tag],
+      ...(route.public ? { security: [] } : {}),
       ...(route.admin ? { description: 'Admin only: requires isAdmin on the caller\'s profile.', 'x-admin': true } : {}),
       parameters: [...parameters(route.params, 'path'), ...parameters(route.query, 'query')],
       ...(bodyRef ? { requestBody: { required: !route.bodyOptional, content: { 'application/json': { schema: ref(bodyRef) } } } } : {}),
