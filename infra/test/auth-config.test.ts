@@ -39,12 +39,25 @@ describe('getEnvironmentConfig', () => {
 });
 
 describe('AuthStack', () => {
-  function authTemplate(): Template {
+  function authTemplate(envName: 'staging' | 'production' = 'staging'): Template {
     const app = makeApp();
-    const config = getEnvironmentConfig(app, 'staging');
+    const config = getEnvironmentConfig(app, envName);
     const stack = new AuthStack(app, 'Auth', { config, env: { account: config.account, region: 'us-east-1' } });
     return Template.fromStack(stack);
   }
+
+  it('protects the production user pool from deletion and keeps it on stack delete', () => {
+    const pools = authTemplate('production').findResources('AWS::Cognito::UserPool');
+    const [pool] = Object.values(pools);
+    expect(pool.Properties.DeletionProtection).toBe('ACTIVE');
+    expect(pool.DeletionPolicy).toBe('Retain');
+  });
+
+  it('leaves non-production user pools deletable', () => {
+    const [pool] = Object.values(authTemplate('staging').findResources('AWS::Cognito::UserPool'));
+    expect(pool.Properties.DeletionProtection).toBe('INACTIVE');
+    expect(pool.DeletionPolicy).toBe('Delete');
+  });
 
   it('serves the Hosted UI on the custom auth domain with the ACM certificate', () => {
     authTemplate().hasResourceProperties('AWS::Cognito::UserPoolDomain', {

@@ -84,6 +84,18 @@ Staging is a single-user rehearsal environment, so it has no formal cutover: no 
 
 ## Phase 3 — Final cutover (outage, about 30 minutes)
 
+### Pre-cutover checklist
+Last full preflight: 2026-10-21.
+
+- [ ] **Lambda concurrency quota is at least 1000 in us-east-1** (`aws lambda get-account-settings --region us-east-1`). The quota is per region; on 2026-10-21 it was 1000 in us-east-2 but still 10 in us-east-1.
+- [x] Google sign-in on https://pawsitivemileage.app lands on the migrated garage (confirmed 2026-10-21).
+- [x] `migrate --env production --dry-run` shows no unexpected deletes, and `verify` passes.
+- [x] `parity-check --env production --skip-writes` passes, while the old Lambdas are still live.
+- [x] The cutover redirect rule exists, **disabled**, on bourbonlab.net (*"PawsitiveMileage cutover: old frontend → pawsitivemileage.app"*).
+- [x] `www.pawsitivemileage.app` returns 301 to the apex: an always-on Single Redirect on the pawsitivemileage.app zone, with an `AAAA 100::` proxied placeholder record.
+- [ ] Production user pool deletion protection is `ACTIVE`. This becomes true once the PR enabling it deploys to production; check with `aws cognito-idp describe-user-pool … --query UserPool.DeletionProtection`.
+- [ ] **No merges to `main` during the window.** Every push to `main` deploys staging, then production (behind GitHub approval). Code deploys don't touch data, but don't approve one mid-cutover.
+
 Tell users ahead of time. On the day:
 
 | # | Step | Command / action |
@@ -91,11 +103,11 @@ Tell users ahead of time. On the day:
 | 1 | Freeze the old app. Its API now fails every call. | `freeze --env production --yes` |
 | 2 | Final migration | `migrate --env production --final --yes` → **Verify passed**. It compares every item, photo and user link. `parity-check` can't run now, because it needs the old Lambdas. |
 | 3 | Smoke test on https://pawsitivemileage.app | sign-in, data spot-checks, one write |
-| 4 | Redirect the old site | CloudFlare Single Redirect on the **bourbonlab.net** zone. Match `http.host eq "pawsitivemileage.bourbonlab.net"`; dynamic target `concat("https://pawsitivemileage.app", http.request.uri.path)`; status 301; keep the query string. It answers at CloudFlare's edge and never reaches the old AWS resources. |
+| 4 | Redirect the old site | **Enable** the pre-created rule. In CloudFlare, go to bourbonlab.net → Rules → Redirect Rules → *"PawsitiveMileage cutover: old frontend → pawsitivemileage.app"*. It matches `http.host eq "pawsitivemileage.bourbonlab.net"` and sends a 301 to `concat("https://pawsitivemileage.app", http.request.uri.path)`, keeping the query string. It answers at CloudFlare's edge and never reaches the old AWS resources. Check it with `curl -I https://pawsitivemileage.bourbonlab.net/garage`, which should return a 301 to `https://pawsitivemileage.app/garage`. |
 | 5 | **Go / no-go** | |
 | 6 | Lock the target | `complete --env production --yes` |
 
-**Rollback before step 6:** turn off the redirect rule, then `unfreeze --env production --yes`. The old app is back exactly as it was. Writes made on the new app since step 2 are lost, so keep the no-go window short.
+**Rollback before step 6:** disable the redirect rule again, then `unfreeze --env production --yes`. The old app is back exactly as it was. Writes made on the new app since step 2 are lost, so keep the no-go window short.
 
 **After step 6:** there is no automated rollback. The new account is the source of truth.
 
