@@ -22,7 +22,6 @@ function truncateName(name: string): string {
 interface PhotoUploadProps {
   uploadType: 'vehicle-photo' | 'receipt-photo';
   vehicleId: string;
-  fillupId?: string;
   onUploadComplete: (s3Key: string) => void;
   onPhotoRemoved?: () => void;
   currentPhotoKey?: string;
@@ -34,7 +33,6 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 export function PhotoUpload({
   uploadType,
   vehicleId,
-  fillupId,
   onUploadComplete,
   onPhotoRemoved,
   currentPhotoKey,
@@ -81,10 +79,7 @@ export function PhotoUpload({
         const { url, key } = await presignMutation.mutateAsync({
           uploadType,
           vehicleId,
-          fillupId,
-          contentType: file.type,
-          fileName: file.name,
-          fileSize: file.size,
+          file,
         });
 
         await uploadFileToS3(url, file);
@@ -98,7 +93,7 @@ export function PhotoUpload({
         );
       }
     },
-    [uploadType, vehicleId, fillupId, onUploadComplete, presignMutation],
+    [uploadType, vehicleId, onUploadComplete, presignMutation],
   );
 
   const handleClear = useCallback(() => {

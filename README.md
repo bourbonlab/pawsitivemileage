@@ -25,6 +25,7 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 - [Frontend Architecture](#frontend-architecture)
 - [Backend Architecture](#backend-architecture)
 - [Infrastructure](#infrastructure)
+- [pm command line](#pm-command-line)
 - [CLI Tools](#cli-tools)
 - [Testing](#testing)
 - [Monitoring](#monitoring)
@@ -144,10 +145,14 @@ All infrastructure is serverless — zero cost when idle, scales automatically. 
 
 ```
 pawsitivemileage/
+├── packages/
+│   ├── contracts/          # API contract: zod schemas + route table for every /v1 route, openapi.json (docs/api-contract.md)
+│   └── sdk/                # Typed TypeScript client generated from the contract (web + CLI)
+│
 ├── web/                    # React frontend (Vite + TypeScript)
 │   ├── src/
-│   │   ├── api/            # API client functions (typed fetch wrappers)
-│   │   │   ├── client.ts   # Base apiClient with auth token injection
+│   │   ├── api/            # React Query hooks over the SDK
+│   │   │   ├── client.ts   # `api`: the @pawsitivemileage/sdk client with the Amplify ID token
 │   │   │   ├── vehicles.ts # Vehicle CRUD calls
 │   │   │   ├── fillups.ts  # Fillup CRUD calls
 │   │   │   ├── maintenance.ts
@@ -199,7 +204,6 @@ pawsitivemileage/
 │   │   │   ├── PrivacyPolicyPage.tsx
 │   │   │   ├── TermsOfServicePage.tsx
 │   │   │   └── NotFoundPage.tsx
-│   │   ├── types/          # TypeScript type definitions (mirrors api/src/types/)
 │   │   ├── App.tsx         # Root: QueryClientProvider + AuthProvider + RouterProvider
 │   │   ├── router.tsx      # React Router v7 route definitions
 │   │   ├── main.tsx        # Entry point (configureAmplify → render)
@@ -263,10 +267,19 @@ pawsitivemileage/
 │           ├── monitoring-stack.ts # CloudWatch Dashboard (API, Lambda, DynamoDB widgets)
 │           └── github-access-stack.ts # GitHub Actions OIDC provider + per-environment deploy roles
 │
+├── pm/                     # pm: the user-facing command line, on the SDK (see "pm command line")
+│   ├── src/
+│   │   ├── main.ts              # Command dispatch, login/logout, error reporting
+│   │   ├── commands.ts          # whoami, vehicles, fillups, fillup add, maintenance (add), reminders, export
+│   │   ├── auth.ts              # PKCE sign-in through the Hosted UI, loopback redirect, token refresh/revoke
+│   │   └── session.ts           # Per-environment sessions in ~/.config/pawsitivemileage (0600)
+│   └── tests/
+│
 ├── cli/                    # Admin CLI tools (run with npx tsx)
 │   ├── src/
 │   │   ├── migrate-account.ts   # Re-runnable account migration (users, tables, photos, verify, freeze, lock)
 │   │   ├── parity-check.ts      # Post-migration parity + write smoke tests via direct Lambda invocation
+│   │   ├── contract-check.ts    # Live check: every read endpoint's response vs packages/contracts
 │   │   ├── migrate/remap.ts     # User-ID remapping helpers (unit tested)
 │   │   ├── release/version.ts   # Semantic version from conventional commits (used by GitHub Actions)
 │   │   ├── backfill-gsi2.ts     # Backfill GSI2PK/GSI2SK on fillup items
@@ -278,6 +291,7 @@ pawsitivemileage/
 │
 ├── docs/
 │   ├── account-migration.md # Account migration, cutover, and legacy teardown runbook
+│   ├── api-contract.md     # API contract, SDKs and Android readiness plan
 │   ├── ci-cd.md            # GitHub Actions pipelines, OIDC deploy roles, setup
 │   ├── code-review-2026-05.md # May 2026 code review findings
 │   ├── cost.md             # Detailed AWS cost estimate breakdown
@@ -601,13 +615,33 @@ npx cdk deploy --all \
 
 Base URL: `https://{apiDomain}/v1`
 
-All endpoints require a valid Cognito JWT in the `Authorization: Bearer <token>` header. Admin endpoints additionally verify the `isAdmin` flag from the user's DynamoDB profile.
+All endpoints except `GET /v1/meta` require a valid Cognito JWT in the `Authorization: Bearer <token>` header: an ID token (web) or an access token (Android and CLI clients, which sign in with PKCE through the Hosted UI). Admin endpoints additionally verify the `isAdmin` flag from the user's DynamoDB profile. The full machine-readable contract is [`packages/contracts/openapi.json`](packages/contracts/openapi.json) (OpenAPI 3.1).
 
 Responses follow a consistent envelope format:
 - Success: `{ "data": <payload>, "requestId": "<id>" }`
 - Error: `{ "error": "<message>", "code": "<ERROR_CODE>", "requestId": "<id>" }`
 
 Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), `NOT_FOUND` (404), `CONFLICT` (409), `INTERNAL_ERROR` (500).
+
+**Safe retries:** `POST` creates for vehicles, fill-ups, maintenance records and shares accept an optional `Idempotency-Key` header (1–255 characters: letters, digits, `-`, `_`).
+- Retrying with the same key and body returns the original response, with `Idempotent-Replayed: true`, instead of creating a duplicate.
+- Reusing a key with a different body returns `409`, as does a retry while the first request is still running.
+- Keys are per user and expire after 24 hours.
+
+**Conflict detection:** single-record responses include `ETag: "<updatedAt>"`.
+- `PUT`/`PATCH` on vehicles, fill-ups and maintenance accept `If-Match` with that value. If the record changed since, the response is `409 CONFLICT` instead of an overwrite.
+- Without `If-Match`, the last write wins, as before.
+
+**Pagination:** the fill-up and maintenance lists accept `?limit=` (1–500), `cursor` and `order=asc|desc` (default `asc`, oldest first).
+- Without `limit`, the response is the full list, as before.
+- With `limit`, the envelope adds `nextCursor` when more items remain; pass it back as `cursor`. A cursor only works for the vehicle it came from.
+- The SDK's `api.page('listFillups', …)` returns one page, and `api.paginate('listFillups', …)` iterates every item.
+
+### Meta (public)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/v1/meta` | No sign-in needed. Minimum supported client version per platform, feature flags, policy links (privacy, terms, account deletion), server time, and `auth` (issuer, Hosted UI domain, scopes, native client IDs and redirect URIs). Values: `infra/lib/client-metadata.ts` |
 
 ### User Profile
 
@@ -631,7 +665,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/vehicles/{vehicleId}/fillups` | List fillups (sorted by date descending) |
+| GET | `/v1/vehicles/{vehicleId}/fillups` | List fillups (chronological; optional `limit`, `cursor`, `order`) |
 | POST | `/v1/vehicles/{vehicleId}/fillups` | Create fillup (date, currencySpent, gallonsAdded, odometerReading required) |
 | GET | `/v1/vehicles/{vehicleId}/fillups/{fillupId}` | Get single fillup with derived metrics |
 | PUT | `/v1/vehicles/{vehicleId}/fillups/{fillupId}` | Update fillup (triggers metric recalculation) |
@@ -641,7 +675,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/vehicles/{vehicleId}/maintenance` | List maintenance records |
+| GET | `/v1/vehicles/{vehicleId}/maintenance` | List maintenance records (chronological; optional `limit`, `cursor`, `order`) |
 | POST | `/v1/vehicles/{vehicleId}/maintenance` | Create record (schemaId or customTypeName, datePerformed, odometerAtService, cost) |
 | PUT | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Update record |
 | DELETE | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Delete record |
@@ -754,7 +788,7 @@ All tables use on-demand billing and have Point-in-Time Recovery (PITR) enabled.
 6. Cognito redirects to `{frontendDomain}/callback` with tokens
 7. Amplify JS stores tokens in browser storage
 8. `AuthProvider` fetches user attributes and profile (including admin flag from DynamoDB)
-9. `apiClient` automatically injects the ID token into all API requests
+9. The SDK client (`api` in `web/src/api/client.ts`) sends the ID token with every API request
 
 ### Sign Out
 
@@ -800,11 +834,13 @@ The `AuthProvider` wraps the entire app and provides `useAuth()` hook with: `use
 
 ### API Client
 
-`web/src/api/client.ts` provides a typed `apiClient<T>(path, options)` function that:
-1. Fetches the current auth token from Amplify
-2. Injects `Authorization: Bearer <token>` and `Content-Type: application/json`
-3. Unwraps the `{ data, requestId }` response envelope
-4. Throws typed `ApiError` on non-2xx responses
+`web/src/api/client.ts` exports `api`, a client from `@pawsitivemileage/sdk` with one typed method per contract operation (`api.listFillups({ params: { vehicleId } })`). It:
+1. Fetches the current ID token from Amplify and sends it as `Authorization: Bearer <token>`
+2. Builds paths, query strings and JSON bodies from the contract, so a contract change is a compile error in the web
+3. Unwraps the `{ data, requestId }` envelope and throws `ApiError` (status, code, requestId) on non-2xx responses
+4. In development (`vite dev`), validates every response against the contract
+
+Entity and response types come from the SDK too (`import type { Fillup } from '@pawsitivemileage/sdk'`); `OperationBody<'createFillup'>` and `OperationResult<'getYearOverYear'>` name an operation's request and response. The web has no type definitions of its own.
 
 ### Pages
 
@@ -866,7 +902,8 @@ Each API route group maps to a dedicated Lambda function. All functions share th
 - **`auth.ts`** — `getUserId()` extracts Cognito `sub` claim from API Gateway JWT authorizer event
 - **`authSharing.ts`** — `getUserEmail()`, `getSharedPermission()`, `isOperationAllowed()`, `verifyAccess()` — shared vehicle authorization helpers used by all data handlers
 - **`response.ts`** — `success(data, requestId)` and `error(code, message, requestId)` response builders
-- **`validation.ts`** — `validateRequired()`, `validateTypes()`, `validateRange()`, `validateStringLength()`, `validateCoordinates()`, `sanitizeFilename()`, `parseBody()` (with 64 KB size limit) for request validation
+- **`contract.ts`** — `validate(schema, body)`: validates request bodies against the API contract (`@pawsitivemileage/contracts`), with field-specific messages such as `gallonsAdded must be at least 0.01`
+- **`validation.ts`** — `parseBody()` (64 KB size limit, invalid JSON → null) and `sanitizeFilename()`
 - **`logger.ts`** — `createLogger(handler)` returns structured JSON logger with `info()`, `warn()`, `error()` methods
 - **`metrics.ts`** — `calculateDerivedMetrics()` for single fillup, `recalculateAllMetrics()` for full sequence recalculation with partial fill accumulation
 - **`reminders.ts`** — `calculateReminder()` with 500-mile and 30-day thresholds
@@ -916,6 +953,32 @@ All resources are tagged with:
 | Termination protection | Off | On (Database, Storage stacks) |
 
 ---
+
+## pm command line
+
+`pm` is the command line for users, built on `@pawsitivemileage/sdk` (#27). It is separate from the admin tools below.
+
+```bash
+npm run build -w @pawsitivemileage/pm    # bundles pm/dist/pm.mjs
+npm link -w @pawsitivemileage/pm         # optional: puts `pm` on your PATH
+                                          # (or: npm run pm -w @pawsitivemileage/pm -- <command>)
+
+pm login --env staging                    # opens Google sign-in in your browser
+pm vehicles
+pm fillup add outback --gallons 12.4 --cost 41.20 --odometer 52310
+pm fillups --limit 5
+pm maintenance add outback --type "Oil Change" --odometer 52310 --cost 65
+pm reminders
+pm export outback fillups --from 2026-01-01
+pm logout
+```
+
+- **Sign-in:** authorization code + PKCE through the Cognito Hosted UI with the environment's CLI app client. The redirect goes to `http://localhost:47815/callback`, where pm listens during `pm login`. The Hosted UI domain, client ID and scopes come from `GET /v1/meta`, so pm needs only the API URL (`--env production|staging`, or `--api-url`).
+- **Sessions:** one per environment in `~/.config/pawsitivemileage/session-<env>.json` (mode 0600; `PM_CONFIG_DIR` overrides). pm sends the access token and refreshes it with the refresh token (valid 30 days). `pm logout` revokes the refresh token. The environment is `--env`, then `PM_ENV`, then the last `pm login`.
+- **Vehicles** are named by nickname (case-insensitive, or a unique prefix) or ID; with one active vehicle, the name can be left out.
+- **Creates** send an `Idempotency-Key` and retry once with the same key after a network error or 5xx, so a fill-up is never recorded twice.
+- `--json` prints the API data instead of a table. Exit codes: 0 success, 1 error, 2 usage.
+- pm sends `X-Client: cli/<version>`, and `pm login` refuses to run if `/v1/meta` says the version is below `minimumVersions.cli` (`infra/lib/client-metadata.ts`).
 
 ## CLI Tools
 

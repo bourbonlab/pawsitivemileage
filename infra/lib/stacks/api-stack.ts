@@ -9,6 +9,7 @@ import { AuthStack } from './auth-stack.js';
 import { DatabaseStack } from './database-stack.js';
 import { StorageStack } from './storage-stack.js';
 import { AppFunction } from '../constructs/lambda-function.js';
+import { CLIENT_METADATA, NATIVE_SCOPES, nativeRedirects } from '../client-metadata.js';
 
 export interface ApiStackProps extends cdk.StackProps {
   config: EnvironmentConfig;
@@ -34,6 +35,7 @@ export class ApiStack extends cdk.Stack {
       MAINTENANCE_TABLE: databaseStack.maintenanceTable.tableName,
       SCHEMAS_TABLE: databaseStack.schemasTable.tableName,
       SHARING_TABLE: databaseStack.sharingTable.tableName,
+      IDEMPOTENCY_TABLE: databaseStack.idempotencyTable.tableName,
       PHOTOS_BUCKET: storageStack.photosBucket.bucketName,
       EXPORTS_BUCKET: storageStack.exportsBucket.bucketName,
       FRONTEND_DOMAIN: config.frontendDomain,
@@ -42,8 +44,13 @@ export class ApiStack extends cdk.Stack {
     // Create Lambda functions
     this.lambdaFunctions = {};
 
-    const functionDefs: Array<{ name: string; description: string }> = [
-      { name: 'userProfile', description: 'User profile CRUD and account deletion' },
+    const functionDefs: Array<{ name: string; description: string; environment?: Record<string, string> }> = [
+      {
+        name: 'userProfile',
+        description: 'User profile CRUD and account deletion',
+        // Profile auto-create reads email/name from /oauth2/userInfo for access tokens (#22)
+        environment: { AUTH_DOMAIN: config.authDomain },
+      },
       { name: 'vehicleCrud', description: 'Vehicle CRUD and archive/unarchive' },
       { name: 'fillupCrud', description: 'Fillup CRUD with derived metrics calculation' },
       { name: 'maintenanceCrud', description: 'Maintenance CRUD and reminders' },
@@ -55,13 +62,32 @@ export class ApiStack extends cdk.Stack {
       { name: 'adminStats', description: 'Admin platform statistics' },
       { name: 'importData', description: 'Fuelly CSV import and metrics recalculation' },
       { name: 'sharingCrud', description: 'Vehicle sharing CRUD and shared vehicles listing' },
+      {
+        name: 'meta',
+        description: 'Public client metadata: minimum versions, feature flags, policy links',
+        environment: {
+          MIN_CLIENT_VERSIONS: JSON.stringify(CLIENT_METADATA.minimumVersions),
+          FEATURE_FLAGS: JSON.stringify(CLIENT_METADATA.features),
+          // Sign-in configuration for native clients (#22)
+          AUTH_CONFIG: cdk.Fn.toJsonString({
+            issuer: authStack.jwtIssuer,
+            domain: config.authDomain,
+            scopes: NATIVE_SCOPES,
+            clients: Object.fromEntries(Object.entries(nativeRedirects(config.envName)).map(([name, uris]) => [name, {
+              clientId: authStack.nativeClients[name as 'android' | 'cli'].userPoolClientId,
+              redirectUri: uris.callback,
+              logoutUri: uris.logout,
+            }])),
+          }),
+        },
+      },
     ];
 
     for (const def of functionDefs) {
       this.lambdaFunctions[def.name] = new AppFunction(this, `${def.name}Fn`, {
         config,
         handlerFile: def.name,
-        environment: sharedEnv,
+        environment: { ...sharedEnv, ...def.environment },
         description: def.description,
       });
     }
@@ -147,6 +173,11 @@ export class ApiStack extends cdk.Stack {
     databaseStack.usersTable.grantReadData(this.lambdaFunctions['sharingCrud'].function);
     databaseStack.vehiclesTable.grantReadData(this.lambdaFunctions['sharingCrud'].function);
 
+    // Creates that accept an Idempotency-Key read/write the idempotency table (#24)
+    for (const fn of ['fillupCrud', 'maintenanceCrud', 'vehicleCrud', 'sharingCrud']) {
+      databaseStack.idempotencyTable.grantReadWriteData(this.lambdaFunctions[fn].function);
+    }
+
     // fillupCrud and maintenanceCrud need Sharing table read for shared access checks
     databaseStack.sharingTable.grantReadData(this.lambdaFunctions['fillupCrud'].function);
     databaseStack.sharingTable.grantReadData(this.lambdaFunctions['maintenanceCrud'].function);
@@ -192,7 +223,10 @@ export class ApiStack extends cdk.Stack {
           apigwv2.CorsHttpMethod.DELETE,
           apigwv2.CorsHttpMethod.OPTIONS,
         ],
-        allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key'],
+        // Idempotency-Key (#24), If-Match (#25) and X-Client (#23) must pass browser preflights
+        allowHeaders: ['Content-Type', 'Authorization', 'X-Amz-Date', 'X-Api-Key', 'Idempotency-Key', 'If-Match', 'X-Client'],
+        // Let browser JS read these response headers
+        exposeHeaders: ['ETag', 'Idempotent-Replayed'],
         maxAge: cdk.Duration.hours(1),
       },
       defaultDomainMapping: domainName ? { domainName } : undefined,
@@ -269,6 +303,9 @@ export class ApiStack extends cdk.Stack {
     // Import and recalculate routes
     addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/import/{type}', 'importData');
     addRoute(apigwv2.HttpMethod.POST, '/v1/vehicles/{vehicleId}/recalculate', 'importData');
+
+    // Public client metadata (no auth: apps check it before signing in, #23)
+    addRoute(apigwv2.HttpMethod.GET, '/v1/meta', 'meta', false);
 
     // Sharing routes
     addRoute(apigwv2.HttpMethod.GET, '/v1/vehicles/shared', 'sharingCrud');

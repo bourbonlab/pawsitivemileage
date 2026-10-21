@@ -4,7 +4,12 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
+import { InvalidCursorError, queryPage } from '../lib/pagination.js';
+import { CONFLICT_MESSAGE, checkIfMatch, ifMatchCondition, isConditionFailure } from '../lib/concurrency.js';
+import { withIdempotency } from '../lib/idempotency.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { ListQuery, MaintenanceCreate, MaintenanceUpdate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { deleteObject, photoKeyFieldError } from '../lib/s3.js';
 import { calculateReminder } from '../lib/reminders.js';
@@ -63,10 +68,10 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     // Maintenance CRUD routes
     if (method === 'GET' && !recordId) {
-      return await listMaintenance(vehicleId, requestId, userId);
+      return await listMaintenance(event, vehicleId, requestId, userId);
     }
     if (method === 'POST') {
-      return await createMaintenance(event, vehicleId, ownerUserId, requestId, userId);
+      return await withIdempotency(event, userId, requestId, () => createMaintenance(event, vehicleId, ownerUserId, requestId, userId));
     }
     if (method === 'PUT' && recordId) {
       return await updateMaintenance(event, vehicleId, recordId, ownerUserId, requestId, userId);
@@ -103,32 +108,34 @@ async function getVehicle(userId: string, vehicleId: string): Promise<Vehicle | 
  * GET /v1/vehicles/{vehicleId}/maintenance — List all maintenance records, sorted by date (Req 4.9).
  */
 async function listMaintenance(
+  event: APIGatewayProxyEventV2,
   vehicleId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
-  const docClient = getDocClient();
-  const tableName = getTableName('MAINTENANCE_TABLE');
+  // Optional pagination (#26): no limit → the full list, as before
+  const query = validate(ListQuery, event.queryStringParameters ?? {});
+  if (!query.ok) {
+    return error('VALIDATION_ERROR', query.message, requestId);
+  }
 
   logger.info('Listing maintenance records', requestId, userId);
 
-  const items: Record<string, unknown>[] = [];
-  let exclusiveStartKey: Record<string, unknown> | undefined;
-
-  do {
-    const result = await docClient.send(new QueryCommand({
-      TableName: tableName,
-      KeyConditionExpression: 'vehicleId = :vid',
-      ExpressionAttributeValues: { ':vid': vehicleId },
-      ScanIndexForward: true, // chronological order
-      ExclusiveStartKey: exclusiveStartKey,
-    }));
-
-    if (result.Items) items.push(...result.Items);
-    exclusiveStartKey = result.LastEvaluatedKey;
-  } while (exclusiveStartKey);
-
-  return success(items, requestId);
+  try {
+    const page = await queryPage(
+      {
+        TableName: getTableName('MAINTENANCE_TABLE'),
+        KeyConditionExpression: 'vehicleId = :vid',
+        ExpressionAttributeValues: { ':vid': vehicleId },
+      },
+      { key: 'vehicleId', value: vehicleId },
+      query.data,
+    );
+    return success(page.items, requestId, 200, page.nextCursor ? { nextCursor: page.nextCursor } : undefined);
+  } catch (err) {
+    if (err instanceof InvalidCursorError) return error('VALIDATION_ERROR', err.message, requestId);
+    throw err;
+  }
 }
 
 
@@ -150,49 +157,16 @@ async function createMaintenance(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  // Validate required fields
-  const requiredErrors = validateRequired(body, ['datePerformed', 'odometerAtService', 'cost']);
-  if (requiredErrors.length > 0) {
-    return error('VALIDATION_ERROR', requiredErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate types
-  const typeErrors = validateTypes(body, {
-    datePerformed: 'string',
-    odometerAtService: 'number',
-    cost: 'number',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
+  // Validate against the API contract (#18): required fields, types, ranges, lengths, coordinates,
+  // and schemaId-or-customTypeName
+  const valid = validate(MaintenanceCreate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, undefined, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
-  }
-
-  // Validate ranges
-  const rangeErrors = validateRange(body, {
-    odometerAtService: { min: 0 },
-    cost: { min: 0 },
-  });
-  if (rangeErrors.length > 0) {
-    return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate string field lengths
-  const lengthErrors = validateStringLength(body, {
-    notes: 1000,
-    customTypeName: 255,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate location coordinates if provided
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join('; '), requestId);
   }
 
   // Must provide either schemaId or customTypeName
@@ -276,6 +250,12 @@ async function updateMaintenance(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
+  // Validate against the API contract (#18) before touching the database
+  const valid = validate(MaintenanceUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
+  }
+
   // Find the existing record
   const existing = await findRecordById(vehicleId, recordId);
   if (!existing) {
@@ -287,45 +267,10 @@ async function updateMaintenance(
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
   }
 
-  // Validate types if provided
-  const typeChecks: Record<string, 'string' | 'number' | 'boolean'> = {};
-  if (body.datePerformed !== undefined) typeChecks.datePerformed = 'string';
-  if (body.odometerAtService !== undefined) typeChecks.odometerAtService = 'number';
-  if (body.cost !== undefined) typeChecks.cost = 'number';
-
-  if (Object.keys(typeChecks).length > 0) {
-    const typeErrors = validateTypes(body, typeChecks);
-    if (typeErrors.length > 0) {
-      return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
-    }
-  }
-
-  // Validate ranges if provided
-  const rangeChecks: Record<string, { min?: number }> = {};
-  if (body.odometerAtService !== undefined) rangeChecks.odometerAtService = { min: 0 };
-  if (body.cost !== undefined) rangeChecks.cost = { min: 0 };
-
-  if (Object.keys(rangeChecks).length > 0) {
-    const rangeErrors = validateRange(body, rangeChecks);
-    if (rangeErrors.length > 0) {
-      return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-    }
-  }
-
-  // Validate string field lengths
-  const lengthErrors = validateStringLength(body, {
-    notes: 1000,
-    customTypeName: 255,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate location coordinates if provided
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join('; '), requestId);
-  }
+  // If-Match (#25): refuse to overwrite a newer version
+  const stale = checkIfMatch(event, existing.updatedAt, requestId);
+  if (stale) return stale;
+  const condition = ifMatchCondition(event);
 
   // If schemaId is being changed, look up the new schema
   let schemaName = existing.schemaName;
@@ -346,12 +291,21 @@ async function updateMaintenance(
   const docClient = getDocClient();
   const tableName = getTableName('MAINTENANCE_TABLE');
 
-  // If the date changed, delete the old item (sort key changed)
-  if (oldSortKey !== newSortKey) {
-    await docClient.send(new DeleteCommand({
-      TableName: tableName,
-      Key: { vehicleId, serviceDateId: oldSortKey },
-    }));
+  // If the date changed, delete the old item (sort key changed). With If-Match, the delete carries
+  // the condition, so a concurrent edit stops the update before anything is written.
+  const keyChanged = oldSortKey !== newSortKey;
+  if (keyChanged) {
+    try {
+      await docClient.send(new DeleteCommand({
+        TableName: tableName,
+        Key: { vehicleId, serviceDateId: oldSortKey },
+        ConditionExpression: condition.ConditionExpression,
+        ...(condition.ConditionExpression && { ExpressionAttributeNames: condition.names, ExpressionAttributeValues: condition.values }),
+      }));
+    } catch (err) {
+      if (isConditionFailure(err)) return error('CONFLICT', CONFLICT_MESSAGE, requestId);
+      throw err;
+    }
   }
 
   const updated: MaintenanceRecord = {
@@ -375,30 +329,46 @@ async function updateMaintenance(
     updatedAt: now,
   };
 
-  // If receiptPhotoKey is explicitly null, remove the photo from S3 and strip the field
-  if (body.receiptPhotoKey === null && existing.receiptPhotoKey) {
-    const photosBucket = process.env.PHOTOS_BUCKET;
-    if (photosBucket) {
-      try {
-        await deleteObject(photosBucket, existing.receiptPhotoKey);
-        logger.info(`Deleted receipt photo ${existing.receiptPhotoKey} from S3`, requestId, userId);
-      } catch (s3Err) {
-        logger.error('Failed to delete receipt photo from S3', requestId, userId, s3Err);
-        // Continue — don't fail the update if S3 delete fails
-      }
-    }
+  // receiptPhotoKey: null removes the receipt: strip the field now, delete the file after the write
+  const removeReceipt = body.receiptPhotoKey === null && existing.receiptPhotoKey;
+  if (removeReceipt) {
     delete (updated as unknown as Record<string, unknown>).receiptPhotoKey;
   }
 
-  await docClient.send(new PutCommand({
-    TableName: tableName,
-    Item: {
-      ...updated,
-      serviceDateId: newSortKey,
-      GSI1PK: ownerUserId,
-      GSI1SK: updatedDate,
-    },
-  }));
+  try {
+    await docClient.send(new PutCommand({
+      TableName: tableName,
+      Item: {
+        ...updated,
+        serviceDateId: newSortKey,
+        GSI1PK: ownerUserId,
+        GSI1SK: updatedDate,
+      },
+      // Same key: If-Match is enforced atomically here (a changed key was guarded by the delete)
+      ...(!keyChanged && condition.ConditionExpression && {
+        ConditionExpression: condition.ConditionExpression,
+        ExpressionAttributeNames: condition.names,
+        ExpressionAttributeValues: condition.values,
+      }),
+    }));
+  } catch (err) {
+    if (isConditionFailure(err)) return error('CONFLICT', CONFLICT_MESSAGE, requestId);
+    throw err;
+  }
+
+  // Only after the record no longer references it
+  if (removeReceipt) {
+    const photosBucket = process.env.PHOTOS_BUCKET;
+    if (photosBucket) {
+      try {
+        await deleteObject(photosBucket, existing.receiptPhotoKey!);
+        logger.info(`Deleted receipt photo ${existing.receiptPhotoKey} from S3`, requestId, userId);
+      } catch (s3Err) {
+        logger.error('Failed to delete receipt photo from S3', requestId, userId, s3Err);
+        // Continue — the update succeeded; an orphaned file is harmless
+      }
+    }
+  }
 
   logger.info(`Updated maintenance record ${recordId}`, requestId, userId);
   return success(updated, requestId);

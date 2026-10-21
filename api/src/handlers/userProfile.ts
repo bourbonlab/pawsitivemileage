@@ -2,9 +2,11 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
-import { getUserId } from '../lib/auth.js';
+import { getIdentity, getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateStringLength } from '../lib/validation.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { ProfileUpdate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import type { User } from '../types/user.js';
 
@@ -68,10 +70,12 @@ async function getProfile(
     return success(result.Item as User, requestId);
   }
 
-  // Auto-create profile from JWT claims
-  const claims = (event.requestContext as unknown as { authorizer?: { jwt?: { claims?: Record<string, string> } } })?.authorizer?.jwt?.claims;
-  const email = (claims?.email as string) ?? '';
-  const displayName = (claims?.name as string) ?? (claims?.email as string) ?? '';
+  // Auto-create profile from the token: ID-token claims, or /oauth2/userInfo for access tokens (#22)
+  const identity = await getIdentity(event as unknown as Parameters<typeof getIdentity>[0]);
+  if (!identity) {
+    return error('INTERNAL_ERROR', 'Could not read your email from the sign-in service; try again', requestId);
+  }
+  const { email, name: displayName } = identity;
 
   const now = new Date().toISOString();
   const user: User = {
@@ -108,15 +112,10 @@ async function updateProfile(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  if (typeof body.displayName !== 'string' || body.displayName.trim() === '') {
-    return error('VALIDATION_ERROR', 'displayName is required and must be a non-empty string', requestId);
-  }
-
-  const lengthErrors = validateStringLength(body, {
-    displayName: 255,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
+  // Validate against the API contract (#18): non-blank displayName, at most 255 characters
+  const valid = validate(ProfileUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const docClient = getDocClient();

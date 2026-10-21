@@ -15,7 +15,8 @@ interface LocationData {
 
 interface LocationPickerProps {
   onLocationChange: (location: LocationData) => void;
-  initialData?: LocationData;
+  /** Stored values; the API returns null for unset fields */
+  initialData?: { [K in keyof LocationData]?: LocationData[K] | null };
   className?: string;
 }
 
@@ -25,8 +26,8 @@ export function LocationPicker({ onLocationChange, initialData, className }: Loc
   const [geoStatus, setGeoStatus] = useState<GeoStatus>(
     initialData?.locationLat != null ? 'success' : 'idle',
   );
-  const [lat, setLat] = useState<number | undefined>(initialData?.locationLat);
-  const [lng, setLng] = useState<number | undefined>(initialData?.locationLng);
+  const [lat, setLat] = useState<number | undefined>(initialData?.locationLat ?? undefined);
+  const [lng, setLng] = useState<number | undefined>(initialData?.locationLng ?? undefined);
   const [stationName, setStationName] = useState(initialData?.stationName ?? '');
   const [address, setAddress] = useState(initialData?.address ?? '');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

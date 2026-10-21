@@ -33,14 +33,19 @@ function storageStack(envName: EnvironmentConfig['envName']): StorageStack {
   return new StorageStack(app, `Storage-${envName}`, { config: makeConfig(envName), env: ENV });
 }
 
+/** All tables except the short-lived idempotency cache */
+function dataTables<T extends { Properties?: { TableName?: unknown } }>(tables: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(Object.entries(tables).filter(([, t]) => !String(t.Properties?.TableName).includes('idempotency')));
+}
+
 describe('DatabaseStack', () => {
-  it('defines all six DynamoDB tables', () => {
-    Template.fromStack(databaseStack('production')).resourceCountIs(TABLE, 6);
+  it('defines the six data tables plus the idempotency cache', () => {
+    Template.fromStack(databaseStack('production')).resourceCountIs(TABLE, 7);
   });
 
-  it('enables point-in-time recovery on every table', () => {
+  it('enables point-in-time recovery on every data table', () => {
     const template = Template.fromStack(databaseStack('production'));
-    const tables = template.findResources(TABLE);
+    const tables = dataTables(template.findResources(TABLE));
     expect(Object.keys(tables)).toHaveLength(6);
     for (const table of Object.values(tables)) {
       const replicas = table.Properties.Replicas as Array<Record<string, unknown>>;
@@ -52,8 +57,8 @@ describe('DatabaseStack', () => {
     }
   });
 
-  it('retains tables (and replaces-in-place safely) in production', () => {
-    const tables = Template.fromStack(databaseStack('production')).findResources(TABLE);
+  it('retains data tables (and replaces-in-place safely) in production', () => {
+    const tables = dataTables(Template.fromStack(databaseStack('production')).findResources(TABLE));
     for (const table of Object.values(tables)) {
       expect(table.DeletionPolicy).toBe('Retain');
       expect(table.UpdateReplacePolicy).toBe('Retain');
@@ -70,6 +75,15 @@ describe('DatabaseStack', () => {
   it('enables stack termination protection only in production', () => {
     expect(databaseStack('production').terminationProtection).toBe(true);
     expect(databaseStack('test').terminationProtection).toBe(false);
+  });
+});
+
+describe('idempotency table (#24)', () => {
+  it('expires records via TTL and is not retained', () => {
+    const tables = Template.fromStack(databaseStack('production')).findResources(TABLE);
+    const [table] = Object.values(tables).filter((t) => String(t.Properties.TableName).includes('idempotency'));
+    expect(table.Properties.TimeToLiveSpecification).toEqual({ AttributeName: 'expiresAt', Enabled: true });
+    expect(table.DeletionPolicy).toBe('Delete');
   });
 });
 

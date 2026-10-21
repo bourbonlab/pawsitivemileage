@@ -30,7 +30,7 @@ import { useRecalculateMetrics } from '@/api/import';
 import { useSharedVehicles } from '@/api/sharing';
 import { SharingManagementDialog } from '@/components/SharingManagementDialog';
 import { canEditRecords, canImportData } from '@/lib/sharing';
-import type { Vehicle } from '@/types';
+import type { Vehicle } from '@pawsitivemileage/sdk';
 
 export default function VehicleDetailPage() {
   const { vehicleId } = useParams<{ vehicleId: string }>();
@@ -348,7 +348,7 @@ function EditVehicleDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const updateVehicle = useUpdateVehicle(vehicle.vehicleId);
-  const [photoKey, setPhotoKey] = useState<string | undefined>(vehicle.photoKey);
+  const [photoKey, setPhotoKey] = useState<string | undefined>(vehicle.photoKey ?? undefined);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -385,7 +385,7 @@ function EditVehicleDialog({
               uploadType="vehicle-photo"
               vehicleId={vehicle.vehicleId}
               onUploadComplete={(key) => setPhotoKey(key)}
-              currentPhotoKey={vehicle.photoKey}
+              currentPhotoKey={vehicle.photoKey ?? undefined}
             />
           </div>
 

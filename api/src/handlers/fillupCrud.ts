@@ -4,7 +4,12 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateRange, validateStringLength, validateCoordinates } from '../lib/validation.js';
+import { InvalidCursorError, queryPage } from '../lib/pagination.js';
+import { checkIfMatch } from '../lib/concurrency.js';
+import { withIdempotency } from '../lib/idempotency.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { FillupCreate, FillupUpdate, ListQuery } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { calculateDerivedMetrics, recalculateAllMetrics } from '../lib/metrics.js';
 import { deleteObject, photoKeyFieldError } from '../lib/s3.js';
@@ -42,13 +47,13 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     const { ownerUserId } = access;
 
     if (method === 'GET' && !fillupId) {
-      return await listFillups(vehicleId, requestId, userId);
+      return await listFillups(event, vehicleId, requestId, userId);
     }
     if (method === 'GET' && fillupId) {
       return await getFillup(vehicleId, fillupId, requestId, userId);
     }
     if (method === 'POST') {
-      return await createFillup(event, vehicleId, ownerUserId, requestId, userId);
+      return await withIdempotency(event, userId, requestId, () => createFillup(event, vehicleId, ownerUserId, requestId, userId));
     }
     if (method === 'PUT' && fillupId) {
       return await updateFillup(event, vehicleId, fillupId, ownerUserId, requestId, userId);
@@ -69,23 +74,34 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
  * GET /v1/vehicles/{vehicleId}/fillups — List all fillups for a vehicle, sorted by date.
  */
 async function listFillups(
+  event: APIGatewayProxyEventV2,
   vehicleId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
-  const docClient = getDocClient();
-  const tableName = getTableName('FILLUPS_TABLE');
+  // Optional pagination (#26): no limit → the full list, as before
+  const query = validate(ListQuery, event.queryStringParameters ?? {});
+  if (!query.ok) {
+    return error('VALIDATION_ERROR', query.message, requestId);
+  }
 
   logger.info('Listing fillups', requestId, userId);
 
-  const result = await docClient.send(new QueryCommand({
-    TableName: tableName,
-    KeyConditionExpression: 'vehicleId = :vid',
-    ExpressionAttributeValues: { ':vid': vehicleId },
-    ScanIndexForward: true, // chronological order
-  }));
-
-  return success(result.Items ?? [], requestId);
+  try {
+    const page = await queryPage(
+      {
+        TableName: getTableName('FILLUPS_TABLE'),
+        KeyConditionExpression: 'vehicleId = :vid',
+        ExpressionAttributeValues: { ':vid': vehicleId },
+      },
+      { key: 'vehicleId', value: vehicleId },
+      query.data,
+    );
+    return success(page.items, requestId, 200, page.nextCursor ? { nextCursor: page.nextCursor } : undefined);
+  } catch (err) {
+    if (err instanceof InvalidCursorError) return error('VALIDATION_ERROR', err.message, requestId);
+    throw err;
+  }
 }
 
 /**
@@ -135,54 +151,15 @@ async function createFillup(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  // Validate required fields (Req 3.1)
-  const requiredErrors = validateRequired(body, ['date', 'currencySpent', 'gallonsAdded', 'odometerReading']);
-  if (requiredErrors.length > 0) {
-    return error('VALIDATION_ERROR', requiredErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate types
-  const typeErrors = validateTypes(body, {
-    date: 'string',
-    currencySpent: 'number',
-    gallonsAdded: 'number',
-    odometerReading: 'number',
-    isPartialFill: 'boolean',
-    isBusiness: 'boolean',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map(e => e.message).join('; '), requestId);
+  // Validate against the API contract (#18): required fields, types, ranges, lengths, coordinates
+  const valid = validate(FillupCreate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, undefined, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
     return error('VALIDATION_ERROR', receiptKeyError, requestId);
-  }
-
-  // Validate ranges — all numeric values must be positive (Req 3.1, Property 16)
-  const rangeErrors = validateRange(body, {
-    currencySpent: { min: 0.01 },
-    gallonsAdded: { min: 0.01 },
-    odometerReading: { min: 0.01 },
-  });
-  if (rangeErrors.length > 0) {
-    return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-  }
-
-  // Validate string field lengths (Req 3.3)
-  const lengthErrors = validateStringLength(body, {
-    stationName: 255,
-    address: 1000,
-    notes: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate coordinate ranges (Req 4.1, 4.2, 4.3)
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join(', '), requestId);
   }
 
   const date = body.date as string;
@@ -297,6 +274,12 @@ async function updateFillup(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
+  // Validate against the API contract (#18) before touching the database
+  const valid = validate(FillupUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
+  }
+
   const docClient = getDocClient();
   const tableName = getTableName('FILLUPS_TABLE');
 
@@ -305,6 +288,10 @@ async function updateFillup(
   if (!existing) {
     return error('NOT_FOUND', 'Fillup not found', requestId);
   }
+
+  // If-Match (#25). Checked right after the read: the batch rewrite below can't be conditional
+  const stale = checkIfMatch(event, existing.updatedAt, requestId);
+  if (stale) return stale;
 
   const receiptKeyError = photoKeyFieldError('receiptPhotoKey', body.receiptPhotoKey, existing.receiptPhotoKey, ownerUserId, vehicleId, 'receipt-photo');
   if (receiptKeyError) {
@@ -322,35 +309,6 @@ async function updateFillup(
   const updatedIsBusiness = body.isBusiness !== undefined
     ? (body.isBusiness as boolean)
     : existing.isBusiness;
-
-  // Validate numeric ranges if provided
-  const rangeChecks: Record<string, { min?: number }> = {};
-  if (body.currencySpent !== undefined) rangeChecks.currencySpent = { min: 0.01 };
-  if (body.gallonsAdded !== undefined) rangeChecks.gallonsAdded = { min: 0.01 };
-  if (body.odometerReading !== undefined) rangeChecks.odometerReading = { min: 0.01 };
-
-  if (Object.keys(rangeChecks).length > 0) {
-    const rangeErrors = validateRange(body, rangeChecks);
-    if (rangeErrors.length > 0) {
-      return error('VALIDATION_ERROR', rangeErrors.map(e => e.message).join('; '), requestId);
-    }
-  }
-
-  // Validate string field lengths (Req 3.3)
-  const lengthErrors = validateStringLength(body, {
-    stationName: 255,
-    address: 1000,
-    notes: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map(e => e.message).join(', '), requestId);
-  }
-
-  // Validate coordinate ranges (Req 4.1, 4.2, 4.3)
-  const coordErrors = validateCoordinates(body);
-  if (coordErrors.length > 0) {
-    return error('VALIDATION_ERROR', coordErrors.map(e => e.message).join(', '), requestId);
-  }
 
   const now = new Date().toISOString();
   const oldSortKey = `${existing.date}#${fillupId}`;

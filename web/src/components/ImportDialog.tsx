@@ -78,8 +78,7 @@ export function ImportDialog({
         uploadType: 'csv-import',
         vehicleId,
         contentType: 'text/csv',
-        fileName: file.name,
-        fileSize: file.size,
+        file,
       });
 
       // Step 2: Upload to S3

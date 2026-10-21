@@ -4,7 +4,9 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, validateTypes, validateStringLength } from '../lib/validation.js';
+import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { AdminSchemaActive, AdminSchemaCreate, AdminSchemaUpdate } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import type { MaintenanceSchema } from '../types/schema.js';
 
@@ -112,39 +114,10 @@ async function createSchema(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
-  const requiredErrors = validateRequired(body, ['name', 'description', 'category']);
-  if (requiredErrors.length > 0) {
-    return error('VALIDATION_ERROR', requiredErrors.map((e) => e.message).join(', '), requestId);
-  }
-
-  const typeErrors = validateTypes(body, {
-    name: 'string',
-    description: 'string',
-    category: 'string',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
-  }
-
-  // Validate string field lengths (Req 3.6)
-  const lengthErrors = validateStringLength(body, {
-    name: 255,
-    description: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
-  }
-
-  // Validate optional numeric fields
-  if (body.defaultMileageInterval !== undefined && body.defaultMileageInterval !== null) {
-    if (typeof body.defaultMileageInterval !== 'number' || body.defaultMileageInterval <= 0) {
-      return error('VALIDATION_ERROR', 'defaultMileageInterval must be a positive number', requestId);
-    }
-  }
-  if (body.defaultTimeIntervalDays !== undefined && body.defaultTimeIntervalDays !== null) {
-    if (typeof body.defaultTimeIntervalDays !== 'number' || body.defaultTimeIntervalDays <= 0) {
-      return error('VALIDATION_ERROR', 'defaultTimeIntervalDays must be a positive number', requestId);
-    }
+  // Validate against the API contract (#18): name/description/category, lengths, positive intervals
+  const valid = validate(AdminSchemaCreate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const now = new Date().toISOString();
@@ -191,6 +164,12 @@ async function updateSchema(
     return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
   }
 
+  // Validate against the API contract (#18): types, lengths, positive intervals
+  const valid = validate(AdminSchemaUpdate, body);
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
+  }
+
   const tableName = getTableName('SCHEMAS_TABLE');
   const docClient = getDocClient();
 
@@ -204,37 +183,6 @@ async function updateSchema(
 
   if (!existing.Item) {
     return error('NOT_FOUND', 'Schema not found', requestId);
-  }
-
-  // Validate types for provided fields
-  const typeErrors = validateTypes(body, {
-    name: 'string',
-    description: 'string',
-    category: 'string',
-  });
-  if (typeErrors.length > 0) {
-    return error('VALIDATION_ERROR', typeErrors.map((e) => e.message).join(', '), requestId);
-  }
-
-  // Validate string field lengths (Req 3.6)
-  const lengthErrors = validateStringLength(body, {
-    name: 255,
-    description: 1000,
-  });
-  if (lengthErrors.length > 0) {
-    return error('VALIDATION_ERROR', lengthErrors.map((e) => e.message).join(', '), requestId);
-  }
-
-  // Validate optional numeric fields
-  if (body.defaultMileageInterval !== undefined && body.defaultMileageInterval !== null) {
-    if (typeof body.defaultMileageInterval !== 'number' || body.defaultMileageInterval <= 0) {
-      return error('VALIDATION_ERROR', 'defaultMileageInterval must be a positive number', requestId);
-    }
-  }
-  if (body.defaultTimeIntervalDays !== undefined && body.defaultTimeIntervalDays !== null) {
-    if (typeof body.defaultTimeIntervalDays !== 'number' || body.defaultTimeIntervalDays <= 0) {
-      return error('VALIDATION_ERROR', 'defaultTimeIntervalDays must be a positive number', requestId);
-    }
   }
 
   // Build update expression from allowed fields
@@ -287,8 +235,10 @@ async function toggleActive(
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
   const body = parseBody(event.body);
-  if (!body || typeof body.isActive !== 'boolean') {
-    return error('VALIDATION_ERROR', 'Request body must contain isActive (boolean)', requestId);
+  // Validate against the API contract (#18): isActive (boolean)
+  const valid = validate(AdminSchemaActive, body ?? {});
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
   const tableName = getTableName('SCHEMAS_TABLE');
@@ -318,14 +268,14 @@ async function toggleActive(
         '#updatedAt': 'updatedAt',
       },
       ExpressionAttributeValues: {
-        ':isActive': body.isActive,
+        ':isActive': valid.data.isActive,
         ':updatedAt': now,
       },
       ReturnValues: 'ALL_NEW',
     }),
   );
 
-  const action = body.isActive ? 'Activated' : 'Deactivated';
+  const action = valid.data.isActive ? 'Activated' : 'Deactivated';
   logger.info(`${action} schema ${schemaId}`, requestId, userId);
   return success(result.Attributes as MaintenanceSchema, requestId);
 }

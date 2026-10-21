@@ -13,6 +13,7 @@ const vendorChunks: Record<string, string[]> = {
   'vendor-charts': ['recharts'],
   'vendor-maps': ['leaflet', 'react-leaflet'],
   'vendor-ui': ['radix-ui', 'class-variance-authority', 'lucide-react'],
+  'vendor-zod': ['zod'],
 };
 
 function manualChunks(id: string): string | undefined {

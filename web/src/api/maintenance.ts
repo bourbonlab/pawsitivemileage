@@ -1,55 +1,21 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './client';
-import type { MaintenanceRecord, MaintenanceSchema, Reminder } from '../types';
+import type { OperationBody } from '@pawsitivemileage/sdk';
+import { api } from './client';
 
-type MaintenanceCreate = {
-  schemaId?: string;
-  schemaName?: string;
-  customTypeName?: string;
-  datePerformed: string;
-  odometerAtService: number;
-  cost: number;
-  location?: string;
-  locationLat?: number;
-  locationLng?: number;
-  stationName?: string;
-  address?: string;
-  notes?: string;
-  receiptPhotoKey?: string;
-};
-
-type MaintenanceUpdate = Partial<MaintenanceCreate> & {
-  receiptPhotoKey?: string | null;
-};
+type MaintenanceUpdate = OperationBody<'updateMaintenance'>;
 
 export function useMaintenanceRecords(vehicleId: string | undefined) {
   return useQuery({
     queryKey: ['maintenance', vehicleId],
-    queryFn: () =>
-      apiClient<MaintenanceRecord[]>(`/v1/vehicles/${vehicleId}/maintenance`),
+    queryFn: () => api.listMaintenance({ params: { vehicleId: vehicleId! } }),
     enabled: !!vehicleId,
-  });
-}
-
-export function useMaintenanceRecord(
-  vehicleId: string | undefined,
-  recordId: string | undefined,
-) {
-  return useQuery({
-    queryKey: ['maintenance', vehicleId, recordId],
-    queryFn: () =>
-      apiClient<MaintenanceRecord>(
-        `/v1/vehicles/${vehicleId}/maintenance/${recordId}`,
-      ),
-    enabled: !!vehicleId && !!recordId,
   });
 }
 
 export function useReminders(vehicleId: string | undefined) {
   return useQuery({
     queryKey: ['reminders', vehicleId],
-    queryFn: () =>
-      apiClient<Reminder[]>(`/v1/vehicles/${vehicleId}/maintenance/reminders`),
+    queryFn: () => api.listReminders({ params: { vehicleId: vehicleId! } }),
     enabled: !!vehicleId,
   });
 }
@@ -58,8 +24,7 @@ export function useReminders(vehicleId: string | undefined) {
 export function useMaintenanceSchemas(vehicleId: string | undefined) {
   return useQuery({
     queryKey: ['maintenanceSchemas', vehicleId],
-    queryFn: () =>
-      apiClient<MaintenanceSchema[]>(`/v1/vehicles/${vehicleId}/maintenance/schemas`),
+    queryFn: () => api.listVehicleSchemas({ params: { vehicleId: vehicleId! } }),
     enabled: !!vehicleId,
   });
 }
@@ -67,11 +32,7 @@ export function useMaintenanceSchemas(vehicleId: string | undefined) {
 export function useCreateMaintenance(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: MaintenanceCreate) =>
-      apiClient<MaintenanceRecord>(`/v1/vehicles/${vehicleId}/maintenance`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: (data: OperationBody<'createMaintenance'>) => api.createMaintenance({ params: { vehicleId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       qc.invalidateQueries({ queryKey: ['reminders', vehicleId] });
@@ -82,11 +43,7 @@ export function useCreateMaintenance(vehicleId: string) {
 export function useUpdateMaintenance(vehicleId: string, recordId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: MaintenanceUpdate) =>
-      apiClient<MaintenanceRecord>(
-        `/v1/vehicles/${vehicleId}/maintenance/${recordId}`,
-        { method: 'PUT', body: JSON.stringify(data) },
-      ),
+    mutationFn: (data: MaintenanceUpdate) => api.updateMaintenance({ params: { vehicleId, recordId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       qc.invalidateQueries({ queryKey: ['reminders', vehicleId] });
@@ -98,10 +55,7 @@ export function useEditMaintenance(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ recordId, data }: { recordId: string; data: MaintenanceUpdate }) =>
-      apiClient<MaintenanceRecord>(
-        `/v1/vehicles/${vehicleId}/maintenance/${recordId}`,
-        { method: 'PUT', body: JSON.stringify(data) },
-      ),
+      api.updateMaintenance({ params: { vehicleId, recordId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       qc.invalidateQueries({ queryKey: ['reminders', vehicleId] });
@@ -112,11 +66,7 @@ export function useEditMaintenance(vehicleId: string) {
 export function useDeleteMaintenance(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (recordId: string) =>
-      apiClient<void>(
-        `/v1/vehicles/${vehicleId}/maintenance/${recordId}`,
-        { method: 'DELETE' },
-      ),
+    mutationFn: (recordId: string) => api.deleteMaintenance({ params: { vehicleId, recordId } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['maintenance', vehicleId] });
       qc.invalidateQueries({ queryKey: ['reminders', vehicleId] });

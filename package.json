@@ -2,11 +2,13 @@
   "name": "pawsitive-mileage",
   "version": "0.1.0",
   "private": true,
-  "description": "PawsitiveMileage monorepo root — npm workspaces + shared tooling for CDK bundling",
+  "description": "PawsitiveMileage monorepo root \u2014 npm workspaces + shared tooling for CDK bundling",
   "workspaces": [
+    "packages/*",
     "api",
     "web",
     "cli",
+    "pm",
     "infra"
   ],
   "scripts": {

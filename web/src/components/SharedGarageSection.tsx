@@ -6,7 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { useSharedVehicles } from '@/api/sharing';
 import { permissionLabel, permissionVariant } from '@/lib/sharing';
-import type { SharedVehicle } from '@/types';
+import type { SharedVehicle } from '@pawsitivemileage/sdk';
 
 function SharedVehicleCard({ item }: { item: SharedVehicle }) {
   const navigate = useNavigate();

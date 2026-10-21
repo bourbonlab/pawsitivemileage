@@ -1,0 +1,24 @@
+{
+  "name": "@pawsitivemileage/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Single source of truth for the PawsitiveMileage HTTP API: zod schemas and the route table",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "openapi": "tsx scripts/write-openapi.ts"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

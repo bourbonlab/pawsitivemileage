@@ -6,6 +6,8 @@ import { getUserId } from '../lib/auth.js';
 import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
 import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { SummaryCardRequest } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import type { Fillup } from '../types/fillup.js';
 import type { MaintenanceRecord } from '../types/maintenance.js';
@@ -362,11 +364,13 @@ async function handleSummaryCard(
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
   const body = parseBody(event.body);
-  if (!body || typeof body.year !== 'number') {
-    return error('VALIDATION_ERROR', 'year is required and must be a number', requestId);
+  // Validate against the API contract (#18): year (number)
+  const valid = validate(SummaryCardRequest, body ?? {});
+  if (!valid.ok) {
+    return error('VALIDATION_ERROR', valid.message, requestId);
   }
 
-  const year = String(body.year);
+  const year = String(valid.data.year);
   logger.info(`Generating summary card for year ${year}`, requestId, userId);
 
   const [fillups, maintenance] = await Promise.all([

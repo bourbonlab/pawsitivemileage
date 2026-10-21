@@ -73,6 +73,34 @@ describe('AuthStack', () => {
     });
   });
 
+  it('adds public PKCE clients for Android and the CLI with identity scopes only (#22)', () => {
+    const clients = Object.values(authTemplate('staging').findResources('AWS::Cognito::UserPoolClient'))
+      .map((c) => c.Properties as { ClientName: string; GenerateSecret?: boolean; AllowedOAuthFlows: string[]; AllowedOAuthScopes: string[]; CallbackURLs: string[] });
+    const byName = Object.fromEntries(clients.map((c) => [c.ClientName, c]));
+    expect(Object.keys(byName).sort()).toEqual([
+      'pawsitivemileage-staging-android-client', 'pawsitivemileage-staging-app-client', 'pawsitivemileage-staging-cli-client',
+    ]);
+    for (const name of ['android', 'cli']) {
+      const client = byName[`pawsitivemileage-staging-${name}-client`];
+      expect(client.GenerateSecret, name).toBe(false);
+      expect(client.AllowedOAuthFlows, name).toEqual(['code']);
+      expect(client.AllowedOAuthScopes.sort(), name).toEqual(['email', 'openid', 'profile']);
+    }
+    expect(byName['pawsitivemileage-staging-android-client'].CallbackURLs).toEqual(['app.pawsitivemileage.staging://callback']);
+    expect(byName['pawsitivemileage-staging-cli-client'].CallbackURLs).toEqual(['http://localhost:47815/callback']);
+  });
+
+  it('gives production Android its own redirect scheme and puts every client in the JWT audience', () => {
+    const app = makeApp();
+    const config = getEnvironmentConfig(app, 'production');
+    const stack = new AuthStack(app, 'Auth', { config, env: { account: config.account, region: 'us-east-1' } });
+    expect(stack.jwtAudience).toHaveLength(3);
+    Template.fromStack(stack).hasResourceProperties('AWS::Cognito::UserPoolClient', {
+      ClientName: 'pawsitivemileage-production-android-client',
+      CallbackURLs: ['app.pawsitivemileage://callback'],
+    });
+  });
+
   it('requires authCertificateArn context', () => {
     const { authCertificateArn: _omitted, ...context } = BASE_CONTEXT;
     const app = makeApp(context);

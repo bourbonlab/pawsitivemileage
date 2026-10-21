@@ -23,11 +23,11 @@ const markerIcon = icon({
 export interface DetailPeekData {
   /** Dialog title, e.g. "Fillup — 1/15/2026" */
   title: string;
-  notes?: string;
-  stationName?: string;
-  address?: string;
-  locationLat?: number;
-  locationLng?: number;
+  notes?: string | null;
+  stationName?: string | null;
+  address?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
   /** Extra key/value pairs shown as a definition list */
   extras?: { label: string; value: string }[];
   /** Small badges rendered below the title */
@@ -42,11 +42,11 @@ interface DetailPeekDialogProps {
 
 /** Returns true when there's at least one piece of detail worth showing. */
 export function hasDetails(d: {
-  notes?: string;
-  stationName?: string;
-  address?: string;
-  locationLat?: number;
-  locationLng?: number;
+  notes?: string | null;
+  stationName?: string | null;
+  address?: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
 }): boolean {
   return !!(d.notes || d.stationName || d.address || (d.locationLat != null && d.locationLng != null));
 }

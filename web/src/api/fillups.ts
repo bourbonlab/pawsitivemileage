@@ -1,30 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './client';
-import type { Fillup } from '../types';
+import type { OperationBody } from '@pawsitivemileage/sdk';
+import { api } from './client';
 
-type FillupCreate = {
-  date: string;
-  currencySpent: number;
-  gallonsAdded: number;
-  odometerReading: number;
-  isPartialFill?: boolean;
-  isBusiness?: boolean;
-  locationLat?: number;
-  locationLng?: number;
-  stationName?: string;
-  address?: string;
-  receiptPhotoKey?: string;
-  notes?: string;
-};
-
-type FillupUpdate = Partial<FillupCreate> & {
-  receiptPhotoKey?: string | null;
-};
+type FillupUpdate = OperationBody<'updateFillup'>;
 
 export function useFillups(vehicleId: string | undefined) {
   return useQuery({
     queryKey: ['fillups', vehicleId],
-    queryFn: () => apiClient<Fillup[]>(`/v1/vehicles/${vehicleId}/fillups`),
+    queryFn: () => api.listFillups({ params: { vehicleId: vehicleId! } }),
     enabled: !!vehicleId,
   });
 }
@@ -32,7 +15,7 @@ export function useFillups(vehicleId: string | undefined) {
 export function useFillup(vehicleId: string | undefined, fillupId: string | undefined) {
   return useQuery({
     queryKey: ['fillups', vehicleId, fillupId],
-    queryFn: () => apiClient<Fillup>(`/v1/vehicles/${vehicleId}/fillups/${fillupId}`),
+    queryFn: () => api.getFillup({ params: { vehicleId: vehicleId!, fillupId: fillupId! } }),
     enabled: !!vehicleId && !!fillupId,
   });
 }
@@ -40,11 +23,7 @@ export function useFillup(vehicleId: string | undefined, fillupId: string | unde
 export function useCreateFillup(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: FillupCreate) =>
-      apiClient<Fillup>(`/v1/vehicles/${vehicleId}/fillups`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: (data: OperationBody<'createFillup'>) => api.createFillup({ params: { vehicleId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fillups', vehicleId] });
       qc.invalidateQueries({ queryKey: ['vehicles', vehicleId] });
@@ -55,11 +34,7 @@ export function useCreateFillup(vehicleId: string) {
 export function useUpdateFillup(vehicleId: string, fillupId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: FillupUpdate) =>
-      apiClient<Fillup>(`/v1/vehicles/${vehicleId}/fillups/${fillupId}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+    mutationFn: (data: FillupUpdate) => api.updateFillup({ params: { vehicleId, fillupId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fillups', vehicleId] });
       qc.invalidateQueries({ queryKey: ['vehicles', vehicleId] });
@@ -71,10 +46,7 @@ export function useEditFillup(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ fillupId, data }: { fillupId: string; data: FillupUpdate }) =>
-      apiClient<Fillup>(`/v1/vehicles/${vehicleId}/fillups/${fillupId}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }),
+      api.updateFillup({ params: { vehicleId, fillupId }, body: data }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fillups', vehicleId] });
       qc.invalidateQueries({ queryKey: ['vehicles', vehicleId] });
@@ -86,10 +58,7 @@ export function useEditFillup(vehicleId: string) {
 export function useDeleteFillup(vehicleId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (fillupId: string) =>
-      apiClient<void>(`/v1/vehicles/${vehicleId}/fillups/${fillupId}`, {
-        method: 'DELETE',
-      }),
+    mutationFn: (fillupId: string) => api.deleteFillup({ params: { vehicleId, fillupId } }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['fillups', vehicleId] });
       qc.invalidateQueries({ queryKey: ['vehicles', vehicleId] });

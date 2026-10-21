@@ -2,26 +2,16 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda
 import { ulid } from 'ulid';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
-import { parseBody, validateRequired, sanitizeFilename } from '../lib/validation.js';
+import { parseBody, sanitizeFilename } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { PresignRequest } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { buildS3Key, getPresignedUploadUrl } from '../lib/s3.js';
 import { uploadAllowed, verifyAccess } from '../lib/authSharing.js';
 
 const logger = createLogger('presignUrl');
 
-const ALLOWED_UPLOAD_TYPES = ['vehicle-photo', 'receipt-photo', 'csv-import'] as const;
-type UploadType = (typeof ALLOWED_UPLOAD_TYPES)[number];
-
-const ALLOWED_CONTENT_TYPES = [
-  'image/jpeg', 'image/png', 'image/webp', 'image/heic',
-  'application/pdf',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'text/csv',
-] as const;
-
 const PRESIGN_EXPIRATION_SECONDS = 900; // 15 minutes
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyResultV2> => {
   const requestId = event.requestContext?.requestId ?? ulid();
@@ -44,37 +34,16 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
     }
 
-    // Validate required fields
-    const requiredErrors = validateRequired(body, ['uploadType', 'vehicleId', 'filename', 'contentType']);
-    if (requiredErrors.length > 0) {
-      return error('VALIDATION_ERROR', requiredErrors.map(e => e.message).join(', '), requestId);
+    // Validate against the API contract (#18): required fields, upload/content types, fileSize
+    const valid = validate(PresignRequest, body);
+    if (!valid.ok) {
+      return error('VALIDATION_ERROR', valid.message, requestId);
     }
 
-    const uploadType = body.uploadType as string;
+    const { uploadType } = valid.data;
     const vehicleId = body.vehicleId as string;
     const filename = body.filename as string;
     const contentType = body.contentType as string;
-
-    // Validate uploadType is one of the allowed values
-    if (!ALLOWED_UPLOAD_TYPES.includes(uploadType as UploadType)) {
-      return error('VALIDATION_ERROR', `uploadType must be one of: ${ALLOWED_UPLOAD_TYPES.join(', ')}`, requestId);
-    }
-
-    // Validate content type against whitelist
-    if (!ALLOWED_CONTENT_TYPES.includes(contentType as typeof ALLOWED_CONTENT_TYPES[number])) {
-      return error('VALIDATION_ERROR', `contentType must be one of: ${ALLOWED_CONTENT_TYPES.join(', ')}`, requestId);
-    }
-
-    // Validate file size if provided
-    const fileSize = body.fileSize;
-    if (fileSize !== undefined) {
-      if (typeof fileSize !== 'number' || !Number.isFinite(fileSize) || fileSize <= 0) {
-        return error('VALIDATION_ERROR', 'fileSize must be a positive number', requestId);
-      }
-      if (fileSize > MAX_FILE_SIZE) {
-        return error('VALIDATION_ERROR', `File size exceeds maximum of ${MAX_FILE_SIZE / (1024 * 1024)} MB`, requestId);
-      }
-    }
 
     // Sanitize filename to prevent path traversal and malformed S3 keys
     const sanitizedFilename = sanitizeFilename(filename);
@@ -91,7 +60,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     // Files are stored under the vehicle owner's ID, so a shared user's uploads stay with the
     // owner's data (and are removed with the owner's account, not the uploader's).
     const access = await verifyAccess(userId, vehicleId, 'write-fuel');
-    if (!access.ownerUserId || !uploadAllowed(uploadType as UploadType, access)) {
+    if (!access.ownerUserId || !uploadAllowed(uploadType, access)) {
       return error('FORBIDDEN', 'You do not have permission to upload files for this vehicle', requestId);
     }
 

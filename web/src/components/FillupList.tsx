@@ -18,7 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { LocationPicker } from '@/components/LocationPicker';
-import type { Fillup } from '@/types';
+import type { Fillup } from '@pawsitivemileage/sdk';
 
 type SortField = 'date' | 'odometerReading' | 'gallonsAdded' | 'currencySpent' | 'mpg' | 'pricePerGallon';
 
@@ -261,10 +261,10 @@ function EditFillupDialog({
   const [receiptPhotoKey, setReceiptPhotoKey] = useState<string | null | undefined>(
     fillup.receiptPhotoKey,
   );
-  const [locationLat, setLocationLat] = useState<number | undefined>(fillup.locationLat);
-  const [locationLng, setLocationLng] = useState<number | undefined>(fillup.locationLng);
-  const [stationName, setStationName] = useState<string | undefined>(fillup.stationName);
-  const [address, setAddress] = useState<string | undefined>(fillup.address);
+  const [locationLat, setLocationLat] = useState<number | undefined>(fillup.locationLat ?? undefined);
+  const [locationLng, setLocationLng] = useState<number | undefined>(fillup.locationLng ?? undefined);
+  const [stationName, setStationName] = useState<string | undefined>(fillup.stationName ?? undefined);
+  const [address, setAddress] = useState<string | undefined>(fillup.address ?? undefined);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -383,7 +383,6 @@ function EditFillupDialog({
             <PhotoUpload
               uploadType="receipt-photo"
               vehicleId={vehicleId}
-              fillupId={fillup.fillupId}
               onUploadComplete={setReceiptPhotoKey}
               onPhotoRemoved={() => setReceiptPhotoKey(null)}
               currentPhotoKey={receiptPhotoKey ?? undefined}

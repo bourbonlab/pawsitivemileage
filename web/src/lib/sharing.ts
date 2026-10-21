@@ -1,4 +1,4 @@
-import type { SharePermission } from '@/types';
+import type { SharePermission } from '@pawsitivemileage/sdk';
 
 /**
  * Whether a viewer can add, edit, and delete fillups and maintenance records.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ReminderBanner } from '@/components/ReminderBanner';
-import type { Reminder } from '@/types';
+import type { Reminder } from '@pawsitivemileage/sdk';
 
 describe('ReminderBanner', () => {
   it('renders nothing when reminders array is empty', () => {

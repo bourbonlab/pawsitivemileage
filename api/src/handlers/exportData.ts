@@ -6,6 +6,8 @@ import { getUserId } from '../lib/auth.js';
 import { getUserEmail, getSharedPermission } from '../lib/authSharing.js';
 import { success, error } from '../lib/response.js';
 import { parseBody } from '../lib/validation.js';
+import { validate } from '../lib/contract.js';
+import { DateRange } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { uploadObject, getPresignedDownloadUrl } from '../lib/s3.js';
 import type { Fillup } from '../types/fillup.js';
@@ -53,8 +55,13 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     // POST /v1/vehicles/{vehicleId}/export/pdf
     if (method === 'POST' && path.endsWith('/export/pdf')) {
       const body = parseBody(event.body);
-      const pdfStartDate = (body?.startDate as string) ?? null;
-      const pdfEndDate = (body?.endDate as string) ?? null;
+      // Validate against the API contract (#18): optional startDate/endDate
+      const valid = validate(DateRange, body ?? {});
+      if (!valid.ok) {
+        return error('VALIDATION_ERROR', valid.message, requestId);
+      }
+      const pdfStartDate = valid.data.startDate ?? null;
+      const pdfEndDate = valid.data.endDate ?? null;
       return await handleExportPdf(userId, vehicleId, vehicle, pdfStartDate, pdfEndDate, requestId);
     }
 

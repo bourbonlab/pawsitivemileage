@@ -5,6 +5,12 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 - `api/`: Lambda handlers
 - `infra/`: AWS CDK
 - `cli/`: admin tooling, including the account migration
+- `pm/`: `pm`, the user-facing command line on the SDK (PKCE sign-in, fill-ups, maintenance, exports)
+- `packages/sdk/`: typed TypeScript client built from the contract: `createClient({ baseUrl, getToken })`, one method per operation
+- `packages/contracts/`: the API contract (zod schemas + route table), the single source of truth for requests and responses. See [docs/api-contract.md](docs/api-contract.md). When you change an endpoint:
+  - update its contract
+  - regenerate the OpenAPI document with `npm run openapi -w @pawsitivemileage/contracts`
+  - run `npm test -w @pawsitivemileage/contracts`. Its tests fail if the route table and `api-stack.ts` disagree, or if the committed `packages/contracts/openapi.json` is stale.
 
 [README.md](README.md) is the full reference for architecture, API routes and environment variables.
 
@@ -64,6 +70,8 @@ When a change affects project structure, API routes, commands, environment varia
 
 - **User ID:** the Cognito `sub` (`getUserId` in `api/src/lib/auth.ts`). It appears in DynamoDB keys and GSIs, and as the first segment of photo-bucket keys (`{ownerUserId}/{vehicleId}/{uploadType}/{ulid}-{filename}`; older keys lack the ULID). Files are always stored under the **vehicle owner's** ID, even when a shared user uploads them. Validate submitted keys against `ownerUserId` with `photoKeyFieldError` (`api/src/lib/s3.ts`).
 - **Other IDs** are ULIDs. The only UUIDs the app writes are user IDs, and the migration tool relies on this.
+- **Request validation:** handlers call `validate(Schema, body)` from `api/src/lib/contract.ts`, using the schema from `@pawsitivemileage/contracts`. Put new field rules in the contract, not in the handler.
+- **zod imports:** use `import * as z from 'zod'`, never `import { z }`. The named import stops esbuild tree-shaking and bundles all of zod's locales, about 350 KB per Lambda.
 - **API responses** are `{ data, requestId }` on success and `{ error, code, requestId }` on failure (`api/src/lib/response.ts`). The web client unwraps `data`.
 - **Photos** are served by the frontend CloudFront at `/photos/<key>`. Uploads go straight to S3 through presigned PUT URLs.
 - **Secrets** live in `.env` (git-ignored) and Secrets Manager. Never print or commit them.
