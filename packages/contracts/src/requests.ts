@@ -76,6 +76,16 @@ export const VehicleListQuery = z.object({
     .describe("Default 'active'. Any value other than 'active' or 'archived' returns all vehicles."),
 });
 
+/**
+ * Pagination for growing lists (#26). Without `limit` the full list is returned, as before.
+ */
+export const ListQuery = z.object({
+  limit: z.coerce.number<number>().int().min(1).max(500).optional().describe('Page size; omit for the full list'),
+  cursor: z.string().min(1).optional().describe('`nextCursor` from the previous page'),
+  order: z.enum(['asc', 'desc']).optional().describe("'asc' (default): oldest first; 'desc': newest first"),
+});
+export type ListQuery = z.infer<typeof ListQuery>;
+
 // ── Fill-ups ────────────────────────────────────────────────────────────────
 
 const fillupOptionalFields = {

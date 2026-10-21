@@ -116,6 +116,12 @@ Production is moving to the new AWS account (see [account-migration.md](account-
      - Maintenance now deletes a removed receipt's file **after** the record is written.
      - CORS now allows `Idempotency-Key`, `If-Match` and `X-Client`, and exposes `ETag` and `Idempotent-Replayed`.
    - **Pagination:** one cursor format for every list (`?limit&cursor` returning `nextCursor`), staying backward compatible: no `limit` means today's full list.
+     - *Done on the branch:* fill-ups and maintenance (the lists that grow without bound) take `?limit=1–500`, `cursor` and `order=asc|desc` (default `asc`, chronological, as before).
+     - `nextCursor` sits next to `data` in the envelope and is absent on the last page. Routes are flagged `paginated` in the contract, so OpenAPI documents the query and the paged envelope.
+     - The cursor is DynamoDB's `LastEvaluatedKey`, base64url-encoded and bound to the vehicle. One from another vehicle, or a tampered one, is a `400`.
+     - `queryPage()` (`api/src/lib/pagination.ts`) also fixes a latent bug: without `limit`, fill-ups now follow every 1 MB DynamoDB page, where before the list silently stopped at the first.
+     - Other lists (vehicles, shares, reminders, schemas) are small and bounded per user; they stay unpaginated until they need it. Adding the flag later is backward compatible.
+     - The SDK adds `page(op, args)` → `{ items, nextCursor }` and `paginate(op, args)` (async iterator, default page size 100). `contract-check` walks both orders and compares them with the full list.
 
 ## Phase C — clients
 
@@ -128,4 +134,4 @@ Production is moving to the new AWS account (see [account-migration.md](account-
 
 ## Open questions
 
-- Does pagination need to apply to fill-ups only (the only list that grows large), or to every list?
+None at the moment. (Pagination scope: fill-ups and maintenance only, see Phase B.)

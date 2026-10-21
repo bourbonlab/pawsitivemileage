@@ -47,6 +47,15 @@ export function successEnvelope<T extends z.ZodType>(data: T) {
   return z.object({ data, requestId: z.string() });
 }
 
+/** Envelope of a paginated list: `nextCursor` is present when more items remain (#26) */
+export function pagedEnvelope<T extends z.ZodType>(data: T) {
+  return z.object({
+    data,
+    requestId: z.string(),
+    nextCursor: z.string().optional().describe('Pass as `cursor` to get the next page; absent on the last page'),
+  });
+}
+
 /** `{ deleted: true }`, returned by DELETE endpoints */
 export const Deleted = z.object({ deleted: z.literal(true) });
 

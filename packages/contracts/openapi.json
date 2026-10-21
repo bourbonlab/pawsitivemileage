@@ -1334,7 +1334,7 @@
     "/v1/vehicles/{vehicleId}/fillups": {
       "get": {
         "operationId": "listFillups",
-        "summary": "All fill-ups for a vehicle",
+        "summary": "Fill-ups for a vehicle: all of them, or a page with limit/cursor",
         "tags": [
           "Fill-ups"
         ],
@@ -1347,6 +1347,40 @@
             "schema": {
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size; omit for the full list",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "`nextCursor` from the previous page",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "'asc' (default): oldest first; 'desc': newest first",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],
@@ -1737,7 +1771,7 @@
     "/v1/vehicles/{vehicleId}/maintenance": {
       "get": {
         "operationId": "listMaintenance",
-        "summary": "All maintenance records for a vehicle",
+        "summary": "Maintenance records for a vehicle: all of them, or a page with limit/cursor",
         "tags": [
           "Maintenance"
         ],
@@ -1750,6 +1784,40 @@
             "schema": {
               "type": "string",
               "pattern": "^[0-9A-HJKMNP-TV-Z]{26}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Page size; omit for the full list",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "description": "`nextCursor` from the previous page",
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "'asc' (default): oldest first; 'desc': newest first",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
             }
           }
         ],
@@ -3833,6 +3901,10 @@
           },
           "requestId": {
             "type": "string"
+          },
+          "nextCursor": {
+            "description": "Pass as `cursor` to get the next page; absent on the last page",
+            "type": "string"
           }
         },
         "required": [
@@ -3850,6 +3922,10 @@
             }
           },
           "requestId": {
+            "type": "string"
+          },
+          "nextCursor": {
+            "description": "Pass as `cursor` to get the next page; absent on the last page",
             "type": "string"
           }
         },

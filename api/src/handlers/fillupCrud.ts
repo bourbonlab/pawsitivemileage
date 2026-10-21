@@ -4,11 +4,12 @@ import { ulid } from 'ulid';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
+import { InvalidCursorError, queryPage } from '../lib/pagination.js';
 import { checkIfMatch } from '../lib/concurrency.js';
 import { withIdempotency } from '../lib/idempotency.js';
 import { parseBody } from '../lib/validation.js';
 import { validate } from '../lib/contract.js';
-import { FillupCreate, FillupUpdate } from '@pawsitivemileage/contracts';
+import { FillupCreate, FillupUpdate, ListQuery } from '@pawsitivemileage/contracts';
 import { createLogger } from '../lib/logger.js';
 import { calculateDerivedMetrics, recalculateAllMetrics } from '../lib/metrics.js';
 import { deleteObject, photoKeyFieldError } from '../lib/s3.js';
@@ -46,7 +47,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     const { ownerUserId } = access;
 
     if (method === 'GET' && !fillupId) {
-      return await listFillups(vehicleId, requestId, userId);
+      return await listFillups(event, vehicleId, requestId, userId);
     }
     if (method === 'GET' && fillupId) {
       return await getFillup(vehicleId, fillupId, requestId, userId);
@@ -73,23 +74,34 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
  * GET /v1/vehicles/{vehicleId}/fillups — List all fillups for a vehicle, sorted by date.
  */
 async function listFillups(
+  event: APIGatewayProxyEventV2,
   vehicleId: string,
   requestId: string,
   userId: string,
 ): Promise<APIGatewayProxyResultV2> {
-  const docClient = getDocClient();
-  const tableName = getTableName('FILLUPS_TABLE');
+  // Optional pagination (#26): no limit → the full list, as before
+  const query = validate(ListQuery, event.queryStringParameters ?? {});
+  if (!query.ok) {
+    return error('VALIDATION_ERROR', query.message, requestId);
+  }
 
   logger.info('Listing fillups', requestId, userId);
 
-  const result = await docClient.send(new QueryCommand({
-    TableName: tableName,
-    KeyConditionExpression: 'vehicleId = :vid',
-    ExpressionAttributeValues: { ':vid': vehicleId },
-    ScanIndexForward: true, // chronological order
-  }));
-
-  return success(result.Items ?? [], requestId);
+  try {
+    const page = await queryPage(
+      {
+        TableName: getTableName('FILLUPS_TABLE'),
+        KeyConditionExpression: 'vehicleId = :vid',
+        ExpressionAttributeValues: { ':vid': vehicleId },
+      },
+      { key: 'vehicleId', value: vehicleId },
+      query.data,
+    );
+    return success(page.items, requestId, 200, page.nextCursor ? { nextCursor: page.nextCursor } : undefined);
+  } catch (err) {
+    if (err instanceof InvalidCursorError) return error('VALIDATION_ERROR', err.message, requestId);
+    throw err;
+  }
 }
 
 /**

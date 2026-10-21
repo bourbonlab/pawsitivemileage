@@ -56,12 +56,13 @@ function etag(data: unknown): string | undefined {
   return typeof updatedAt === 'string' ? `"${updatedAt}"` : undefined;
 }
 
-export function success<T>(data: T, requestId: string, statusCode = 200) {
+/** `extra` adds envelope-level fields next to data/requestId (e.g. nextCursor, #26) */
+export function success<T>(data: T, requestId: string, statusCode = 200, extra?: Record<string, unknown>) {
   const tag = etag(data);
   return {
     statusCode,
     headers: { 'Content-Type': 'application/json', ...(tag && { ETag: tag }) },
-    body: JSON.stringify({ data, requestId }, serialize),
+    body: JSON.stringify({ data, requestId, ...extra }, serialize),
   };
 }
 

@@ -5,6 +5,10 @@
  *   const api = createClient({ baseUrl: 'https://api.pawsitivemileage.app', getToken });
  *   const vehicles = await api.listVehicles({ query: { status: 'all' } });
  *   const fillup = await api.createFillup({ params: { vehicleId }, body: { date, currencySpent, gallonsAdded, odometerReading } });
+ *
+ * Paginated lists (#26) return everything by default. To page through them:
+ *   const { items, nextCursor } = await api.page('listFillups', { params: { vehicleId }, query: { limit: 50, order: 'desc' } });
+ *   for await (const fillup of api.paginate('listFillups', { params: { vehicleId } })) { ... }
  */
 import type { z } from 'zod';
 import { ErrorCode, routes, type OperationId, type RouteDefinition, type Routes } from '@pawsitivemileage/contracts';
@@ -55,10 +59,32 @@ export type OperationData<R extends RouteDefinition> = z.output<R['response']>;
 
 type RequiredKeys<T> = { [K in keyof T]-?: undefined extends T[K] ? never : K }[keyof T];
 
-export type Client = {
+/** Operations that accept limit/cursor/order and may return nextCursor */
+export type PaginatedOperationId = { [K in OperationId]: Routes[K] extends { paginated: true } ? K : never }[OperationId];
+
+/** One item of a paginated operation's list */
+export type PageItem<K extends PaginatedOperationId> = OperationData<Routes[K]> extends Array<infer T> ? T : never;
+
+export interface Page<T> {
+  items: T[];
+  /** Pass as `query.cursor` for the next page; absent on the last page */
+  nextCursor?: string;
+}
+
+/** Page size `paginate` uses when the caller doesn't set `query.limit` */
+export const DEFAULT_PAGE_SIZE = 100;
+
+type Operations = {
   [K in OperationId]: RequiredKeys<OperationArgs<Routes[K]>> extends never
     ? (args?: OperationArgs<Routes[K]>) => Promise<OperationData<Routes[K]>>
     : (args: OperationArgs<Routes[K]>) => Promise<OperationData<Routes[K]>>;
+};
+
+export type Client = Operations & {
+  /** One page of a paginated list; without `query.limit` it is the whole list */
+  page<K extends PaginatedOperationId>(operation: K, args: OperationArgs<Routes[K]>): Promise<Page<PageItem<K>>>;
+  /** Every item of a paginated list, fetched a page at a time as it is iterated */
+  paginate<K extends PaginatedOperationId>(operation: K, args: OperationArgs<Routes[K]>): AsyncGenerator<PageItem<K>, void, undefined>;
 };
 
 /** Fill `{param}` placeholders, URL-encoding each value */
@@ -121,7 +147,7 @@ export function createClient(options: ClientOptions): Client {
       throw new ApiError(0, 'NETWORK_ERROR', err instanceof Error ? err.message : String(err));
     }
 
-    const json = await res.json().catch(() => undefined) as { data?: unknown; requestId?: string; error?: string; code?: string } | undefined;
+    const json = await res.json().catch(() => undefined) as { data?: unknown; requestId?: string; nextCursor?: string; error?: string; code?: string } | undefined;
     if (!res.ok) {
       const code = ErrorCode.safeParse(json?.code);
       throw new ApiError(res.status, code.success ? code.data : 'INTERNAL_ERROR', json?.error ?? `HTTP ${res.status}`, json?.requestId);
@@ -135,12 +161,34 @@ export function createClient(options: ClientOptions): Client {
         const where = parsed.error.issues.slice(0, 3).map((i) => `${i.path.join('.') || 'data'}: ${i.message}`).join('; ');
         throw new ApiError(res.status, 'CONTRACT_MISMATCH', `Response does not match the contract: ${where}`, json.requestId);
       }
-      return parsed.data;
+      return { data: parsed.data, nextCursor: json.nextCursor };
     }
-    return json.data;
+    return { data: json.data, nextCursor: json.nextCursor };
   }
 
-  return Object.fromEntries(
-    (Object.entries(routes) as Array<[OperationId, RouteDefinition]>).map(([id, route]) => [id, (args?: RequestArgs) => request(route, args)]),
-  ) as unknown as Client;
+  function paginatedRoute(operation: string): RouteDefinition {
+    const route = (routes as Record<string, RouteDefinition>)[operation];
+    if (!route?.paginated) throw new ApiError(0, 'VALIDATION_ERROR', `${operation} is not a paginated operation`);
+    return route;
+  }
+
+  async function page(operation: string, args: RequestArgs = {}): Promise<Page<unknown>> {
+    const { data, nextCursor } = await request(paginatedRoute(operation), args);
+    return { items: data as unknown[], ...(nextCursor && { nextCursor }) };
+  }
+
+  async function* paginate(operation: string, args: RequestArgs = {}): AsyncGenerator<unknown, void, undefined> {
+    let cursor = args.query?.cursor as string | undefined;
+    const limit = args.query?.limit ?? DEFAULT_PAGE_SIZE;
+    do {
+      const result = await page(operation, { ...args, query: { ...args.query, limit, cursor } });
+      yield* result.items;
+      cursor = result.nextCursor;
+    } while (cursor);
+  }
+
+  const operations = Object.fromEntries(
+    (Object.entries(routes) as Array<[OperationId, RouteDefinition]>).map(([id, route]) => [id, async (args?: RequestArgs) => (await request(route, args)).data]),
+  );
+  return { ...operations, page, paginate } as unknown as Client;
 }

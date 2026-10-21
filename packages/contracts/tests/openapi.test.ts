@@ -52,6 +52,18 @@ describe('openapi.json', () => {
     expect((byId.listVehicles as unknown as Op).responses['200'].headers).toBeUndefined();
   });
 
+  it('documents limit/cursor/order and nextCursor on paginated lists only', () => {
+    type Op = { parameters?: Array<{ name: string; in: string }>; responses: Record<string, { content: Record<string, { schema: { $ref: string } }> }> };
+    const envelope = (op: Op) => Object.keys((doc.components.schemas[op.responses['200'].content['application/json'].schema.$ref.split('/').pop()!] as { properties: object }).properties);
+    for (const id of ['listFillups', 'listMaintenance']) {
+      const op = byId[id] as unknown as Op;
+      expect(op.parameters?.filter((p) => p.in === 'query').map((p) => p.name).sort(), id).toEqual(['cursor', 'limit', 'order']);
+      expect(envelope(op), id).toContain('nextCursor');
+    }
+    const vehicles = byId.listVehicles as unknown as Op;
+    expect(envelope(vehicles)).not.toContain('nextCursor');
+  });
+
   it('marks the public route as needing no security', () => {
     expect((byId.getMeta as unknown as { security?: unknown[] }).security).toEqual([]);
     expect((byId.listVehicles as unknown as { security?: unknown[] }).security).toBeUndefined();

@@ -4,7 +4,7 @@
  * A test fails when the committed copy is stale, so Android's generated client always matches.
  */
 import * as z from 'zod';
-import { Deleted, ErrorResponse, successEnvelope } from './common.js';
+import { Deleted, ErrorResponse, pagedEnvelope, successEnvelope } from './common.js';
 import * as entities from './entities.js';
 import * as requests from './requests.js';
 import * as responses from './responses.js';
@@ -14,7 +14,7 @@ const ref = (id: string) => ({ $ref: `#/components/schemas/${id}` });
 const pascal = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Query-string schemas become parameters, not components */
-const QUERY_ONLY = new Set(['VehicleListQuery']);
+const QUERY_ONLY = new Set(['VehicleListQuery', 'ListQuery']);
 
 /** Named component schemas: every exported object/array/enum schema in these modules, under its export name */
 function namedSchemas(): Array<[string, z.ZodType]> {
@@ -98,7 +98,7 @@ export function buildOpenApiDocument() {
   const paths: Record<string, Record<string, unknown>> = {};
   for (const [operationId, route] of Object.entries(routes) as Array<[string, RouteDefinition]>) {
     const envelopeId = `${pascal(operationId)}Response`;
-    registry.add(successEnvelope(route.response), { id: envelopeId });
+    registry.add((route.paginated ? pagedEnvelope : successEnvelope)(route.response), { id: envelopeId });
 
     let bodyRef: string | undefined;
     if (route.body) {

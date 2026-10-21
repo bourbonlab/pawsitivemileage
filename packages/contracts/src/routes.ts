@@ -13,7 +13,7 @@ import {
 } from './entities.js';
 import {
   AdminSchemaActive, AdminSchemaCreate, AdminSchemaUpdate, AdminSetAdmin, DateRange, FillupCreate, FillupUpdate,
-  ImportRequest, MaintenanceCreate, MaintenanceUpdate, PresignRequest, ProfileUpdate, ShareCreate, SummaryCardRequest,
+  ImportRequest, ListQuery, MaintenanceCreate, MaintenanceUpdate, PresignRequest, ProfileUpdate, ShareCreate, SummaryCardRequest,
   VehicleArchive, VehicleCreate, VehicleListQuery, VehicleUpdate,
 } from './requests.js';
 import {
@@ -48,6 +48,8 @@ export interface RouteDefinition {
   idempotent?: true;
   /** Accepts If-Match (the record's updatedAt / ETag): 409 if it changed since (#25) */
   conditional?: true;
+  /** Accepts limit/cursor/order; the envelope carries nextCursor (#26) */
+  paginated?: true;
 }
 
 const defineRoute = <const R extends RouteDefinition>(route: R): R => route;
@@ -105,7 +107,8 @@ export const routes = {
   // ── Fill-ups ──
   listFillups: defineRoute({
     method: 'GET', path: '/v1/vehicles/{vehicleId}/fillups', tag: 'Fill-ups', status: 200, params: VehicleParams,
-    response: z.array(Fillup), summary: 'All fill-ups for a vehicle',
+    query: ListQuery, paginated: true, response: z.array(Fillup),
+    summary: 'Fill-ups for a vehicle: all of them, or a page with limit/cursor',
   }),
   createFillup: defineRoute({
     method: 'POST', path: '/v1/vehicles/{vehicleId}/fillups', tag: 'Fill-ups', status: 201, params: VehicleParams, idempotent: true,
@@ -127,7 +130,8 @@ export const routes = {
   // ── Maintenance ──
   listMaintenance: defineRoute({
     method: 'GET', path: '/v1/vehicles/{vehicleId}/maintenance', tag: 'Maintenance', status: 200, params: VehicleParams,
-    response: z.array(MaintenanceRecord), summary: 'All maintenance records for a vehicle',
+    query: ListQuery, paginated: true, response: z.array(MaintenanceRecord),
+    summary: 'Maintenance records for a vehicle: all of them, or a page with limit/cursor',
   }),
   createMaintenance: defineRoute({
     method: 'POST', path: '/v1/vehicles/{vehicleId}/maintenance', tag: 'Maintenance', status: 201, params: VehicleParams, idempotent: true,

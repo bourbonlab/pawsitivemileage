@@ -172,3 +172,52 @@ describe('types (checked by tsc during lint)', () => {
     expectTypeOf(FID).toBeString();
   });
 });
+
+describe('pagination', () => {
+  /** Serves three fill-ups two at a time, keyed by cursor */
+  function pagedFetch() {
+    const all = [{ fillupId: 'a' }, { fillupId: 'b' }, { fillupId: 'c' }];
+    return vi.fn(async (url: string | URL | Request) => {
+      const q = new URL(String(url)).searchParams;
+      const start = q.get('cursor') ? Number(q.get('cursor')) : 0;
+      const limit = Number(q.get('limit') ?? all.length);
+      const end = start + limit;
+      const body = { data: all.slice(start, end), requestId: 'r', ...(end < all.length && { nextCursor: String(end) }) };
+      return new Response(JSON.stringify(body), { status: 200 });
+    });
+  }
+
+  it('page returns items and nextCursor; the plain method still returns the array', async () => {
+    const f = pagedFetch();
+    const api = client(f as never);
+    const first = await api.page('listFillups', { params: { vehicleId: VID }, query: { limit: 2, order: 'desc' } });
+    expect(first).toEqual({ items: [{ fillupId: 'a' }, { fillupId: 'b' }], nextCursor: '2' });
+    expect(f.mock.calls[0][0]).toBe(`https://api.example.app/v1/vehicles/${VID}/fillups?limit=2&order=desc`);
+    const last = await api.page('listFillups', { params: { vehicleId: VID }, query: { limit: 2, cursor: first.nextCursor } });
+    expect(last).toEqual({ items: [{ fillupId: 'c' }] });
+    expect(await api.listFillups({ params: { vehicleId: VID } })).toHaveLength(3);
+  });
+
+  it('paginate follows cursors until the last page', async () => {
+    const f = pagedFetch();
+    const seen: string[] = [];
+    for await (const fillup of client(f as never).paginate('listFillups', { params: { vehicleId: VID }, query: { limit: 2 } })) seen.push(fillup.fillupId);
+    expect(seen).toEqual(['a', 'b', 'c']);
+    expect(f).toHaveBeenCalledTimes(2);
+  });
+
+  it('paginate uses DEFAULT_PAGE_SIZE when no limit is given', async () => {
+    const f = pagedFetch();
+    for await (const _ of client(f as never).paginate('listMaintenance', { params: { vehicleId: VID } })) { /* drain */ }
+    expect(new URL(String(f.mock.calls[0][0])).searchParams.get('limit')).toBe('100');
+  });
+
+  it('is typed: only paginated operations, items typed by the route', () => {
+    const api = createClient({ baseUrl: 'https://x', getToken: () => 't' });
+    expectTypeOf(api.page<'listFillups'>).returns.resolves.toEqualTypeOf<{ items: Fillup[]; nextCursor?: string }>();
+    // @ts-expect-error listVehicles is not paginated
+    void (() => api.page('listVehicles', {}));
+    // @ts-expect-error limit is a number
+    void (() => api.page('listFillups', { params: { vehicleId: VID }, query: { limit: 'ten' } }));
+  });
+});

@@ -624,6 +624,11 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 - `PUT`/`PATCH` on vehicles, fill-ups and maintenance accept `If-Match` with that value. If the record changed since, the response is `409 CONFLICT` instead of an overwrite.
 - Without `If-Match`, the last write wins, as before.
 
+**Pagination:** the fill-up and maintenance lists accept `?limit=` (1–500), `cursor` and `order=asc|desc` (default `asc`, oldest first).
+- Without `limit`, the response is the full list, as before.
+- With `limit`, the envelope adds `nextCursor` when more items remain; pass it back as `cursor`. A cursor only works for the vehicle it came from.
+- The SDK's `api.page('listFillups', …)` returns one page, and `api.paginate('listFillups', …)` iterates every item.
+
 ### Meta (public)
 
 | Method | Path | Description |
@@ -652,7 +657,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/vehicles/{vehicleId}/fillups` | List fillups (sorted by date descending) |
+| GET | `/v1/vehicles/{vehicleId}/fillups` | List fillups (chronological; optional `limit`, `cursor`, `order`) |
 | POST | `/v1/vehicles/{vehicleId}/fillups` | Create fillup (date, currencySpent, gallonsAdded, odometerReading required) |
 | GET | `/v1/vehicles/{vehicleId}/fillups/{fillupId}` | Get single fillup with derived metrics |
 | PUT | `/v1/vehicles/{vehicleId}/fillups/{fillupId}` | Update fillup (triggers metric recalculation) |
@@ -662,7 +667,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/v1/vehicles/{vehicleId}/maintenance` | List maintenance records |
+| GET | `/v1/vehicles/{vehicleId}/maintenance` | List maintenance records (chronological; optional `limit`, `cursor`, `order`) |
 | POST | `/v1/vehicles/{vehicleId}/maintenance` | Create record (schemaId or customTypeName, datePerformed, odometerAtService, cost) |
 | PUT | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Update record |
 | DELETE | `/v1/vehicles/{vehicleId}/maintenance/{recordId}` | Delete record |

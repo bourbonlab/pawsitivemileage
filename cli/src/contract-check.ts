@@ -8,6 +8,9 @@
  * Strict about fields: anything the contract doesn't declare is a failure (--allow-undeclared
  * skips that, e.g. for an environment still running a build from before #20).
  *
+ * Paginated lists (#26) are also walked page by page (asc and desc, following nextCursor) and
+ * compared with the full list.
+ *
  * Read-only by default. The CSV export GETs write a file to the exports bucket, so they only
  * run with --include-exports. Admin routes run for users whose profile has isAdmin. Failures
  * list schema paths and messages, never response values.
@@ -22,7 +25,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { InvokeCommand, LambdaClient } from '@aws-sdk/client-lambda';
-import { routes, successEnvelope, type RouteDefinition } from '@pawsitivemileage/contracts';
+import { pagedEnvelope, routes, successEnvelope, type RouteDefinition } from '@pawsitivemileage/contracts';
 import { countPaths, fillPath, parseRouteHandlers, summarizeIssues, undeclaredKeys } from './contract/helpers.js';
 
 const { values: opts } = parseArgs({
@@ -77,6 +80,11 @@ const results = { checked: 0, failed: 0, notes: [] as string[] };
 
 /** Call a route and validate status + envelope + data; returns the data when it conforms */
 async function check(caller: Caller, id: OperationId, params?: Record<string, string>, query?: Record<string, string>) {
+  return (await checkPage(caller, id, params, query))?.data as never;
+}
+
+/** check(), also returning the envelope's nextCursor; `quiet` skips the ✔ line */
+async function checkPage(caller: Caller, id: OperationId, params?: Record<string, string>, query?: Record<string, string>, quiet = false) {
   const route: RouteDefinition = routes[id];
   const label = `${id}${query ? `?${new URLSearchParams(query)}` : ''}`;
   const { status, body } = await invoke(caller, route, params, query);
@@ -87,7 +95,7 @@ async function check(caller: Caller, id: OperationId, params?: Record<string, st
     console.log(`  ✖ ${label} → ${status} (expected ${okStatuses.join('/')}) ${body?.code ?? ''}`);
     return undefined;
   }
-  const parsed = successEnvelope(route.response).safeParse(body);
+  const parsed = (route.paginated ? pagedEnvelope(route.response) : successEnvelope(route.response)).safeParse(body);
   if (!parsed.success) {
     results.failed++;
     console.log(`  ✖ ${label} → ${status} does not match the contract:`);
@@ -103,8 +111,44 @@ async function check(caller: Caller, id: OperationId, params?: Record<string, st
     return undefined;
   }
   const count = Array.isArray(parsed.data.data) ? ` (${parsed.data.data.length})` : '';
-  console.log(`  ✔ ${label} → ${status}${count}`);
-  return parsed.data.data as never;
+  if (!quiet) console.log(`  ✔ ${label} → ${status}${count}`);
+  return { data: parsed.data.data as unknown, nextCursor: (parsed.data as { nextCursor?: string }).nextCursor };
+}
+
+/**
+ * Walk a paginated list in both orders with a small page size and compare with the full list:
+ * same items, no duplicates or gaps, desc is asc reversed, and the last page has no cursor.
+ */
+async function checkPages(caller: Caller, id: 'listFillups' | 'listMaintenance', params: Record<string, string>, full: Array<Record<string, unknown>>) {
+  const idField = id === 'listFillups' ? 'fillupId' : 'recordId';
+  const expected = full.map((item) => item[idField]);
+  const limit = Math.max(1, Math.ceil(expected.length / 3));
+  for (const order of ['asc', 'desc'] as const) {
+    const label = `${id}?limit=${limit}&order=${order} (walk)`;
+    const seen: unknown[] = [];
+    let cursor: string | undefined;
+    let pages = 0;
+    do {
+      const page = await checkPage(caller, id, params, { limit: String(limit), order, ...(cursor && { cursor }) }, true);
+      if (!page) return; // checkPage reported the failure
+      const items = page.data as Array<Record<string, unknown>>;
+      seen.push(...items.map((item) => item[idField]));
+      cursor = page.nextCursor;
+      pages++;
+      if (items.length > limit || pages > expected.length + 2) {
+        results.failed++;
+        console.log(`  ✖ ${label}: page ${pages} has ${items.length} items or the walk does not end`);
+        return;
+      }
+    } while (cursor);
+    const want = order === 'asc' ? expected : [...expected].reverse();
+    if (seen.length !== want.length || seen.some((v, i) => v !== want[i])) {
+      results.failed++;
+      console.log(`  ✖ ${label}: ${seen.length} items over ${pages} page(s) do not match the full list of ${want.length}`);
+    } else {
+      console.log(`  ✔ ${label} → ${seen.length} items in ${pages} page(s)`);
+    }
+  }
 }
 
 async function checkUser(caller: Caller): Promise<void> {
@@ -124,7 +168,9 @@ async function checkUser(caller: Caller): Promise<void> {
     await check(caller, 'getVehicle', p);
     const fillups = (await check(caller, 'listFillups', p) ?? []) as Array<{ fillupId: string }>;
     if (fillups[0]) await check(caller, 'getFillup', { vehicleId, fillupId: fillups[0].fillupId });
-    await check(caller, 'listMaintenance', p);
+    await checkPages(caller, 'listFillups', p, fillups);
+    const maintenance = (await check(caller, 'listMaintenance', p) ?? []) as Array<{ recordId: string }>;
+    await checkPages(caller, 'listMaintenance', p, maintenance);
     await check(caller, 'listReminders', p);
     await check(caller, 'listVehicleSchemas', p);
     await check(caller, 'getAnalytics', p);
