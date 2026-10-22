@@ -25,6 +25,27 @@ cd android
 
 On the command line, put the SDK path in `android/local.properties` (`sdk.dir=…`, git-ignored) or set `ANDROID_HOME`.
 
+### A signed build to sideload
+
+Release builds are signed when `android/keystore.properties` exists (git-ignored; CI builds stay unsigned):
+
+```properties
+storeFile=/home/you/.pawsitivemileage-android/upload.jks
+storePassword=…
+keyAlias=upload
+keyPassword=…
+```
+
+Create the key once with `keytool -genkeypair -keystore ~/.pawsitivemileage-android/upload.jks -alias upload -keyalg RSA -keysize 4096 -validity 10000`, keep it out of the repo, and back it up. With Play App Signing it becomes the *upload* key: Google holds the app signing key, and a lost upload key can be reset through Play support. Then:
+
+```bash
+./gradlew :app:assembleProductionRelease   # app/build/outputs/apk/production/release/app-production-release.apk
+```
+
+Copy the APK to the phone, allow your file manager or browser to install unknown apps, and open it. The production build uses the production API and your real data. Installing a newer build over it needs the same key; switching between a debug build and this one means uninstalling first.
+
+R8 shrinks release builds. `app/proguard-rules.pro` keeps the generated Retrofit interfaces and models and the enum fields that Retrofit and the converters use by reflection. Without them, release builds fail at runtime even though debug builds work, so test release builds on a device before shipping.
+
 | Flavor | Application ID | API | Sign-in redirect |
 |---|---|---|---|
 | `staging` | `app.pawsitivemileage.staging` | `https://api-staging.pawsitivemileage.app` | `app.pawsitivemileage.staging://callback` |
