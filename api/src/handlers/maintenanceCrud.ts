@@ -407,7 +407,9 @@ async function deleteMaintenance(
  * GET /v1/vehicles/{vehicleId}/maintenance/reminders — Get upcoming maintenance reminders.
  *
  * For each active schema, finds the most recent maintenance record for this vehicle,
- * then calculates reminders using the design's calculateReminder logic.
+ * then calculates reminders using the design's calculateReminder logic. A schema with no
+ * recorded service on this vehicle gets no reminder: reminders start once the user logs the
+ * first one, so someone who doesn't track that service isn't told it's overdue.
  * Supports vehicle-level maintenanceOverrides for custom intervals (Req 4.6, 4.7, 4.8).
  */
 async function getReminders(
@@ -444,9 +446,10 @@ async function getReminders(
       continue;
     }
 
-    // If no previous service record, use vehicle creation as baseline
-    const lastServiceOdometer = lastRecord?.odometerAtService ?? 0;
-    const lastServiceDate = lastRecord?.datePerformed ?? vehicle.createdAt.split('T')[0];
+    // Reminders start with the first recorded service for this schema
+    if (!lastRecord) continue;
+    const lastServiceOdometer = lastRecord.odometerAtService;
+    const lastServiceDate = lastRecord.datePerformed;
 
     const reminder = calculateReminder({
       schemaName: schema.name,
