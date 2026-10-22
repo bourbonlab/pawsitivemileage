@@ -2,7 +2,7 @@ package app.pawsitivemileage
 
 import app.pawsitivemileage.data.SnapshotCache
 import app.pawsitivemileage.ui.Format
-import app.pawsitivemileage.ui.GarageVehicle
+import app.pawsitivemileage.data.GarageVehicle
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals

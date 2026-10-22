@@ -5,6 +5,7 @@ import app.pawsitivemileage.api.generated.apis.MaintenanceApi
 import app.pawsitivemileage.api.generated.apis.MetaApi
 import app.pawsitivemileage.api.generated.apis.ProfileApi
 import app.pawsitivemileage.api.generated.apis.SharingApi
+import app.pawsitivemileage.api.generated.apis.UploadsApi
 import app.pawsitivemileage.api.generated.apis.VehiclesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
@@ -14,6 +15,7 @@ import okhttp3.OkHttpClient
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
@@ -36,7 +38,7 @@ class ApiClient(
             // GET /v1/meta is public; everything else carries the token when there is one.
             // OkHttp runs interceptors on its own threads, so blocking for the token is fine.
             if (!chain.request().url.encodedPath.endsWith("/v1/meta")) {
-                runBlocking { accessToken() }?.let { request.header("Authorization", "Bearer $it") }
+                tokenFor(accessToken)?.let { request.header("Authorization", "Bearer $it") }
             }
             chain.proceed(request.build())
         })
@@ -46,6 +48,7 @@ class ApiClient(
         .baseUrl(baseUrl.trimEnd('/') + "/")
         .client(client)
         .addConverterFactory(EnumQueryConverterFactory)
+        .addConverterFactory(UpdateBodyConverterFactory)
         .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
         .build()
 
@@ -55,6 +58,7 @@ class ApiClient(
     val sharing: SharingApi = retrofit.create(SharingApi::class.java)
     val fillups: FillUpsApi = retrofit.create(FillUpsApi::class.java)
     val maintenance: MaintenanceApi = retrofit.create(MaintenanceApi::class.java)
+    val uploads: UploadsApi = retrofit.create(UploadsApi::class.java)
 
     companion object {
         val json = Json {
@@ -64,6 +68,21 @@ class ApiClient(
         }
     }
 }
+
+/**
+ * The token for a request. A failed refresh (offline, Cognito unreachable) must surface as an
+ * IOException: OkHttp treats any other exception from an interceptor as a bug and rethrows it on
+ * its dispatcher thread, which crashes the app. As an IOException the call just fails, and the
+ * screens show their offline state.
+ */
+internal fun tokenFor(accessToken: suspend () -> String?): String? =
+    try {
+        runBlocking { accessToken() }
+    } catch (e: IOException) {
+        throw e
+    } catch (e: Exception) {
+        throw IOException("Couldn't refresh the sign-in: ${e.message ?: e.javaClass.simpleName}", e)
+    }
 
 /**
  * Run an API call and return its body, or throw [ApiException] with the API's error code and

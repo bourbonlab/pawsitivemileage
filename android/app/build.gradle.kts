@@ -19,6 +19,7 @@ val generatedClientDir = layout.buildDirectory.dir("generated/openapi")
  * Response schemas are open (`additionalProperties: {}`) so clients tolerate new fields. The
  * Kotlin generator turns those into HashMap subclasses that don't compile, and the app ignores
  * unknown keys when decoding anyway, so this copy drops `additionalProperties` next to `properties`.
+ * It also drops `const` from boolean schemas (see below).
  */
 val prepareApiSpec = tasks.register("prepareApiSpec") {
     val source = openApiSpec
@@ -32,6 +33,9 @@ val prepareApiSpec = tasks.register("prepareApiSpec") {
                 is MutableMap<*, *> -> {
                     val map = node as MutableMap<String, Any?>
                     if (map.containsKey("properties")) map.remove("additionalProperties")
+                    // A boolean `const` (e.g. Deleted.deleted: true) becomes an enum that only decodes
+                    // the string "true", not the JSON literal; a plain boolean decodes correctly
+                    if (map["type"] == "boolean") map.remove("const")
                     map.values.forEach(::strip)
                 }
                 is List<*> -> node.forEach(::strip)
@@ -77,8 +81,12 @@ android {
         applicationId = "app.pawsitivemileage"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0"
+        // Release builds from CI take the web/API release version (-PappVersion=v1.2.3), so the app
+        // and the site show the same version; versionCode must grow with every release that
+        // replaces an installed APK.
+        val release = (findProperty("appVersion") as String?)?.removePrefix("v")?.substringBefore('-')
+        versionName = release ?: "1.0.0"
+        versionCode = release?.split('.')?.map(String::toInt)?.let { (major, minor, patch) -> major * 1_000_000 + minor * 1_000 + patch } ?: 1
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -176,6 +184,8 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
