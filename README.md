@@ -771,6 +771,7 @@ All tables use on-demand billing and have Point-in-Time Recovery (PITR) enabled.
 - `daysSinceLastFillup`: calendar days between fillups
 
 **Maintenance reminders** (calculated on-the-fly):
+- Only for maintenance types with at least one recorded service on the vehicle (linked to the type, not a custom name). A type that was never recorded shows no reminder.
 - Mileage-based: triggers when within 500 miles of next service
 - Time-based: triggers when within 30 days of next service
 - Overdue detection: negative remaining values

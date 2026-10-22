@@ -148,7 +148,7 @@ export const routes = {
   }),
   listReminders: defineRoute({
     method: 'GET', path: '/v1/vehicles/{vehicleId}/maintenance/reminders', tag: 'Maintenance', status: 200,
-    params: VehicleParams, response: z.array(Reminder), summary: 'Maintenance due soon or overdue',
+    params: VehicleParams, response: z.array(Reminder), summary: 'Maintenance due soon or overdue, for types with at least one recorded service',
   }),
   listVehicleSchemas: defineRoute({
     method: 'GET', path: '/v1/vehicles/{vehicleId}/maintenance/schemas', tag: 'Maintenance', status: 200,

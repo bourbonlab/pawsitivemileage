@@ -2074,7 +2074,7 @@
     "/v1/vehicles/{vehicleId}/maintenance/reminders": {
       "get": {
         "operationId": "listReminders",
-        "summary": "Maintenance due soon or overdue",
+        "summary": "Maintenance due soon or overdue, for types with at least one recorded service",
         "tags": [
           "Maintenance"
         ],
