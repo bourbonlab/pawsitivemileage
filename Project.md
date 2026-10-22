@@ -1,5 +1,7 @@
 # PawsitiveMileage — Project Charter
 
+> The original charter (February 2026), kept for its intent and requirements. What's built today, and how, is in the [README](README.md); the API is specified by its contract ([docs/api-reference.md](docs/api-reference.md)). Since the charter: the app runs in its own AWS account (`376784708284`) at pawsitivemileage.app, a native Android app and the `pm` command line use the same API, and dark mode and account deletion shipped.
+
 ## 1. Project Overview
 
 PawsitiveMileage is a serverless vehicle fuel tracking and maintenance management application. The application enables vehicle owners to log fuel purchases with minimal input and automatically calculates key metrics such as miles per gallon (MPG), cost per mile, miles between fillups, and price per gallon. Beyond fuel tracking, the platform provides flexible maintenance tracking with administrator-configurable maintenance schemas, analytics dashboards, and reporting tools to give users a complete picture of their vehicle ownership costs.
@@ -32,9 +34,12 @@ The codebase is organized into four distinct components:
 
 ```
 pawsitive-mileage/
+├── packages/     # API contract (contracts) and typed TypeScript client (sdk)
 ├── web/          # React frontend application
 ├── api/          # Lambda function handlers and API logic
 ├── infra/        # AWS CDK infrastructure-as-code
+├── android/      # Native Android app (added October 2026)
+├── pm/           # User-facing command line (added October 2026)
 ├── cli/          # Administrative CLI tools and scripts
 ├── SampleData/   # Sample datasets for development and testing
 └── Project.md    # This document
@@ -260,19 +265,7 @@ A dedicated section of the web application accessible only to users with the adm
 
 **Base URL**: `https://api.pawsitivemileage.app/v1`
 
-**Resource Structure**:
-```
-/v1/vehicles                    # CRUD for vehicles
-/v1/vehicles/{vehicleId}/fillups    # CRUD for fillups per vehicle
-/v1/vehicles/{vehicleId}/maintenance # CRUD for maintenance per vehicle
-/v1/vehicles/{vehicleId}/analytics   # Analytics endpoints per vehicle
-/v1/vehicles/{vehicleId}/export      # Export endpoints per vehicle
-/v1/user/profile                # User profile management
-/v1/admin/users                 # Admin: user management
-/v1/admin/schemas               # Admin: maintenance schema management
-/v1/admin/stats                 # Admin: platform statistics
-/v1/upload/presign              # Presigned URL generation for S3 uploads
-```
+**Resource Structure**: vehicles, and per vehicle its fill-ups, maintenance, analytics, exports and sharing; the user profile; admin users, schemas and stats; presigned uploads. The routes are defined in the API contract (`packages/contracts`) and listed in the generated [API reference](docs/api-reference.md).
 
 **Authentication**: All endpoints require a valid Cognito JWT in the Authorization header. Admin endpoints additionally verify the admin flag.
 
@@ -343,15 +336,15 @@ DNS is hosted in CloudFlare and will be proxied through CloudFlare.
 
 These items are out of scope for the initial build but should be considered in architectural decisions:
 
-- Native mobile applications (iOS/Android) consuming the same API
+- Native mobile applications (iOS/Android) consuming the same API — **Android shipped** (October 2026); iOS not started
 - Push notifications for maintenance reminders
 - Fuel station price comparison and recommendations
 - Trip tracking with per-trip cost summaries
 - Social features (compare MPG with friends, community averages)
 - Integration with OBD-II devices for automatic odometer reading
 - Multi-currency support for international users
-- Dark mode theme
-- Offline-first PWA capabilities
+- Dark mode theme — **shipped**
+- Offline-first PWA capabilities — offline entry shipped in the Android app instead
 
 ## 9. Success Criteria
 
