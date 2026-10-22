@@ -653,7 +653,7 @@ Error codes: `VALIDATION_ERROR` (400), `UNAUTHORIZED` (401), `FORBIDDEN` (403), 
 |--------|------|-------------|
 | GET | `/v1/user/profile` | Get current user profile (auto-creates on first call) |
 | PUT | `/v1/user/profile` | Update display name and preferences |
-| DELETE | `/v1/user/profile` | Delete account with cascading deletion of all vehicles, fillups, maintenance records, and S3 photos |
+| DELETE | `/v1/user/profile` | Delete the account: shares both ways, vehicles, fill-ups, maintenance, photos and receipts, exports, the profile, and the Cognito user. Safe to retry. Users reach it from **Account** in the web header or the Android app; the public page `/delete-account` (Google Play's deletion URL, linked in every footer) explains the steps and what's kept: database backups up to 35 days, logs 90 days |
 
 ### Vehicles
 
