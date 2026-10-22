@@ -3,7 +3,7 @@
 ## Driver & Trip Insights
 - Driving habit scoring based on fillup frequency, MPG trends, and maintenance adherence
 - Trip logging with start/end odometer, purpose (personal vs business), and mileage deduction tracking for tax time
-- Business vs personal mileage reporting
+- Business vs personal mileage reporting (fill-ups already carry an `isBusiness` flag)
 
 ## Fuel Price Intelligence
 - Gas station price tracking from fillup history (cheapest stations, average price by area)
@@ -30,8 +30,13 @@
 - Import from additional sources (GasBuddy, Drivvo, Fuelio CSV formats)
 - Shareable chart URL embeds for forums and social media
 
+## Mobile
+- Android app on Google Play (store listing and closed test in progress; until then the APK is on the site)
+- Analytics, sharing management and exports in the Android app
+- iOS app on the same API contract
+
 ## Quality of Life
-- Offline fillup entry with sync (service worker + local queue)
+- ~~Offline fillup entry with sync~~ → **Shipped** in the Android app (Room queue + WorkManager, idempotency keys); the web app still needs a connection
 - Quick-fill mode — one-tap entry reusing last station, fuel type, estimates gallons from spend
-- Dark mode (Tailwind 4 `dark:` variant pass)
+- ~~Dark mode (Tailwind 4 `dark:` variant pass)~~ → **Shipped:** light, dark and system themes
 - Multi-currency support for international travel

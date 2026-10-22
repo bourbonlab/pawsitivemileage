@@ -7,6 +7,11 @@
 > security-relevant findings, recorded below as **F-15, F-16, and F-17**. See the
 > [Follow-up Review (2026-05-22)](#follow-up-review--2026-05-22) section and the
 > full [`code-review-2026-05.md`](./code-review-2026-05.md) for context.
+>
+> **Update — 2026-10-22:** F-15 (2026-10-20) and F-16 (v1.4.0, 2026-10-22) are remediated.
+> Since this assessment, the app moved to its own AWS account (`376784708284`) and domain
+> (`pawsitivemileage.app`), and gained public PKCE clients for Android and the `pm` CLI.
+> File and line references below are from the date of each review and may have moved.
 
 ---
 
@@ -20,13 +25,13 @@ That said, the review identified 14 findings across critical, high, medium, and 
 
 ## Remediation Status
 
-**11 of 14 findings remediated** as part of the `feat/security-hardening` branch; one accepted as a risk.
+**13 of 17 findings remediated**; one accepted as a risk. F-01–F-14 were addressed in the `feat/security-hardening` branch; F-15–F-17 come from the [follow-up review](#follow-up-review--2026-05-22).
 
 | Status | Count | Findings |
 |--------|-------|----------|
-| ✅ Remediated | 11 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-09, F-10, F-11, F-13 |
+| ✅ Remediated | 13 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-09, F-10, F-11, F-13, F-15, F-16 |
 | ⚠️ Accepted risk | 1 | F-12 (no interactive IAM approval — dedicated account, IAM reviewed in PRs; since 2026-10-20) |
-| ⬚ Not addressed | 2 | F-08 (admin audit trail — new feature, deferred), F-14 (table name prefix — breaking change, requires migration) |
+| ⬚ Not addressed | 3 | F-08 (admin audit trail — new feature, deferred), F-14 (table name prefix — breaking change, requires migration), F-17 (inline scripts allowed by the CSP; photos readable by URL) |
 
 ---
 
@@ -334,6 +339,12 @@ of that remediation.
 **Recommendation:** Reject any `s3Key` that does not begin with `${userId}/`. Replace
 the local `parseBody` with the shared, size-capped implementation from `validation.ts`.
 
+**Status — remediated 2026-10-20:** `importData` accepts only the vehicle owner's own
+`csv-import` key for that vehicle (`isOwnCsvImportKey` in `api/src/lib/s3.ts`), and the
+other handlers check submitted photo and receipt keys the same way (`photoKeyFieldError`).
+The import handler still has its own `parseBody` without the 64 KB cap; its body is a
+single validated `s3Key`, so the remaining exposure is the API Gateway payload limit.
+
 ### F-16 — Account Deletion Leaves Orphaned Sharing Records (MEDIUM)
 
 **File:** `api/src/handlers/userProfile.ts:162-219`
@@ -350,6 +361,11 @@ recreates an empty profile.
 **Recommendation:** Delete all `Sharing` rows where `ownerUserId = userId` and all GSI1
 rows where `GSI1PK = userEmail` during account deletion. Decide explicitly whether the
 Cognito user should also be removed.
+
+**Status — remediated 2026-10-22 (v1.4.0, #41):** `deleteAccount` deletes shares by the
+owner and shares to the user's email, the user's exports, and finally the Cognito user
+(`ListUsers` by `sub`, then `AdminDeleteUser`, scoped to the app's own pool). It's
+retry-safe. A later Google sign-in starts a new, empty account.
 
 ### F-17 — CSP Allows Inline Scripts; Photos Served Publicly (LOW)
 
@@ -372,6 +388,6 @@ access model as an accepted tradeoff.
 
 | ID | Severity | Finding | OWASP Category | Status |
 |----|----------|---------|----------------|--------|
-| F-15 | MEDIUM | Import handler trusts client-supplied S3 key | A01: Broken Access Control | ⬚ Not addressed |
-| F-16 | MEDIUM | Account deletion leaves orphaned sharing records | A01: Broken Access Control | ⬚ Not addressed |
+| F-15 | MEDIUM | Import handler trusts client-supplied S3 key | A01: Broken Access Control | ✅ Remediated 2026-10-20 (key check); local `parseBody` remains |
+| F-16 | MEDIUM | Account deletion leaves orphaned sharing records | A01: Broken Access Control | ✅ Remediated 2026-10-22 (v1.4.0) |
 | F-17 | LOW | CSP allows inline scripts; photos served publicly | A05: Security Misconfiguration | ⬚ Not addressed |

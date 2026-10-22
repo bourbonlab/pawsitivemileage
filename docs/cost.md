@@ -2,7 +2,8 @@
 
 Region: **us-east-1**  
 Target scale: **~1,000 monthly active users**  
-Pricing: **On-demand**, as of February 2026  
+Pricing: **On-demand**, as of February 2026; inventory updated 2026-10-22  
+Account: the dedicated `376784708284`, which runs only this app, so its bill is the app's cost. The estimate is for **production**; staging adds its own fixed costs (mainly PITR) on very little usage.  
 Sources: [AWS Pricing API](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-changes.html)
 
 ---
@@ -11,15 +12,15 @@ Sources: [AWS Pricing API](https://docs.aws.amazon.com/awsaccountbilling/latest/
 
 | Category | Resource | Quantity | Config |
 |----------|----------|----------|--------|
-| Compute | Lambda functions | 10 | 256 MB, 30s timeout, Node.js 22.x, X-Ray active |
+| Compute | Lambda functions | 13 | 256 MB, 30s timeout, Node.js 24.x, X-Ray active |
 | API | API Gateway v2 (HTTP API) | 1 | JWT authorizer, CORS |
-| Database | DynamoDB tables | 5 | On-demand billing, PITR enabled |
-| Database | DynamoDB GSIs | 6 | On-demand (across Users, Vehicles, Fillups ×2, Maintenance) |
-| Storage | S3 buckets | 3 | Frontend, Photos, Exports (7-day lifecycle) |
+| Database | DynamoDB tables | 7 | On-demand billing; PITR on the 6 data tables (the idempotency cache has a 24-hour TTL and no PITR) |
+| Database | DynamoDB GSIs | 6 | On-demand (across Users, Vehicles, Fillups ×2, Maintenance, Sharing) |
+| Storage | S3 buckets | 3 | Frontend (including the Android APK), Photos, Exports (7-day lifecycle) |
 | CDN | CloudFront distribution | 1 | OAC, TLS 1.2, SPA error handling |
-| Auth | Cognito User Pool | 1 | Google OAuth, Hosted UI |
-| Monitoring | CloudWatch Dashboard | 1 | API, Lambda, DynamoDB widgets |
-| Monitoring | CloudWatch Logs | 10 log groups | 1-week (non-prod) / 3-month (prod) retention |
+| Auth | Cognito User Pool | 1 | Google OAuth, Hosted UI; web, Android and CLI app clients |
+| Monitoring | CloudWatch Dashboard | 0 (optional) | Monitoring stack not deployed today; counted below in case it's enabled |
+| Monitoring | CloudWatch Logs | 13 log groups | 1-week (non-prod) / 3-month (prod) retention |
 
 ---
 
@@ -37,7 +38,7 @@ Sources: [AWS Pricing API](https://docs.aws.amazon.com/awsaccountbilling/latest/
 | S3 GET requests/month | 20,000 | Frontend assets + photo views |
 | CloudFront requests/month | 500,000 | Page loads, assets, API passthrough |
 | CloudFront data transfer | 10 GB | Frontend assets + images |
-| CloudWatch Logs ingestion | 1 GB/month | 10 functions × structured JSON logs |
+| CloudWatch Logs ingestion | 1 GB/month | 13 functions × structured JSON logs |
 | Cognito MAU | 1,000 | Target user base |
 
 ---
@@ -71,7 +72,7 @@ Free tier: 1M requests/month for 12 months → fully covered in year 1.
 | Read request units (RRU) | $0.125 / 1M RRU | 500,000 | $0.06 |
 | Write request units (WRU) | $0.625 / 1M WRU | 100,000 | $0.06 |
 | Storage (first 25 GB free) | $0.25 / GB-month | ~1 GB | $0.00 |
-| PITR (continuous backups) | $0.20 / GB-month | ~1 GB × 5 tables | $1.00 |
+| PITR (continuous backups) | $0.20 / GB-month | ~5 GB across 6 tables (rounded up) | $1.00 |
 | **DynamoDB subtotal** | | | **$1.12** |
 
 Free tier: 25 GB storage + 25 RRU + 25 WRU provisioned (on-demand has no perpetual free tier for requests, but storage is covered).
@@ -124,7 +125,7 @@ Free tier: 5 GB logs ingestion, 5 GB logs storage, 3 dashboards (basic) → part
 
 | Line Item | Unit Price | Usage | Monthly Cost |
 |-----------|-----------|-------|-------------|
-| Public certificates | Free | 2 (API + Frontend) | $0.00 |
+| Public certificates | Free | 1 (`pawsitivemileage.app` + `*.pawsitivemileage.app`, shared by CloudFront, API Gateway and Cognito) | $0.00 |
 
 ---
 
@@ -154,8 +155,8 @@ Free tier: 5 GB logs ingestion, 5 GB logs storage, 3 dashboards (basic) → part
 ## Key Observations
 
 - **Cognito is the largest cost** at $5.50/month without free tier, but the 10K MAU free tier covers this workload entirely.
-- **CloudWatch Dashboard** at $3/month is the single largest fixed cost. The Monitoring stack is optional — enable via CDK context (`-c enableMonitoring=true`). Omitting it in non-production environments saves $3/month per environment.
-- **DynamoDB PITR** adds ~$1/month across 5 tables. Could be disabled in non-prod to save costs.
+- **CloudWatch Dashboard** at $3/month would be the single largest fixed cost. The Monitoring stack is optional (`-c enableMonitoring=true`) and isn't deployed today, so actual costs are about $3/month below these totals.
+- **DynamoDB PITR** adds ~$1/month across the 6 data tables. Could be disabled in staging to save costs.
 - **CloudFront** always-free tier (1 TB transfer + 10M requests) covers this workload indefinitely, not just year 1.
 - At ~1,000 users, the entire stack runs for **under $2/month** with free tier benefits, or **under $12/month** at full price.
 

@@ -2,6 +2,8 @@
 
 Moves PawsitiveMileage from the legacy AWS account (`817281265012`, the Organization management account, `*.bourbonlab.net`) to its dedicated account (`376784708284`, `pawsitivemileage.app`).
 
+> **Status (2026-10-22):** staging and production are migrated. Production was cut over and **locked on 2026-10-21** ([log](#cutover-log--2026-10-21-utc)). `pawsitivemileage.bourbonlab.net` redirects to https://pawsitivemileage.app. Remaining: [Teardown](#teardown-about-30-days-after-cutover) of the legacy account, **not before 2026-11-20**. Never delete the lock parameter or re-run `migrate` against production: it mirrors, so it would wipe live data.
+
 The tool is [cli/src/migrate-account.ts](../cli/src/migrate-account.ts). It is built to be run repeatedly: rehearse on staging, rehearse on production while the old app stays live, then run once more during a short outage for the real cutover.
 
 ## What a run does

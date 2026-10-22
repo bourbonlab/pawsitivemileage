@@ -1,6 +1,6 @@
 # PawsitiveMileage for Android
 
-Native Android app (Kotlin, Jetpack Compose) for PawsitiveMileage, issue #28. It talks to the same `/v1` API as the web app and `pm`, through a client generated from the API contract.
+Native Android app (Kotlin, Jetpack Compose) for PawsitiveMileage. It talks to the same `/v1` API as the web app and `pm` ([API reference](../docs/api-reference.md)), through a client generated from the API contract. Until it's on Google Play, the signed production APK is published with every production deploy and linked from the footer of https://pawsitivemileage.app.
 
 ## What it does
 
@@ -30,6 +30,17 @@ cd android
 
 On the command line, put the SDK path in `android/local.properties` (`sdk.dir=…`, git-ignored) or set `ANDROID_HOME`.
 
+### Flavors
+
+| Flavor | Application ID | API | Sign-in redirect |
+|---|---|---|---|
+| `staging` | `app.pawsitivemileage.staging` | `https://api-staging.pawsitivemileage.app` | `app.pawsitivemileage.staging://callback` |
+| `production` | `app.pawsitivemileage` | `https://api.pawsitivemileage.app` | `app.pawsitivemileage://callback` |
+
+The two install side by side. The redirect URIs are registered on each environment's Cognito Android client (`infra/lib/client-metadata.ts`).
+
+Test with the **staging** flavor against staging. Don't install the production build on a test device or emulator: anything it saves goes into real users' data.
+
 ### A signed build to sideload
 
 Release builds are signed when `android/keystore.properties` exists (git-ignored; CI builds stay unsigned):
@@ -47,18 +58,29 @@ Create the key once with `keytool -genkeypair -keystore ~/.pawsitivemileage-andr
 ./gradlew :app:assembleProductionRelease   # app/build/outputs/apk/production/release/app-production-release.apk
 ```
 
-**Easiest:** download it from the phone icon next to the version in the footer of https://pawsitivemileage.app. Every production deploy publishes the current release there (see docs/ci-cd.md); CI signs it with the same key from the `production` environment's secrets.
+**Easiest:** download it from the phone icon next to the version in the footer of https://pawsitivemileage.app. Every production deploy publishes the current release there ([docs/ci-cd.md](../docs/ci-cd.md)); CI signs it with the same key from the `production` environment's secrets.
 
 To sideload a local build instead, copy the APK to the phone, allow your file manager or browser to install unknown apps, and open it. The production build uses the production API and your real data. Installing a newer build over it needs the same key; switching between a debug build and this one means uninstalling first.
 
+## Google Play
+
+Play takes an Android App Bundle, signed with the upload key (`keystore.properties` above):
+
+```bash
+./gradlew :app:bundleProductionRelease -PappVersion=v1.4.0
+# → app/build/outputs/bundle/productionRelease/app-production-release.aab
+```
+
+- **`-PappVersion`** sets `versionName` and `versionCode` from a release tag (v1.4.0 → 1.4.0 and 1004000; without it, 1.0.0). Play rejects a `versionCode` it has already seen, so build each upload at the newest release.
+- The bundle includes the R8 mapping file, so Play's crash reports are deobfuscated.
+- Play's "native code without debug symbols" warning can be ignored: the only native code is AndroidX's small `libandroidx.graphics.path.so`, none of ours. Silencing it would need the NDK on every build.
+- **Play App Signing:** with the default (Google creates the app signing key), the upload key can be reset through Play support if it's lost, but Play-installed copies are signed differently from the sideloaded APK. Anyone with the sideloaded app uninstalls it once before installing from Play.
+- New personal developer accounts need a closed test (12 testers for 14 days) before production access.
+- Store listing assets (icon, feature graphic, screenshots) are made from the staging app with sample data, never from production.
+
+## Release builds and R8
+
 R8 shrinks release builds. `app/proguard-rules.pro` keeps the generated Retrofit interfaces and models and the enum fields that Retrofit and the converters use by reflection. Without them, release builds fail at runtime even though debug builds work, so test release builds on a device before shipping.
-
-| Flavor | Application ID | API | Sign-in redirect |
-|---|---|---|---|
-| `staging` | `app.pawsitivemileage.staging` | `https://api-staging.pawsitivemileage.app` | `app.pawsitivemileage.staging://callback` |
-| `production` | `app.pawsitivemileage` | `https://api.pawsitivemileage.app` | `app.pawsitivemileage://callback` |
-
-The two install side by side. The redirect URIs are registered on each environment's Cognito Android client (`infra/lib/client-metadata.ts`).
 
 ## The generated API client
 
@@ -91,4 +113,4 @@ app/src/main/kotlin/app/pawsitivemileage/
 
 ## Not yet
 
-Analytics, sharing management, exports and imports, admin, a real launcher icon, and the Play Store listing.
+Analytics, sharing management, exports and imports, and admin are web-only for now. The Play Store listing is being set up.

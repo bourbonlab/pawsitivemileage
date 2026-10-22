@@ -1,5 +1,8 @@
 # PawsitiveMileage — Code Review
 
+> **Snapshot from May 2026, not kept up to date.** Line numbers and some file names have since changed. Current status of the security findings (M1/F-15 and M3/F-16 are fixed): [security.md](security.md#remediation-status). The `.kiro/` steering files it mentions are gone; the README, `docs/` and CLAUDE.md are the references now.
+
+
 **Date:** 2026-05-22
 **Reviewer:** Full-codebase review
 **Scope:** Frontend (`web/`), backend (`api/`), infrastructure (`infra/`), CLI (`cli/`), deployment pipeline (`deploy.sh`), and project documentation (`docs/`, `.kiro/`).
