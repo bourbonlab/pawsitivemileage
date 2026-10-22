@@ -39,14 +39,11 @@ packages/contracts   zod schemas + route table  ← single source of truth
 
 1. Change the schema or route in `packages/contracts`. New field rules go here, not in the handler.
 2. Change the handler; it validates with `validate(Schema, body)` from `api/src/lib/contract.ts`. A new route also needs its entry in `api-stack.ts`.
-3. Regenerate the OpenAPI document: `npm run openapi -w @pawsitivemileage/contracts`.
-4. Regenerate the API reference: `node docs/tools/api-reference.mjs`.
-5. Run `npm test -w @pawsitivemileage/contracts` (route table vs `api-stack.ts`, `openapi.json` freshness), then `npm test` and `npm run lint --workspaces --if-present`. TypeScript callers that no longer match the contract fail to compile.
-6. The Android app picks up the new `openapi.json` on its next build. Build it (`./gradlew :app:assembleStagingDebug`) if the change touches anything it uses; the Android workflow does this on the PR.
+3. Regenerate the OpenAPI document and the API reference: `npm run openapi -w @pawsitivemileage/contracts` (it runs `docs/tools/api-reference.mjs` after writing `openapi.json`).
+4. Run `npm test -w @pawsitivemileage/contracts` (route table vs `api-stack.ts`, `openapi.json` and `api-reference.md` freshness), then `npm test` and `npm run lint --workspaces --if-present`. TypeScript callers that no longer match the contract fail to compile.
+5. The Android app picks up the new `openapi.json` on its next build. Build it (`./gradlew :app:assembleStagingDebug`) if the change touches anything it uses; the Android workflow does this on the PR.
 
 The README doesn't list endpoints, so there's nothing to update there; it links to the generated reference.
-
-`node docs/tools/api-reference.mjs --check` exits 1 if `api-reference.md` is stale. CI doesn't run it yet, so step 4 is on you.
 
 ## Compatibility rules
 
@@ -129,12 +126,11 @@ The user-facing command line, on the SDK. See the README's [pm command line](../
 
 | Check | What it catches | Where it runs |
 |---|---|---|
-| `packages/contracts` tests | Request rules pinned to the API's behavior; route table vs `api-stack.ts`; `openapi.json` stale | `npm test`, every PR |
+| `packages/contracts` tests | Request rules pinned to the API's behavior; route table vs `api-stack.ts`; `openapi.json` or `api-reference.md` stale | `npm test`, every PR |
 | `api` tests | Handlers validating with the contract, response shaping | `npm test`, every PR |
 | TypeScript | Web and `pm` calls that don't match the contract | `npm run lint`, every PR |
 | Android build | Kotlin client generation and use | Android workflow, PRs touching `android/` or `openapi.json` |
 | `contract-check` | The live API returning something the contract doesn't describe | By hand |
-| `api-reference.mjs --check` | A stale `docs/api-reference.md` | By hand |
 
 **`contract-check`** (`cli/src/contract-check.ts`) calls every read endpoint in an environment as each user and validates the status, the envelope and the data against the contract:
 

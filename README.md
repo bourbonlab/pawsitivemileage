@@ -182,7 +182,7 @@ pawsitivemileage/
 │   ├── contracts/          # API contract: zod schemas + route table for every /v1 route (docs/api-contract.md)
 │   │   ├── src/            # entities, requests, responses, routes, openapi (document builder)
 │   │   ├── scripts/        # write-openapi.ts (npm run openapi)
-│   │   ├── tests/          # request rules, responses, route table vs api-stack.ts, openapi.json freshness
+│   │   ├── tests/          # request rules, responses, route table vs api-stack.ts, openapi.json + api-reference.md freshness
 │   │   └── openapi.json    # Generated OpenAPI 3.1 document, committed (docs/api-reference.md is built from it)
 │   └── sdk/                # Typed TypeScript client built from the contract (web + pm)
 │
@@ -877,7 +877,7 @@ Its Retrofit client is generated from `packages/contracts/openapi.json` at build
 cd android && ./gradlew :app:assembleStagingDebug :app:testStagingDebugUnitTest
 ```
 
-- **CI:** the **Android** workflow builds, lints and tests it on every PR and push that touches `android/` or `openapi.json`.
+- **CI:** the **Android** workflow builds, lints and tests it on every PR and push that touches `android/` (other than Markdown) or `openapi.json`.
 - **Distribution:** until the app is on Google Play, every production deploy builds the production APK, signs it with the upload key (production environment secrets), and publishes it at `https://pawsitivemileage.app/downloads/`, linked by the phone icon next to the version in the site footer. Android changes therefore go through the normal deploy ([docs/ci-cd.md](docs/ci-cd.md)).
 - **Google Play:** the store listing is being set up; signed bundles (`.aab`) are built locally ([android/README.md](android/README.md#google-play)).
 - **Testing:** use the `staging` flavor. Never write test data to production.
