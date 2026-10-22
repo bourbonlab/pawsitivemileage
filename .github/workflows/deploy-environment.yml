@@ -71,6 +71,45 @@ jobs:
       - name: Install npm ${{ env.NPM_VERSION }}
         run: npm install --global "npm@${NPM_VERSION}"
 
+      # Until the app is on Google Play, production offers the signed APK for download
+      # (web footer, /downloads/). Built before deploy.sh so the web build includes it.
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        if: inputs.environment == 'production'
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+        if: inputs.environment == 'production'
+
+      - name: Build the Android APK
+        if: inputs.environment == 'production'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" ]]; then
+            echo "::warning::No Android signing key in this environment; the published APK stays as it is"
+            exit 0
+          fi
+          if [[ ! "$APP_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::warning::'$APP_VERSION' is not a release version; the published APK stays as it is"
+            exit 0
+          fi
+          keystore="$RUNNER_TEMP/upload.jks"
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$keystore"
+          printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=upload\nkeyPassword=%s\n' \
+            "$keystore" "$ANDROID_KEYSTORE_PASSWORD" "$ANDROID_KEYSTORE_PASSWORD" > android/keystore.properties
+          (cd android && ./gradlew :app:assembleProductionRelease -PappVersion="$APP_VERSION" --console=plain)
+          rm -f "$keystore" android/keystore.properties
+          apk="android/app/build/outputs/apk/production/release/app-production-release.apk"
+          name="PawsitiveMileage-${APP_VERSION}.apk"
+          mkdir -p web/public/downloads
+          cp "$apk" "web/public/downloads/$name"
+          printf '{"version":"%s","url":"/downloads/%s","bytes":%s,"sha256":"%s"}\n' \
+            "$APP_VERSION" "$name" "$(stat -c %s "$apk")" "$(sha256sum "$apk" | cut -d' ' -f1)" > web/public/downloads/android.json
+          cat web/public/downloads/android.json
+
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}

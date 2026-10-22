@@ -489,6 +489,16 @@ while IFS= read -r -d '' file; do
 done < <(find web/dist -type f -print0 | sort -z)
 REMOVED_KEYS=("${!REMOTE_ETAGS[@]}")
 
+# The Android APK (downloads/) is built only by production deploys in CI. A build without one
+# (a local deploy, or staging) leaves the published APK where it is instead of deleting it.
+if [[ ! -f web/dist/downloads/android.json ]]; then
+  KEPT_KEYS=()
+  for key in "${REMOVED_KEYS[@]}"; do
+    [[ "$key" == downloads/* ]] || KEPT_KEYS+=("$key")
+  done
+  REMOVED_KEYS=("${KEPT_KEYS[@]}")
+fi
+
 if [[ ${#CHANGED_KEYS[@]} -eq 0 && ${#REMOVED_KEYS[@]} -eq 0 ]]; then
   ok "Frontend unchanged — nothing uploaded, caches left as they are"
 else
@@ -498,13 +508,24 @@ else
   # at assets that aren't there yet, or that are already gone. Each step is one `aws s3 sync`
   # (parallel transfers) limited to the keys that differ.
   UPLOAD_FILTER=()
+  APK_KEYS=()
   INDEX_CHANGED=false
   for key in "${CHANGED_KEYS[@]}"; do
     if [[ "$key" == index.html ]]; then
       INDEX_CHANGED=true
+    elif [[ "$key" == *.apk ]]; then
+      APK_KEYS+=("$key")
     else
       UPLOAD_FILTER+=(--include "$key")
     fi
+  done
+  # APKs first, with the type Android needs to offer an install, so downloads/android.json never
+  # points at an APK that isn't there yet
+  for key in "${APK_KEYS[@]}"; do
+    aws s3 cp "web/dist/$key" "s3://${FRONTEND_BUCKET}/$key" --only-show-errors \
+      --content-type application/vnd.android.package-archive \
+      --content-disposition "attachment; filename=\"${key##*/}\"" \
+      || fail "Upload of $key failed"
   done
   if [[ ${#UPLOAD_FILTER[@]} -gt 0 ]]; then
     # cp, not sync: sync skips a same-size file whose S3 copy looks newer (e.g. version.json)

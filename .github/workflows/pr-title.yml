@@ -43,12 +43,12 @@ jobs:
           docs_only=true
           while IFS= read -r file; do
             case "$file" in
-              *.md|docs/*|LICENSE|.claude/*|android/*|.github/workflows/android.yml) ;;
+              *.md|docs/*|LICENSE|.claude/*) ;;
               *) docs_only=false ;;
             esac
           done < <(git diff --name-only HEAD^1 HEAD)
           if [[ $status -eq 0 && $docs_only == true ]]; then
-            printf '### Docs or Android only: merging does not deploy or release the web app and API\n\nDocs ship with the next release; the Android app ships through Google Play.\n' > summary.md
+            printf '### Docs-only: merging does not deploy or release\n\nThese changes ship with the next release.\n' > summary.md
           fi
           cat summary.md | tee -a "$GITHUB_STEP_SUMMARY"
           if [[ $status -eq 0 ]]; then
