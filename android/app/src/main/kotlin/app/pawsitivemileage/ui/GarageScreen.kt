@@ -47,7 +47,7 @@ fun GarageScreen(api: ApiClient, onOpen: (GarageVehicle) -> Unit, onSignOut: () 
     var reload by remember { mutableStateOf(0) }
     LaunchedEffect(reload) {
         error = null
-        runCatching { loadGarage(api) }.onSuccess { vehicles = it }.onFailure { error = it.message ?: "Couldn't load vehicles" }
+        runCatching { loadGarage(api) }.onSuccess { vehicles = it }.onFailure { error = friendlyError(it, OFFLINE_GARAGE) }
     }
     Scaffold(topBar = {
         TopAppBar(title = { Text("Garage") }, actions = {

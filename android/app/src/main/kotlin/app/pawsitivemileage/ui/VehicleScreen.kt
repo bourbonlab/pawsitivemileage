@@ -58,7 +58,7 @@ fun VehicleScreen(vehicleId: String, nickname: String, repo: FillupRepository, o
                 fillups.addAll(page.items)
                 cursor = page.nextCursor
             }
-            .onFailure { error = it.message ?: "Couldn't load fill-ups" }
+            .onFailure { error = friendlyError(it, OFFLINE_FILLUPS) }
         loading = false
     }
 
