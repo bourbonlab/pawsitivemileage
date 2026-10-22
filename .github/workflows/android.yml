@@ -8,12 +8,14 @@ on:
   pull_request:
     paths:
       - 'android/**'
+      - '!android/**.md' # docs don't need a build
       - 'packages/contracts/openapi.json'
       - '.github/workflows/android.yml'
   push:
     branches: [main]
     paths:
       - 'android/**'
+      - '!android/**.md'
       - 'packages/contracts/openapi.json'
       - '.github/workflows/android.yml'
 
