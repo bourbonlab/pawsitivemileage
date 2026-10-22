@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { LogOut, Moon, Shield, Sun } from 'lucide-react';
+import { CircleUser, LogOut, Moon, Shield, Sun } from 'lucide-react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useTheme } from '@/lib/useTheme';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </Link>
               </Button>
             )}
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/account">
+                <CircleUser className="mr-2 h-4 w-4" />
+                Account
+              </Link>
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleSignOut} aria-label="Sign out">
               <LogOut className="mr-2 h-4 w-4" />
               Sign out
@@ -52,6 +58,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </Link>
             <Link to="/terms" className="hover:text-foreground transition-colors">
               Terms of Service
+            </Link>
+            <Link to="/delete-account" className="hover:text-foreground transition-colors">
+              Delete account
             </Link>
             {import.meta.env.VITE_SOURCE_CODE_URL && (
               <a href={import.meta.env.VITE_SOURCE_CODE_URL} target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
