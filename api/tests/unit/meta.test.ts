@@ -15,7 +15,7 @@ describe('buildMeta', () => {
       links: {
         privacyPolicy: 'https://staging.example.app/privacy',
         terms: 'https://staging.example.app/terms',
-        accountDeletion: 'https://staging.example.app/account',
+        accountDeletion: 'https://staging.example.app/delete-account',
       },
       serverTime: '2026-10-21T12:00:00.000Z',
     });

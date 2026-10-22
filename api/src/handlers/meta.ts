@@ -34,7 +34,7 @@ export function buildMeta(env: NodeJS.ProcessEnv, now = new Date()) {
     links: {
       privacyPolicy: `${site}/privacy`,
       terms: `${site}/terms`,
-      accountDeletion: `${site}/account`,
+      accountDeletion: `${site}/delete-account`,
     },
     serverTime: now.toISOString(),
     // Native sign-in configuration (#22); omitted when the environment doesn't provide it
