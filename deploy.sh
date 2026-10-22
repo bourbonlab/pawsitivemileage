@@ -262,11 +262,7 @@ if ! command -v aws &>/dev/null; then
 fi
 ok "AWS CLI $(aws --version 2>&1 | awk '{print $1}')"
 
-# CDK (via npx from infra/ — where aws-cdk is installed)
-# stderr is discarded: npm 12 prints "npm notice run ..." lines there, and piping them
-# through `head -1` SIGPIPEs npx, which fails this check under `set -o pipefail`.
-CDK_VERSION=$(cd infra && npx cdk --version 2>/dev/null) || fail "AWS CDK CLI not available. Run: cd infra && npm install"
-ok "CDK ${CDK_VERSION}"
+# CDK is checked after `npm ci` (step 2): it comes from infra's aws-cdk in the lockfile.
 
 # AWS credentials
 step "Verifying AWS credentials"
@@ -298,6 +294,19 @@ else
   npm ci --silent 2>&1 || fail "npm ci failed — lockfile may be out of sync. Run 'npm install' locally and commit package-lock.json."
 fi
 ok "All workspace dependencies installed from lockfile"
+
+# CDK from infra/node_modules (aws-cdk, pinned by the lockfile). --no-install: never download.
+# A plain `npx cdk` before the install used to fetch the separate `cdk` package from npm, so
+# the deploy depended on whatever AWS last published there: cdk@2.1146.1 (2026-10-22) required
+# an aws-cdk version that didn't exist, and every fresh CI runner failed this check.
+cdk_err=$(mktemp)
+if ! CDK_VERSION=$(cd infra && npx --no-install cdk --version 2>"$cdk_err"); then
+  grep -v "npm notice" "$cdk_err" >&2 || true
+  rm -f "$cdk_err"
+  fail "AWS CDK CLI not available from infra/node_modules (aws-cdk in package-lock.json)"
+fi
+rm -f "$cdk_err"
+ok "CDK ${CDK_VERSION}"
 
 (npm audit --audit-level=high 2>/dev/null) || warn "npm audit found vulnerabilities (run 'npm audit' for details)"
 
@@ -350,9 +359,9 @@ CDK_CONTEXT=(
 step "Synthesizing CDK stacks (environment: ${CDK_ENV})"
 
 if [[ "$VERBOSE" == true ]]; then
-  (cd infra && npx cdk synth "${CDK_CONTEXT[@]}")
+  (cd infra && npx --no-install cdk synth "${CDK_CONTEXT[@]}")
 else
-  (cd infra && npx cdk synth "${CDK_CONTEXT[@]}" 2>&1) || fail "CDK synth failed"
+  (cd infra && npx --no-install cdk synth "${CDK_CONTEXT[@]}" 2>&1) || fail "CDK synth failed"
 fi
 
 ok "CDK synth succeeded for ${CDK_ENV}"
@@ -388,9 +397,9 @@ CDK_DEPLOY_FLAGS=(--all --concurrency 3 ${APPROVAL_FLAG})
 info "Running: cdk deploy ${CDK_DEPLOY_FLAGS[*]} -c environment=${DEPLOY_ENV}"
 
 if [[ "$VERBOSE" == true ]]; then
-  (cd infra && npx cdk deploy "${CDK_DEPLOY_FLAGS[@]}" "${CDK_CONTEXT[@]}")
+  (cd infra && npx --no-install cdk deploy "${CDK_DEPLOY_FLAGS[@]}" "${CDK_CONTEXT[@]}")
 else
-  (cd infra && npx cdk deploy "${CDK_DEPLOY_FLAGS[@]}" "${CDK_CONTEXT[@]}") || fail "CDK deploy failed"
+  (cd infra && npx --no-install cdk deploy "${CDK_DEPLOY_FLAGS[@]}" "${CDK_CONTEXT[@]}") || fail "CDK deploy failed"
 fi
 
 ok "All stacks deployed to ${DEPLOY_ENV}"
