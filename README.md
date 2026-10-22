@@ -961,7 +961,7 @@ All resources are tagged with:
 
 ## Android app
 
-`android/` is the native Android app: sign-in with Google (PKCE through the Hosted UI, settings from `GET /v1/meta`), the garage, fill-ups with paging, and fill-up entry that works offline (a Room queue sent with idempotency keys). Its Retrofit client is generated from `packages/contracts/openapi.json` at build time. `staging` and `production` flavors install side by side.
+`android/` is the native Android app: sign-in with Google (PKCE through the Hosted UI, settings from `GET /v1/meta`), the garage including shared vehicles, fill-ups and maintenance (add, edit, delete), receipts from the camera or files, GPS location, vehicles (add, edit, archive, photo), and offline entry (a Room queue sent with idempotency keys). Until it's on Google Play, production deploys publish the signed APK, linked by a phone icon in the site footer. Its Retrofit client is generated from `packages/contracts/openapi.json` at build time. `staging` and `production` flavors install side by side.
 
 ```bash
 cd android && ./gradlew :app:assembleStagingDebug :app:testStagingDebugUnitTest

@@ -153,3 +153,4 @@ infra/cdk.out/
 # OS files
 .DS_Store
 Thumbs.db
+web/public/downloads/

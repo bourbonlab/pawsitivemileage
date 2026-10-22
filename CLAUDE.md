@@ -6,7 +6,7 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 - `infra/`: AWS CDK
 - `cli/`: admin tooling, including the account migration
 - `pm/`: `pm`, the user-facing command line on the SDK (PKCE sign-in, fill-ups, maintenance, exports)
-- `android/`: Android app (Kotlin, Compose, Gradle). Its API client is generated from `packages/contracts/openapi.json` at build time, so contract changes reach it with the next build. Needs JDK 17 + Android SDK 36 ([android/README.md](android/README.md)); it's built by the Android workflow, not `npm test`, and ships through Google Play, not `deploy.yml`.
+- `android/`: Android app (Kotlin, Compose, Gradle). Its API client is generated from `packages/contracts/openapi.json` at build time, so contract changes reach it with the next build. Needs JDK 17 + Android SDK 36 ([android/README.md](android/README.md)); it's built by the Android workflow, not `npm test`. Until it's on Google Play, production deploys build, sign and publish the APK on the site (footer phone icon; docs/ci-cd.md). Test on the **staging** flavor only: never write test data to production.
 - `packages/sdk/`: typed TypeScript client built from the contract: `createClient({ baseUrl, getToken })`, one method per operation
 - `packages/contracts/`: the API contract (zod schemas + route table), the single source of truth for requests and responses. See [docs/api-contract.md](docs/api-contract.md). When you change an endpoint:
   - update its contract

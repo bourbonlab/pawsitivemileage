@@ -12,10 +12,10 @@ import androidx.work.WorkerParameters
 import app.pawsitivemileage.PawsitiveApp
 import java.util.concurrent.TimeUnit
 
-/** Sends queued fill-ups when there is a network; WorkManager retries with backoff */
+/** Sends queued fill-ups, maintenance and receipts when there is a network; WorkManager retries with backoff */
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        val retry = (applicationContext as PawsitiveApp).container.fillups.sync()
+        val retry = (applicationContext as PawsitiveApp).container.queue.sync()
         return if (retry) Result.retry() else Result.success()
     }
 

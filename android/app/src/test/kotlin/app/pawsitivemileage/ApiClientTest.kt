@@ -83,3 +83,37 @@ class ApiClientTest {
         }
     }
 }
+
+class TokenRefreshFailureTest {
+    @Test
+    fun `a failed token refresh fails the call as offline instead of crashing OkHttp's thread`() = runTest {
+        val server = MockWebServer().apply { start() }
+        try {
+            // AppAuth reports an offline refresh as an AuthorizationException, not an IOException
+            val api = ApiClient(server.url("/").toString(), "1.0.0", accessToken = { throw IllegalStateException("Network error") })
+            try {
+                call { api.vehicles.listVehicles() }
+                fail("expected an IOException")
+            } catch (e: java.io.IOException) {
+                assertTrue(e.message!!.startsWith("Couldn't refresh the sign-in"))
+            }
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+}
+
+class DeleteResponseTest {
+    @Test
+    fun `delete responses decode the boolean literal`() = runTest {
+        val server = MockWebServer().apply { start() }
+        try {
+            server.enqueue(MockResponse().setBody("""{"data":{"deleted":true},"requestId":"r"}"""))
+            val api = ApiClient(server.url("/").toString(), "1.0.0", accessToken = { "t" })
+            assertEquals(true, call { api.fillups.deleteFillup(VID, "01KS5M8EYJ5VP2GYMBBEQZ5VPH") }.`data`.deleted)
+        } finally {
+            server.shutdown()
+        }
+    }
+}

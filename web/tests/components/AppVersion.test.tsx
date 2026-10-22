@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { AppVersion, resetAppVersionForTests } from '@/components/AppVersion';
 
-function serveVersion(response: Response | Error) {
-  const fetchMock = vi.fn(() =>
-    response instanceof Error ? Promise.reject(response) : Promise.resolve(response),
-  );
+/** /version.json gets `response`; /downloads/android.json gets `android` (or the SPA's HTML) */
+function serveVersion(response: Response | Error, android?: Response) {
+  const fetchMock = vi.fn((url: string) => {
+    if (url === '/downloads/android.json') {
+      return Promise.resolve(android ?? new Response('<!doctype html><html></html>', { status: 200, headers: { 'Content-Type': 'text/html' } }));
+    }
+    return response instanceof Error ? Promise.reject(response) : Promise.resolve(response.clone());
+  });
   vi.stubGlobal('fetch', fetchMock);
   return fetchMock;
 }
@@ -48,7 +52,7 @@ describe('AppVersion', () => {
       </>,
     );
     await waitFor(() => expect(screen.getAllByText('v1.4.0')).toHaveLength(2));
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.filter(([url]) => url === '/version.json')).toHaveLength(1);
   });
 
   it('shows a local build version as plain text', async () => {
@@ -78,5 +82,31 @@ describe('AppVersion', () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     await new Promise((r) => setTimeout(r, 0));
     expect(container.innerHTML).toBe('');
+  });
+
+  it('offers the Android APK when production publishes one', async () => {
+    const fetchMock = serveVersion(
+      json({ version: 'v1.4.0' }),
+      json({ version: 'v1.4.0', url: '/downloads/PawsitiveMileage-v1.4.0.apk', bytes: 2_831_155 }),
+    );
+    render(<AppVersion />);
+    const link = await screen.findByRole('link', { name: 'Download the Android app (v1.4.0 · 2.7 MB)' });
+    expect(link).toHaveAttribute('href', '/downloads/PawsitiveMileage-v1.4.0.apk');
+    expect(link).toHaveAttribute('download');
+    expect(fetchMock).toHaveBeenCalledWith('/downloads/android.json', { cache: 'no-cache' });
+  });
+
+  it('shows no download where none is published (staging serves HTML there)', async () => {
+    serveVersion(json({ version: 'v1.4.0' }));
+    render(<AppVersion />);
+    await screen.findByText('v1.4.0');
+    expect(screen.queryByRole('link', { name: /Android/ })).toBeNull();
+  });
+
+  it('ignores an android.json that points anywhere but an APK under /downloads', async () => {
+    serveVersion(json({ version: 'v1.4.0' }), json({ version: 'v1.4.0', url: 'https://evil.example/app.apk' }));
+    render(<AppVersion />);
+    await screen.findByText('v1.4.0');
+    expect(screen.queryByRole('link', { name: /Android/ })).toBeNull();
   });
 });
