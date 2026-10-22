@@ -124,6 +124,8 @@ function isValidDate(dateStr: string): boolean {
   if (!dateStr) return false;
   const match = /^\d{4}-\d{2}-\d{2}$/.exec(dateStr);
   if (!match) return false;
+  // A two-digit year that became 00xx (e.g. 0024-08-29) is a typo, not a date to import
+  if (Number(dateStr.slice(0, 4)) < 1900) return false;
   const d = new Date(dateStr + 'T00:00:00Z');
   return !isNaN(d.getTime());
 }

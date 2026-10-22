@@ -55,6 +55,12 @@ describe('parseFuelupsCsv', () => {
     expect(result.skipped[0].reason).toContain('fuelup_date');
   });
 
+  it('skips a two-digit year that became 00xx (0024-08-29)', () => {
+    const result = parseFuelupsCsv(`${header}\n0024-08-29,13.5,44800,3.37,0,,,\n2024-08-29,13.5,44800,3.37,0,,,`);
+    expect(result.records.map((r) => r.date)).toEqual(['2024-08-29']);
+    expect(result.skipped[0].reason).toContain('fuelup_date');
+  });
+
   it('skips rows with empty date', () => {
     const csv = `${header}\n,13.5,44800,3.37,0,,,`;
     const result = parseFuelupsCsv(csv);

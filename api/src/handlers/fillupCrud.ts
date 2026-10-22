@@ -15,6 +15,7 @@ import { calculateDerivedMetrics, recalculateAllMetrics } from '../lib/metrics.j
 import { deleteObject, photoKeyFieldError } from '../lib/s3.js';
 import { verifyAccess } from '../lib/authSharing.js';
 import type { Fillup } from '../types/fillup.js';
+import { canonicalFillups, fillupSortKey } from '../lib/fillupKeys.js';
 
 const logger = createLogger('fillupCrud');
 
@@ -170,7 +171,7 @@ async function createFillup(
   const isBusiness = (body.isBusiness as boolean) ?? false;
 
   // Fetch existing fillups to check odometer monotonicity and calculate metrics
-  const existingFillups = await fetchAllFillups(vehicleId);
+  const { fillups: existingFillups } = await fetchAllFillups(vehicleId);
 
   // Enforce odometer monotonicity (Req 3.9, Property 4)
   const previousFillup = existingFillups.length > 0
@@ -283,8 +284,8 @@ async function updateFillup(
   const docClient = getDocClient();
   const tableName = getTableName('FILLUPS_TABLE');
 
-  // Find the existing fillup
-  const existing = await findFillupById(vehicleId, fillupId);
+  // Find the existing fillup (and any stale copies of it)
+  const { fillup: existing, storedKeys } = await findFillupById(vehicleId, fillupId);
   if (!existing) {
     return error('NOT_FOUND', 'Fillup not found', requestId);
   }
@@ -311,8 +312,7 @@ async function updateFillup(
     : existing.isBusiness ?? false;
 
   const now = new Date().toISOString();
-  const oldSortKey = `${existing.date}#${fillupId}`;
-  const newSortKey = `${updatedDate}#${fillupId}`;
+  const newSortKey = fillupSortKey({ date: updatedDate, fillupId });
 
   // If the date changed, we need to delete the old item and insert a new one
   // Otherwise, we can update in place
@@ -355,16 +355,16 @@ async function updateFillup(
     delete (updatedFillup as unknown as Record<string, unknown>).receiptPhotoKey;
   }
 
-  // Delete old item if sort key changed
-  if (oldSortKey !== newSortKey) {
+  // Delete the stored item(s) under any other key: the old date's, or a stale copy
+  for (const key of storedKeys.filter((k) => k !== newSortKey)) {
     await docClient.send(new DeleteCommand({
       TableName: tableName,
-      Key: { vehicleId, fillupDateId: oldSortKey },
+      Key: { vehicleId, fillupDateId: key },
     }));
   }
 
   // Fetch all fillups, replace the updated one, sort, and recalculate (Req 3.6)
-  const allFillups = await fetchAllFillups(vehicleId);
+  const { fillups: allFillups, staleKeys } = await fetchAllFillups(vehicleId);
   const updatedList = allFillups
     .filter(f => f.fillupId !== fillupId)
     .concat(updatedFillup)
@@ -373,7 +373,7 @@ async function updateFillup(
   const recalculated = recalculateAllMetrics(updatedList);
 
   // Write all recalculated fillups back to DynamoDB
-  await writeAllFillups(recalculated, ownerUserId);
+  await writeAllFillups(vehicleId, recalculated, ownerUserId, staleKeys);
 
   const result = recalculated.find(f => f.fillupId === fillupId);
   logger.info(`Updated fillup ${fillupId}`, requestId, userId);
@@ -393,25 +393,24 @@ async function deleteFillup(
   const docClient = getDocClient();
   const tableName = getTableName('FILLUPS_TABLE');
 
-  // Find the existing fillup to get its sort key
-  const existing = await findFillupById(vehicleId, fillupId);
+  // Find the fillup's stored item(s): delete every copy, under whatever key it was stored
+  const { fillup: existing, storedKeys } = await findFillupById(vehicleId, fillupId);
   if (!existing) {
     return error('NOT_FOUND', 'Fillup not found', requestId);
   }
 
-  const sortKey = `${existing.date}#${fillupId}`;
-
-  // Delete the fillup
-  await docClient.send(new DeleteCommand({
-    TableName: tableName,
-    Key: { vehicleId, fillupDateId: sortKey },
-  }));
+  for (const key of storedKeys) {
+    await docClient.send(new DeleteCommand({
+      TableName: tableName,
+      Key: { vehicleId, fillupDateId: key },
+    }));
+  }
 
   // Fetch remaining fillups and recalculate all metrics (Req 3.6)
-  const remainingFillups = await fetchAllFillups(vehicleId);
+  const { fillups: remainingFillups, staleKeys } = await fetchAllFillups(vehicleId);
   if (remainingFillups.length > 0) {
     const recalculated = recalculateAllMetrics(remainingFillups);
-    await writeAllFillups(recalculated, ownerUserId);
+    await writeAllFillups(vehicleId, recalculated, ownerUserId, staleKeys);
   }
 
   logger.info(`Deleted fillup ${fillupId}`, requestId, userId);
@@ -419,10 +418,8 @@ async function deleteFillup(
 }
 
 
-/**
- * Fetch all fillups for a vehicle, sorted chronologically by the composite sort key.
- */
-async function fetchAllFillups(vehicleId: string): Promise<Fillup[]> {
+/** Every stored fill-up item for a vehicle, following DynamoDB pages */
+async function queryFillupItems(vehicleId: string, fillupId?: string): Promise<Array<Fillup & { fillupDateId: string }>> {
   const docClient = getDocClient();
   const tableName = getTableName('FILLUPS_TABLE');
 
@@ -433,7 +430,9 @@ async function fetchAllFillups(vehicleId: string): Promise<Fillup[]> {
     const result = await docClient.send(new QueryCommand({
       TableName: tableName,
       KeyConditionExpression: 'vehicleId = :vid',
-      ExpressionAttributeValues: { ':vid': vehicleId },
+      ...(fillupId
+        ? { FilterExpression: 'fillupId = :fid', ExpressionAttributeValues: { ':vid': vehicleId, ':fid': fillupId } }
+        : { ExpressionAttributeValues: { ':vid': vehicleId } }),
       ScanIndexForward: true,
       ExclusiveStartKey: exclusiveStartKey,
     }));
@@ -444,32 +443,33 @@ async function fetchAllFillups(vehicleId: string): Promise<Fillup[]> {
     exclusiveStartKey = result.LastEvaluatedKey;
   } while (exclusiveStartKey);
 
-  return items as unknown as Fillup[];
+  return items as unknown as Array<Fillup & { fillupDateId: string }>;
 }
 
 /**
- * Find a single fillup by vehicleId and fillupId.
- * Queries the table and filters by fillupId since the sort key is composite.
+ * All fill-ups for a vehicle, one per fillupId in date order, plus the stored keys that are
+ * stale (a copy left under an old key) for writeAllFillups to delete.
  */
-async function findFillupById(vehicleId: string, fillupId: string): Promise<Fillup | null> {
-  const docClient = getDocClient();
-  const tableName = getTableName('FILLUPS_TABLE');
+async function fetchAllFillups(vehicleId: string): Promise<{ fillups: Fillup[]; staleKeys: string[] }> {
+  return canonicalFillups(await queryFillupItems(vehicleId));
+}
 
-  const result = await docClient.send(new QueryCommand({
-    TableName: tableName,
-    KeyConditionExpression: 'vehicleId = :vid',
-    FilterExpression: 'fillupId = :fid',
-    ExpressionAttributeValues: { ':vid': vehicleId, ':fid': fillupId },
-  }));
-
-  return (result.Items?.[0] as unknown as Fillup) ?? null;
+/**
+ * Find a fill-up by ID. The sort key is composite, so this filters the vehicle's partition
+ * (every page: a filtered Query stops after 1 MB scanned). `storedKeys` lists every key the
+ * fill-up is stored under, normally one.
+ */
+async function findFillupById(vehicleId: string, fillupId: string): Promise<{ fillup: Fillup | null; storedKeys: string[] }> {
+  const items = await queryFillupItems(vehicleId, fillupId);
+  return { fillup: canonicalFillups(items).fillups[0] ?? null, storedKeys: items.map((i) => i.fillupDateId) };
 }
 
 /**
  * Write all fillups back to DynamoDB after recalculation.
  * Each fillup is written with its composite sort key and GSI attributes, attributed to the vehicle owner.
+ * Then the stale keys from fetchAllFillups are deleted, so no fill-up stays stored twice.
  */
-async function writeAllFillups(fillups: Fillup[], ownerUserId: string): Promise<void> {
+async function writeAllFillups(vehicleId: string, fillups: Fillup[], ownerUserId: string, staleKeys: string[] = []): Promise<void> {
   const docClient = getDocClient();
   const tableName = getTableName('FILLUPS_TABLE');
 
@@ -481,7 +481,7 @@ async function writeAllFillups(fillups: Fillup[], ownerUserId: string): Promise<
       Item: {
         ...fillup,
         userId: ownerUserId,
-        fillupDateId: `${fillup.date}#${fillup.fillupId}`,
+        fillupDateId: fillupSortKey(fillup),
         GSI1PK: ownerUserId,
         GSI1SK: fillup.date,
         GSI2PK: 'FILLUPS',
@@ -491,4 +491,9 @@ async function writeAllFillups(fillups: Fillup[], ownerUserId: string): Promise<
   );
 
   await Promise.all(writes);
+
+  const written = new Set(fillups.map(fillupSortKey));
+  for (const key of staleKeys.filter((k) => !written.has(k))) {
+    await docClient.send(new DeleteCommand({ TableName: tableName, Key: { vehicleId, fillupDateId: key } }));
+  }
 }
