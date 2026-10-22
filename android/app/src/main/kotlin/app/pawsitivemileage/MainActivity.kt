@@ -21,6 +21,7 @@ import androidx.navigation.navArgument
 import app.pawsitivemileage.api.ApiClient
 import app.pawsitivemileage.auth.SessionState
 import app.pawsitivemileage.data.GarageVehicle
+import app.pawsitivemileage.ui.AccountScreen
 import app.pawsitivemileage.ui.FillupFormScreen
 import app.pawsitivemileage.ui.GarageScreen
 import app.pawsitivemileage.ui.MaintenanceFormScreen
@@ -76,7 +77,16 @@ class MainActivity : ComponentActivity() {
                             vehicles = container.vehicles,
                             onOpen = { nav.navigate(vehicleRoute(it)) },
                             onAddVehicle = { nav.navigate("vehicle-form") },
+                            onAccount = { nav.navigate("account") },
+                        )
+                    }
+                    composable("account") {
+                        AccountScreen(
+                            api = container.api,
+                            siteUrl = BuildConfig.SITE_URL,
                             onSignOut = { scope.launch { container.signOut() } },
+                            onDeleteAccount = { container.deleteAccount(); signInError.value = "Your account was deleted." },
+                            onBack = back,
                         )
                     }
                     composable("vehicle?v={v}", arguments = vArg) { entry ->

@@ -95,3 +95,12 @@ object ApiClientTestData {
         app.pawsitivemileage.api.generated.models.Fillup.serializer(), fillupJson(FID, "2026-10-21"),
     )
 }
+
+class AccountDeletionTest {
+    @Test
+    fun `deletion needs the exact word`() {
+        assertTrue(app.pawsitivemileage.ui.canDelete("DELETE"))
+        assertTrue(app.pawsitivemileage.ui.canDelete(" DELETE "))
+        assertTrue(!app.pawsitivemileage.ui.canDelete("delete") && !app.pawsitivemileage.ui.canDelete(""))
+    }
+}

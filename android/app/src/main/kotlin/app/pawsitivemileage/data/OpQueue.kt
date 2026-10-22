@@ -38,6 +38,12 @@ class OpQueue(
         return enqueue(kind, vehicleId, "", recordId, receipt)
     }
 
+    /** Drop everything queued, with its files (account deletion) */
+    suspend fun clear() {
+        dao.all().forEach { op -> op.attachmentPath?.let { File(it).delete() } }
+        dao.deleteAll()
+    }
+
     suspend fun discard(id: String) {
         dao.get(id)?.attachmentPath?.let { File(it).delete() }
         dao.delete(id)

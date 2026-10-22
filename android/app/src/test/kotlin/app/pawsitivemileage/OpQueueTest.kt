@@ -46,6 +46,8 @@ class FakeDao : PendingOpDao {
     override suspend fun setUploadedKey(id: String, key: String) = edit(id) { it.copy(uploadedKey = key) }
     override suspend fun markFailed(id: String, failure: String) = edit(id) { it.copy(failure = failure) }
     override suspend fun delete(id: String) { rows.value = rows.value.filterNot { it.id == id } }
+    override suspend fun all() = rows.value
+    override suspend fun deleteAll() { rows.value = emptyList() }
 }
 
 /**
@@ -198,5 +200,22 @@ class SyncOutcomeTest {
         assertEquals(SyncOutcome.RETRY, SyncOutcome.of(app.pawsitivemileage.api.ApiException(401, "UNAUTHORIZED", "signed out", null)))
         assertEquals(SyncOutcome.RETRY, SyncOutcome.of(app.pawsitivemileage.api.ApiException(409, "CONFLICT", "in flight", null)))
         assertEquals(SyncOutcome.RETRY, SyncOutcome.of(app.pawsitivemileage.api.ApiException(503, "INTERNAL_ERROR", "busy", null)))
+    }
+}
+
+class OpQueueClearTest {
+    @get:Rule val tmp = TemporaryFolder()
+
+    @Test
+    fun `clearing the queue drops every entry and its files (account deletion)`() = runTest {
+        val dao = FakeDao()
+        val client = ApiClient("http://localhost/", "1.0.0", accessToken = { "t" })
+        val queue = OpQueue({ client }, dao, Uploader({ client }), scheduleSync = {})
+        val file = tmp.newFile("r.jpg")
+        queue.addFillup(VID, FillupCreate("2026-10-21", 1.0, 1.0, 1.0), Attachment(file.absolutePath, "image/jpeg", "r.jpg"))
+        queue.addMaintenance(VID, MaintenanceCreate("2026-10-21", 1.0, 0.0, customTypeName = "x"))
+        queue.clear()
+        assertTrue(dao.rows.value.isEmpty())
+        assertFalse(file.exists())
     }
 }

@@ -75,6 +75,12 @@ interface PendingOpDao {
 
     @Query("DELETE FROM pending_ops WHERE id = :id")
     suspend fun delete(id: String)
+
+    @Query("SELECT * FROM pending_ops")
+    suspend fun all(): List<PendingOp>
+
+    @Query("DELETE FROM pending_ops")
+    suspend fun deleteAll()
 }
 
 @Database(entities = [PendingOp::class], version = 2, exportSchema = true)

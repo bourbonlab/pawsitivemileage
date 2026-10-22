@@ -13,6 +13,7 @@ Native Android app (Kotlin, Jetpack Compose) for PawsitiveMileage, issue #28. It
 - **Location**: "Use my location" saves GPS coordinates and the street address (the phone's built-in geocoder; no Google Play Services or API key). The station name is pre-filled from your nearest earlier stop within 200 m.
 - **Editing** needs a connection and sends `If-Match`: if someone else changed the record first, the app says so ("Changed somewhere else") instead of overwriting their change.
 - **Offline viewing**: the last garage, each vehicle's newest page of fill-ups and maintenance, reminders and maintenance types are kept on the device (`files/snapshots`) and shown offline, labelled "Offline · last updated …". Sign-out deletes them.
+- **Account**: from the garage. Shows who's signed in, signs out, and deletes the account (type DELETE to confirm), which also clears everything the app keeps on the device. Required by Google Play.
 - **Version gate**: if `/v1/meta` says `minimumVersions.android` is above this build, the app asks for an update instead of signing in.
 
 ## Build
