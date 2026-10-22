@@ -10,9 +10,11 @@ Pull requests are tested automatically. Every push to `main` deploys staging, th
 | [`ci.yml`](../.github/workflows/ci.yml) | Every pull request; first stage of Deploy | `npm ci`, lint, all tests, build, `cdk synth` of staging, production and the GitHub access app (placeholder values); `npm audit` as a separate job | None |
 | [`deploy.yml`](../.github/workflows/deploy.yml) | Push to `main` that changes more than docs; manual run | CI → version → **staging** → **production** (waits for approval) → mark release Latest | Per environment, via OIDC |
 | [`deploy-environment.yml`](../.github/workflows/deploy-environment.yml) | Called by `deploy.yml` | `./deploy.sh --stage --skip-tests` or `--prod --yes --skip-tests` | The environment's deploy role |
+| [`android.yml`](../.github/workflows/android.yml) | PRs and pushes to `main` touching `android/` or `openapi.json` | JDK 17: unit tests, lint, staging debug and production release builds; the staging APK is uploaded as an artifact | None |
 
 - **Production approval:** after staging succeeds, the production job waits on the run page (or in the GitHub notification) until a reviewer of the `production` environment approves it. If it isn't approved within 30 days, the job is cancelled. If more pushes reach `main` before approval, only the newest pending production deploy is kept.
 - **Docs-only pushes** don't run Deploy: a push that only changes `*.md` files, `docs/`, `LICENSE` or `.claude/` (`paths-ignore` in `deploy.yml`, mirrored by the docs-only check in `pr-title.yml`). They get no version of their own and ship with the next release.
+- **Android-only pushes** (`android/`, `android.yml`) don't run Deploy either; the Android workflow builds them, and the app ships through Google Play.
 - **Manual run:** Actions → Deploy → Run workflow, from `main`, choosing `staging` or `production`. A manual production run skips staging but still needs approval.
 - **Failures:** a failed CI stage deploys nothing. If staging fails, production doesn't run. Deploys of the same environment never run in parallel.
 - **`npm audit`:** a separate check, so a newly published advisory flags the PR without blocking tests.

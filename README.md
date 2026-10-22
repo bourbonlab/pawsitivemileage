@@ -25,6 +25,7 @@ Built with React 19, AWS Lambda (Node.js 24.x), DynamoDB, and CDK — designed t
 - [Frontend Architecture](#frontend-architecture)
 - [Backend Architecture](#backend-architecture)
 - [Infrastructure](#infrastructure)
+- [Android app](#android-app)
 - [pm command line](#pm-command-line)
 - [CLI Tools](#cli-tools)
 - [Testing](#testing)
@@ -266,6 +267,8 @@ pawsitivemileage/
 │           ├── frontend-stack.ts   # S3 + CloudFront with OAC, SPA error handling
 │           ├── monitoring-stack.ts # CloudWatch Dashboard (API, Lambda, DynamoDB widgets)
 │           └── github-access-stack.ts # GitHub Actions OIDC provider + per-environment deploy roles
+│
+├── android/                # Android app (Kotlin, Compose); API client generated from openapi.json (android/README.md)
 │
 ├── pm/                     # pm: the user-facing command line, on the SDK (see "pm command line")
 │   ├── src/
@@ -955,6 +958,16 @@ All resources are tagged with:
 | Termination protection | Off | On (Database, Storage stacks) |
 
 ---
+
+## Android app
+
+`android/` is the native Android app: sign-in with Google (PKCE through the Hosted UI, settings from `GET /v1/meta`), the garage, fill-ups with paging, and fill-up entry that works offline (a Room queue sent with idempotency keys). Its Retrofit client is generated from `packages/contracts/openapi.json` at build time. `staging` and `production` flavors install side by side.
+
+```bash
+cd android && ./gradlew :app:assembleStagingDebug :app:testStagingDebugUnitTest
+```
+
+The **Android** workflow builds, lints and tests it on every PR that touches `android/` or `openapi.json`. Android changes alone don't deploy the web app or API; the app ships through Google Play. Details: [android/README.md](android/README.md).
 
 ## pm command line
 
