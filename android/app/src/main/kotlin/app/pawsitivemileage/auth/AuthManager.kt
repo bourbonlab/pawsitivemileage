@@ -2,6 +2,7 @@ package app.pawsitivemileage.auth
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import androidx.core.net.toUri
 import app.pawsitivemileage.api.ApiClient
 import app.pawsitivemileage.api.call
@@ -68,6 +69,7 @@ class AuthManager(
                 }
             }
         } catch (e: Exception) {
+            Log.w(TAG, "Loading /v1/meta failed", e)
             // Offline at launch: a stored session still works for queued entries
             if (authState?.isAuthorized == true) SessionState.SignedIn else SessionState.Unavailable(e.message ?: "Can't reach the server")
         }
@@ -163,5 +165,6 @@ class AuthManager(
 
     private companion object {
         const val KEY = "authState"
+        const val TAG = "PawsitiveMileage"
     }
 }

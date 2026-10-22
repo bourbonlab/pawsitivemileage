@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.openapitools.generator.gradle.plugin.tasks.GenerateTask
 
 plugins {
@@ -100,8 +101,25 @@ android {
         }
     }
 
+    // Release signing from android/keystore.properties (git-ignored; see android/README.md).
+    // Without it, release builds are unsigned, which is what CI produces.
+    val keystoreProperties = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { file ->
+        Properties().apply { file.inputStream().use { load(it) } }
+    }
+    signingConfigs {
+        if (keystoreProperties != null) {
+            create("release") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
