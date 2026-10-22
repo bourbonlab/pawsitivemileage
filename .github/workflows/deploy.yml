@@ -11,13 +11,16 @@ name: Deploy
 on:
   push:
     branches: [main]
-    # Docs-only pushes don't deploy or release; they ship with the next release. Keep this list in
-    # step with the docs-only check in pr-title.yml.
+    # Docs-only pushes don't deploy or release; they ship with the next release. The Android app
+    # ships through Google Play (android.yml builds it), so android/ alone doesn't deploy either.
+    # Keep this list in step with the no-deploy check in pr-title.yml.
     paths-ignore:
       - '**.md'
       - 'docs/**'
       - 'LICENSE'
       - '.claude/**'
+      - 'android/**'
+      - '.github/workflows/android.yml'
   workflow_dispatch:
     inputs:
       environment:

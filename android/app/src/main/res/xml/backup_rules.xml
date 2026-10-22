@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and lower. Sign-in state is encrypted with a device-bound Keystore key, which a
+     restore can't bring along, so it's excluded; queued fill-ups (the database) are backed up. -->
+<full-backup-content>
+    <exclude domain="sharedpref" path="auth.xml" />
+</full-backup-content>

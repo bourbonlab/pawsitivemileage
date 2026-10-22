@@ -1,0 +1,62 @@
+name: Android
+
+# Builds and tests the Android app (android/). The Kotlin API client is generated from
+# packages/contracts/openapi.json at build time, so a contract change rebuilds the app too.
+# Android releases go through Google Play, not the Deploy workflow.
+
+on:
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'packages/contracts/openapi.json'
+      - '.github/workflows/android.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'packages/contracts/openapi.json'
+      - '.github/workflows/android.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build, lint, unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      # ubuntu-latest ships the Android SDK (ANDROID_HOME); AGP installs a missing platform itself
+      - name: Unit tests
+        run: ./gradlew :app:testStagingDebugUnitTest --console=plain
+
+      - name: Lint
+        run: ./gradlew :app:lintStagingDebug --console=plain
+
+      - name: Build (staging debug, production release)
+        run: ./gradlew :app:assembleStagingDebug :app:assembleProductionRelease --console=plain
+
+      - name: Upload staging APK
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: app-staging-debug
+          path: android/app/build/outputs/apk/staging/debug/app-staging-debug.apk
+          retention-days: 14
