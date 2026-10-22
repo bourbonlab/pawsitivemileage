@@ -33,6 +33,14 @@ vi.mock('@aws-sdk/client-s3', () => {
   };
 });
 
+// Mock Cognito (account deletion removes the sign-in user)
+const mockCognitoSend = vi.fn();
+vi.mock('@aws-sdk/client-cognito-identity-provider', () => ({
+  CognitoIdentityProviderClient: class FakeCognito { send = mockCognitoSend; },
+  ListUsersCommand: class ListUsersCommand { constructor(public input: unknown) {} },
+  AdminDeleteUserCommand: class AdminDeleteUserCommand { constructor(public input: unknown) {} },
+}));
+
 // Set env vars before importing handler
 process.env.USERS_TABLE = 'users-test';
 process.env.VEHICLES_TABLE = 'vehicles-test';
@@ -81,6 +89,7 @@ describe('userProfile handler', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockS3Send.mockReset();
+    mockSend.mockReset(); // the delete tests install routing implementations
   });
 
   describe('authentication', () => {
@@ -248,88 +257,80 @@ describe('userProfile handler', () => {
   });
 
   describe('DELETE /v1/user/profile', () => {
-    it('returns 404 when user profile does not exist', async () => {
-      mockSend.mockResolvedValueOnce({ Item: undefined });
+    type Cmd = { constructor: { name: string }; input: Record<string, any> };
+    const cognitoCalls: Cmd[] = [];
 
-      const event = makeEvent({ method: 'DELETE' });
-      const result = await handler(event);
-      const { statusCode, body } = parseResponse(result as { statusCode: number; body: string });
+    /** Answers by command and table, like the real tables would, and records every write */
+    function serveAccount(profile: Record<string, unknown> | undefined) {
+      const batchDeletes: Record<string, unknown[]> = {};
+      mockSend.mockImplementation(async (cmd: Cmd) => {
+        const { TableName: table, IndexName: index } = cmd.input;
+        switch (cmd.constructor.name) {
+          case 'GetCommand': return { Item: profile };
+          case 'QueryCommand':
+            if (table === 'sharing-test' && index === 'GSI1') return { Items: [{ ownerUserId: 'mom', vehicleEmailKey: 'v9#test@example.com' }] };
+            if (table === 'sharing-test') return { Items: [{ ownerUserId: 'user-123', vehicleEmailKey: 'v1#friend@example.com' }] };
+            if (table === 'vehicles-test') return { Items: [{ vehicleId: 'v1' }] };
+            if (table === 'fillups-test') return { Items: [{ vehicleId: 'v1', fillupDateId: '2024-01-01#f1' }] };
+            if (table === 'maintenance-test') return { Items: [{ vehicleId: 'v1', serviceDateId: '2024-02-01#m1' }] };
+            return { Items: [] };
+          case 'BatchWriteCommand':
+            for (const [t, reqs] of Object.entries(cmd.input.RequestItems as Record<string, Array<{ DeleteRequest: { Key: unknown } }>>)) {
+              (batchDeletes[t] ??= []).push(...reqs.map((r) => r.DeleteRequest.Key));
+            }
+            return { UnprocessedItems: {} };
+          default: return {};
+        }
+      });
+      mockS3Send.mockImplementation(async (cmd: Cmd) =>
+        cmd.constructor.name === 'ListObjectsV2Command' ? { Contents: [{ Key: `${cmd.input.Prefix}x` }], IsTruncated: false } : {});
+      mockCognitoSend.mockImplementation(async (cmd: Cmd) => {
+        cognitoCalls.push(cmd);
+        return cmd.constructor.name === 'ListUsersCommand' ? { Users: [{ Username: 'google_123' }] } : {};
+      });
+      return batchDeletes;
+    }
 
-      expect(statusCode).toBe(404);
-      expect(body.code).toBe('NOT_FOUND');
+    beforeEach(() => {
+      cognitoCalls.length = 0;
+      process.env.SHARING_TABLE = 'sharing-test';
+      process.env.EXPORTS_BUCKET = 'exports-test';
+      process.env.USER_POOL_ID = 'us-east-1_pool';
     });
 
-    it('deletes user with no vehicles (Req 11.1)', async () => {
-      // GetCommand: user exists
-      mockSend.mockResolvedValueOnce({
-        Item: { userId: 'user-123', email: 'test@example.com', displayName: 'Test', isAdmin: false },
-      });
-      // QueryCommand: no vehicles
-      mockSend.mockResolvedValueOnce({ Items: [] });
-      // S3 ListObjectsV2: no objects
-      mockS3Send.mockResolvedValueOnce({ Contents: [], IsTruncated: false });
-      // DeleteCommand: delete user profile
-      mockSend.mockResolvedValueOnce({});
-
-      const event = makeEvent({ method: 'DELETE' });
-      const result = await handler(event);
-      const { statusCode, body } = parseResponse(result as { statusCode: number; body: string });
-
-      expect(statusCode).toBe(200);
-      expect(body.data.message).toContain('deleted');
-    });
-
-    it('cascades deletion across vehicles, fillups, maintenance, and S3 (Req 11.1, 11.3, Property 25)', async () => {
-      // GetCommand: user exists
-      mockSend.mockResolvedValueOnce({
-        Item: { userId: 'user-123', email: 'test@example.com', displayName: 'Test', isAdmin: false },
-      });
-      // QueryCommand: 2 vehicles
-      mockSend.mockResolvedValueOnce({ Items: [{ vehicleId: 'v1' }, { vehicleId: 'v2' }] });
-
-      // For vehicle v1: query fillups (1 fillup)
-      mockSend.mockResolvedValueOnce({
-        Items: [{ vehicleId: 'v1', fillupDateId: '2024-01-01#f1' }],
-      });
-      // BatchWrite for v1 fillups
-      mockSend.mockResolvedValueOnce({ UnprocessedItems: {} });
-      // For vehicle v1: query maintenance (empty)
-      mockSend.mockResolvedValueOnce({ Items: [] });
-
-      // For vehicle v2: query fillups (empty)
-      mockSend.mockResolvedValueOnce({ Items: [] });
-      // For vehicle v2: query maintenance (1 record)
-      mockSend.mockResolvedValueOnce({
-        Items: [{ vehicleId: 'v2', serviceDateId: '2024-02-01#m1' }],
-      });
-      // BatchWrite for v2 maintenance
-      mockSend.mockResolvedValueOnce({ UnprocessedItems: {} });
-
-      // BatchWrite for vehicles
-      mockSend.mockResolvedValueOnce({ UnprocessedItems: {} });
-
-      // S3 ListObjectsV2: some objects
-      mockS3Send.mockResolvedValueOnce({
-        Contents: [{ Key: 'user-123/v1/photo/img.jpg' }],
-        IsTruncated: false,
-      });
-      // S3 DeleteObjects
-      mockS3Send.mockResolvedValueOnce({});
-
-      // DeleteCommand: delete user profile
-      mockSend.mockResolvedValueOnce({});
-
-      const event = makeEvent({ method: 'DELETE' });
-      const result = await handler(event);
-      const { statusCode, body } = parseResponse(result as { statusCode: number; body: string });
-
+    it('deletes vehicles, records, shares both ways, photos, exports, the profile and the Cognito user', async () => {
+      const deleted = serveAccount({ userId: 'user-123', email: 'Test@Example.com', displayName: 'Test', isAdmin: false });
+      const { statusCode, body } = parseResponse(await handler(makeEvent({ method: 'DELETE' })) as { statusCode: number; body: string });
       expect(statusCode).toBe(200);
       expect(body.data.message).toContain('deleted');
 
-      // Verify DynamoDB calls were made (Get + Query vehicles + queries/deletes for each vehicle + batch vehicles + delete user)
-      expect(mockSend).toHaveBeenCalled();
-      // Verify S3 calls were made
-      expect(mockS3Send).toHaveBeenCalled();
+      expect(deleted['sharing-test']).toEqual([
+        { ownerUserId: 'user-123', vehicleEmailKey: 'v1#friend@example.com' },
+        { ownerUserId: 'mom', vehicleEmailKey: 'v9#test@example.com' },
+      ]);
+      expect(deleted['fillups-test']).toEqual([{ vehicleId: 'v1', fillupDateId: '2024-01-01#f1' }]);
+      expect(deleted['maintenance-test']).toEqual([{ vehicleId: 'v1', serviceDateId: '2024-02-01#m1' }]);
+      expect(deleted['vehicles-test']).toEqual([{ userId: 'user-123', vehicleId: 'v1' }]);
+
+      const shareQuery = mockSend.mock.calls.map(([c]) => c as Cmd).find((c) => c.input.IndexName === 'GSI1')!;
+      expect(shareQuery.input.ExpressionAttributeValues[':email']).toBe('test@example.com'); // stored lowercased
+
+      const prefixes = mockS3Send.mock.calls.map(([c]) => c as Cmd).filter((c) => c.constructor.name === 'ListObjectsV2Command').map((c) => `${c.input.Bucket}:${c.input.Prefix}`);
+      expect(prefixes).toEqual(['photos-test:user-123/', 'exports-test:exports/user-123/']);
+
+      expect(mockSend.mock.calls.map(([c]) => c as Cmd).some((c) => c.constructor.name === 'DeleteCommand' && c.input.TableName === 'users-test')).toBe(true);
+      expect(cognitoCalls.map((c) => c.constructor.name)).toEqual(['ListUsersCommand', 'AdminDeleteUserCommand']);
+      expect(cognitoCalls[0].input.Filter).toBe('sub = "user-123"');
+      expect(cognitoCalls[1].input).toEqual({ UserPoolId: 'us-east-1_pool', Username: 'google_123' });
+    });
+
+    it('finishes a retry when the profile is already gone (no 404)', async () => {
+      serveAccount(undefined);
+      const { statusCode } = parseResponse(await handler(makeEvent({ method: 'DELETE' })) as { statusCode: number; body: string });
+      expect(statusCode).toBe(200);
+      // The email comes from the token claims, so shares to this user are still found
+      expect(mockSend.mock.calls.some(([c]) => (c as Cmd).input.IndexName === 'GSI1')).toBe(true);
+      expect(cognitoCalls.map((c) => c.constructor.name)).toContain('AdminDeleteUserCommand');
     });
   });
 

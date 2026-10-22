@@ -42,7 +42,7 @@ import coil3.compose.AsyncImage
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun GarageScreen(vehicles: Vehicles, onOpen: (GarageVehicle) -> Unit, onAddVehicle: () -> Unit, onSignOut: () -> Unit) {
+fun GarageScreen(vehicles: Vehicles, onOpen: (GarageVehicle) -> Unit, onAddVehicle: () -> Unit, onAccount: () -> Unit) {
     var garage by remember { mutableStateOf<List<GarageVehicle>?>(null) }
     var offlineSince by remember { mutableStateOf<Long?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -58,7 +58,7 @@ fun GarageScreen(vehicles: Vehicles, onOpen: (GarageVehicle) -> Unit, onAddVehic
         topBar = {
             TopAppBar(title = { Text("Garage") }, actions = {
                 TextButton(onClick = { reload++ }) { Text("Refresh") }
-                TextButton(onClick = onSignOut) { Text("Sign out") }
+                TextButton(onClick = onAccount) { Text("Account") }
             })
         },
         floatingActionButton = { ExtendedFloatingActionButton(onClick = onAddVehicle) { Text("Add vehicle") } },

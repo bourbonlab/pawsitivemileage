@@ -19,6 +19,7 @@ const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'));
 const AdminSchemasPage = lazy(() => import('./pages/AdminSchemasPage'));
 const AdminStatsPage = lazy(() => import('./pages/AdminStatsPage'));
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'));
+const DeleteAccountInfoPage = lazy(() => import('./pages/DeleteAccountInfoPage'));
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
@@ -58,6 +59,15 @@ export const router = createBrowserRouter([
   {
     path: '/callback',
     element: <Navigate to="/garage" replace />,
+  },
+  {
+    // Public: Google Play's account-deletion URL (no sign-in needed)
+    path: '/delete-account',
+    element: (
+      <Suspense fallback={null}>
+        <DeleteAccountInfoPage />
+      </Suspense>
+    ),
   },
   {
     path: '/privacy',

@@ -1,6 +1,7 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { DeleteCommand, GetCommand, PutCommand, QueryCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { S3Client, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
+import { AdminDeleteUserCommand, CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { getDocClient, getTableName } from '../lib/dynamo.js';
 import { getIdentity, getUserId } from '../lib/auth.js';
 import { success, error } from '../lib/response.js';
@@ -38,7 +39,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return await updateProfile(event, userId, requestId);
     }
     if (method === 'DELETE') {
-      return await deleteAccount(userId, requestId);
+      return await deleteAccount(event, userId, requestId);
     }
 
     return error('VALIDATION_ERROR', 'Unsupported operation', requestId);
@@ -149,16 +150,18 @@ async function updateProfile(
 
 
 /**
- * DELETE /v1/user/profile
- * Cascading account deletion (Req 11.1, 11.3, Property 25):
- * 1. Query all vehicles for the user
- * 2. For each vehicle, delete all fillups
- * 3. For each vehicle, delete all maintenance records
- * 4. Delete all vehicles
- * 5. Delete all S3 objects with the user's prefix
- * 6. Delete the user profile
+ * DELETE /v1/user/profile — delete the account and everything stored for it (Play policy: a
+ * user can delete their account and its data, in the app and on the web).
+ *
+ * In order: shares of the user's vehicles and shares to the user's email, every vehicle's
+ * fill-ups and maintenance, the vehicles, photos and receipts (photo bucket, `{userId}/`),
+ * exports (`exports/{userId}/`), the profile, and last the Cognito user, so the sign-in itself
+ * is gone and signing in again starts a new, empty account.
+ *
+ * Safe to retry: every step deletes what's there, and a missing profile doesn't stop the rest.
  */
 async function deleteAccount(
+  event: APIGatewayProxyEventV2,
   userId: string,
   requestId: string,
 ): Promise<APIGatewayProxyResultV2> {
@@ -167,54 +170,87 @@ async function deleteAccount(
   const vehiclesTable = getTableName('VEHICLES_TABLE');
   const fillupsTable = getTableName('FILLUPS_TABLE');
   const maintenanceTable = getTableName('MAINTENANCE_TABLE');
-  const photosBucket = process.env.PHOTOS_BUCKET;
+  const sharingTable = getTableName('SHARING_TABLE');
 
-  // Verify user exists
-  const existing = await docClient.send(
-    new GetCommand({ TableName: usersTable, Key: { userId } }),
-  );
-
-  if (!existing.Item) {
-    return error('NOT_FOUND', 'User profile not found', requestId);
-  }
+  const existing = await docClient.send(new GetCommand({ TableName: usersTable, Key: { userId } }));
+  const claims = (event.requestContext as unknown as { authorizer?: { jwt?: { claims?: Record<string, string> } } })?.authorizer?.jwt?.claims;
+  const email = ((existing.Item?.email as string | undefined) || claims?.email || '').toLowerCase();
 
   logger.info('Starting cascading account deletion', requestId, userId);
 
-  // Step 1: Get all vehicles for this user
-  const vehiclesResult = await docClient.send(
-    new QueryCommand({
+  // Shares of this user's vehicles (keyed by owner), and shares to this user's email (GSI1)
+  await deleteTableItemsByPartitionKey(sharingTable, 'ownerUserId', userId, 'vehicleEmailKey');
+  if (email) await deleteSharesTo(sharingTable, email);
+
+  const vehicleIds: string[] = [];
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const page = await docClient.send(new QueryCommand({
       TableName: vehiclesTable,
       KeyConditionExpression: 'userId = :userId',
       ExpressionAttributeValues: { ':userId': userId },
       ProjectionExpression: 'vehicleId',
-    }),
-  );
-  const vehicleIds = (vehiclesResult.Items ?? []).map((v) => v.vehicleId as string);
+      ExclusiveStartKey: lastKey,
+    }));
+    vehicleIds.push(...(page.Items ?? []).map((v) => v.vehicleId as string));
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
 
-  // Step 2 & 3: For each vehicle, delete all fillups and maintenance records
   for (const vehicleId of vehicleIds) {
     await deleteTableItemsByPartitionKey(fillupsTable, 'vehicleId', vehicleId, 'fillupDateId');
     await deleteTableItemsByPartitionKey(maintenanceTable, 'vehicleId', vehicleId, 'serviceDateId');
   }
-
-  // Step 4: Delete all vehicles (BatchWrite, 25 items max per batch)
   if (vehicleIds.length > 0) {
-    const vehicleKeys = vehicleIds.map((vehicleId) => ({ userId, vehicleId }));
-    await batchDeleteItems(vehiclesTable, vehicleKeys);
+    await batchDeleteItems(vehiclesTable, vehicleIds.map((vehicleId) => ({ userId, vehicleId })));
   }
 
-  // Step 5: Delete all S3 objects with the user's prefix
-  if (photosBucket) {
-    await deleteS3ObjectsByPrefix(photosBucket, `${userId}/`);
-  }
+  const photosBucket = process.env.PHOTOS_BUCKET;
+  if (photosBucket) await deleteS3ObjectsByPrefix(photosBucket, `${userId}/`);
+  const exportsBucket = process.env.EXPORTS_BUCKET;
+  if (exportsBucket) await deleteS3ObjectsByPrefix(exportsBucket, `exports/${userId}/`);
 
-  // Step 6: Delete the user profile
-  await docClient.send(
-    new DeleteCommand({ TableName: usersTable, Key: { userId } }),
-  );
+  await docClient.send(new DeleteCommand({ TableName: usersTable, Key: { userId } }));
+
+  // Last: the sign-in account. If this fails the data is already gone; a retry finishes it.
+  await deleteCognitoUser(userId, requestId);
 
   logger.info('Completed cascading account deletion', requestId, userId);
   return success({ message: 'Account and all associated data deleted' }, requestId);
+}
+
+/** Shares to this email (GSI1: GSI1PK = email), deleted by their table key */
+async function deleteSharesTo(sharingTable: string, email: string): Promise<void> {
+  const docClient = getDocClient();
+  let lastKey: Record<string, unknown> | undefined;
+  do {
+    const page = await docClient.send(new QueryCommand({
+      TableName: sharingTable,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :email',
+      ExpressionAttributeValues: { ':email': email },
+      ProjectionExpression: 'ownerUserId, vehicleEmailKey',
+      ExclusiveStartKey: lastKey,
+    }));
+    const keys = (page.Items ?? []).map((i) => ({ ownerUserId: i.ownerUserId, vehicleEmailKey: i.vehicleEmailKey }));
+    if (keys.length > 0) await batchDeleteItems(sharingTable, keys);
+    lastKey = page.LastEvaluatedKey;
+  } while (lastKey);
+}
+
+let cognito: CognitoIdentityProviderClient | null = null;
+
+/** Delete the Cognito user whose sub is `userId` (and with it any linked Google identity) */
+async function deleteCognitoUser(userId: string, requestId: string): Promise<void> {
+  const userPoolId = process.env.USER_POOL_ID;
+  if (!userPoolId) {
+    logger.warn('USER_POOL_ID not set; the Cognito user was not deleted', requestId, userId);
+    return;
+  }
+  cognito ??= new CognitoIdentityProviderClient({});
+  const found = await cognito.send(new ListUsersCommand({ UserPoolId: userPoolId, Filter: `sub = "${userId}"`, Limit: 1 }));
+  const username = found.Users?.[0]?.Username;
+  if (!username) return; // already gone
+  await cognito.send(new AdminDeleteUserCommand({ UserPoolId: userPoolId, Username: username }));
 }
 
 /**

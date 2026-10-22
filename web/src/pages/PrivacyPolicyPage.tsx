@@ -2,7 +2,7 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="container mx-auto max-w-3xl px-4 py-12">
       <h1 className="mb-8 text-3xl font-bold">Privacy Policy</h1>
-      <p className="mb-4 text-sm text-muted-foreground">Last updated: February 15, 2026</p>
+      <p className="mb-4 text-sm text-muted-foreground">Last updated: October 22, 2026</p>
 
       <section className="space-y-4 text-sm leading-relaxed">
         <h2 className="text-xl font-semibold">1. Information We Collect</h2>
@@ -36,9 +36,12 @@ export default function PrivacyPolicyPage() {
 
         <h2 className="text-xl font-semibold">5. Data Retention &amp; Deletion</h2>
         <p>
-          Your data is retained as long as your account is active. You may request deletion of your
-          account and all associated data by contacting us. Upon deletion, your data will be
-          permanently removed within 30 days.
+          Your data is retained as long as your account is active. You can delete your account and
+          all associated data yourself at any time, on the web or in the Android app; see{' '}
+          <a href="/delete-account" className="text-primary underline">Delete your account</a>. Deletion
+          is immediate. Database backups, used only for recovery, contain deleted data for up to 35
+          days, and service logs, which record your account ID but not your data, are kept for 90
+          days.
         </p>
 
         <h2 className="text-xl font-semibold">6. Cookies</h2>

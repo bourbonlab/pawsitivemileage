@@ -202,6 +202,8 @@ export default function AccountPage() {
             <li>All fuel fillup records</li>
             <li>All maintenance records</li>
             <li>All uploaded photos and receipts</li>
+            <li>Vehicles you shared, and shares made with you</li>
+            <li>Your sign-in account</li>
           </ul>
 
           <p className="text-sm font-medium">

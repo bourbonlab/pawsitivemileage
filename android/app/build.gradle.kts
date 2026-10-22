@@ -98,12 +98,14 @@ android {
             applicationIdSuffix = ".staging"
             versionNameSuffix = "-staging"
             buildConfigField("String", "API_BASE_URL", "\"https://api-staging.pawsitivemileage.app\"")
+            buildConfigField("String", "SITE_URL", "\"https://staging.pawsitivemileage.app\"")
             manifestPlaceholders["appAuthRedirectScheme"] = "app.pawsitivemileage.staging"
             resValue("string", "app_name", "PawsitiveMileage (staging)")
         }
         create("production") {
             dimension = "environment"
             buildConfigField("String", "API_BASE_URL", "\"https://api.pawsitivemileage.app\"")
+            buildConfigField("String", "SITE_URL", "\"https://pawsitivemileage.app\"")
             manifestPlaceholders["appAuthRedirectScheme"] = "app.pawsitivemileage"
             resValue("string", "app_name", "PawsitiveMileage")
         }

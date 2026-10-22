@@ -48,8 +48,9 @@ export class ApiStack extends cdk.Stack {
       {
         name: 'userProfile',
         description: 'User profile CRUD and account deletion',
-        // Profile auto-create reads email/name from /oauth2/userInfo for access tokens (#22)
-        environment: { AUTH_DOMAIN: config.authDomain },
+        // Profile auto-create reads email/name from /oauth2/userInfo for access tokens (#22);
+        // account deletion also deletes the Cognito user
+        environment: { AUTH_DOMAIN: config.authDomain, USER_POOL_ID: authStack.userPool.userPoolId },
       },
       { name: 'vehicleCrud', description: 'Vehicle CRUD and archive/unarchive' },
       { name: 'fillupCrud', description: 'Fillup CRUD with derived metrics calculation' },
@@ -108,6 +109,11 @@ export class ApiStack extends cdk.Stack {
     databaseStack.fillupsTable.grantReadWriteData(this.lambdaFunctions['userProfile'].function);
     databaseStack.maintenanceTable.grantReadWriteData(this.lambdaFunctions['userProfile'].function);
     storageStack.photosBucket.grantReadWrite(this.lambdaFunctions['userProfile'].function);
+    // Account deletion: shares both ways, exports, and the Cognito user (this pool only)
+    databaseStack.sharingTable.grantReadWriteData(this.lambdaFunctions['userProfile'].function);
+    storageStack.exportsBucket.grantRead(this.lambdaFunctions['userProfile'].function);
+    storageStack.exportsBucket.grantDelete(this.lambdaFunctions['userProfile'].function);
+    authStack.userPool.grant(this.lambdaFunctions['userProfile'].function, 'cognito-idp:ListUsers', 'cognito-idp:AdminDeleteUser');
 
     // vehicleCrud needs Vehicles, Photos, Users (shared access email lookup), Sharing (shared access check)
     databaseStack.vehiclesTable.grantReadWriteData(this.lambdaFunctions['vehicleCrud'].function);

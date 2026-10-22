@@ -32,6 +32,17 @@ class AppContainer(app: Application) {
         auth.signOut()
         snapshots.clear()
     }
+
+    /**
+     * Delete the account on the server (everything, including the sign-in), then everything on
+     * the device: queued entries and their files, offline copies, the session.
+     */
+    suspend fun deleteAccount() {
+        app.pawsitivemileage.api.call { api.profile.deleteAccount() }
+        queue.clear()
+        snapshots.clear()
+        auth.signOut()
+    }
 }
 
 class PawsitiveApp : Application() {
