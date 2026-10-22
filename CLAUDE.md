@@ -10,9 +10,8 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 - `packages/sdk/`: typed TypeScript client built from the contract: `createClient({ baseUrl, getToken })`, one method per operation
 - `packages/contracts/`: the API contract (zod schemas + route table), the single source of truth for requests and responses. See [docs/api-contract.md](docs/api-contract.md). When you change an endpoint:
   - update its contract
-  - regenerate the OpenAPI document with `npm run openapi -w @pawsitivemileage/contracts`
-  - regenerate the API reference with `node docs/tools/api-reference.mjs` (writes [docs/api-reference.md](docs/api-reference.md); `--check` tells you if it's stale)
-  - run `npm test -w @pawsitivemileage/contracts`. Its tests fail if the route table and `api-stack.ts` disagree, or if the committed `packages/contracts/openapi.json` is stale.
+  - regenerate the OpenAPI document and [docs/api-reference.md](docs/api-reference.md) with `npm run openapi -w @pawsitivemileage/contracts`
+  - run `npm test -w @pawsitivemileage/contracts`. Its tests fail if the route table and `api-stack.ts` disagree, or if the committed `packages/contracts/openapi.json` or `docs/api-reference.md` is stale.
 
 [README.md](README.md) is the full reference for architecture, API routes and environment variables.
 

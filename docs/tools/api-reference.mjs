@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Writes docs/api-reference.md from packages/contracts/openapi.json, so the API reference reads
- * on GitHub without a viewer. No dependencies. Run after `npm run openapi -w @pawsitivemileage/contracts`:
+ * on GitHub without a viewer. No dependencies. `npm run openapi -w @pawsitivemileage/contracts` runs it
+ * after writing openapi.json, and a contracts test runs it with --check.
  *
  *   node docs/tools/api-reference.mjs           # rewrite docs/api-reference.md
  *   node docs/tools/api-reference.mjs --check   # exit 1 if it's stale

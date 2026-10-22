@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, it, expect } from 'vitest';
@@ -14,6 +15,11 @@ const byId = Object.fromEntries(operations.map((op) => [op.operationId, op]));
 describe('openapi.json', () => {
   it('is up to date with the contract (run: npm run openapi -w @pawsitivemileage/contracts)', () => {
     expect(committed).toBe(renderOpenApiDocument());
+  });
+
+  it('matches docs/api-reference.md (run: npm run openapi -w @pawsitivemileage/contracts)', () => {
+    const script = fileURLToPath(new URL('../../../docs/tools/api-reference.mjs', import.meta.url));
+    expect(() => execFileSync(process.execPath, [script, '--check'], { stdio: 'pipe' })).not.toThrow();
   });
 
   it('has one operation per route, keyed by operationId', () => {
