@@ -11,6 +11,7 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 - `packages/contracts/`: the API contract (zod schemas + route table), the single source of truth for requests and responses. See [docs/api-contract.md](docs/api-contract.md). When you change an endpoint:
   - update its contract
   - regenerate the OpenAPI document with `npm run openapi -w @pawsitivemileage/contracts`
+  - regenerate the API reference with `node docs/tools/api-reference.mjs` (writes [docs/api-reference.md](docs/api-reference.md); `--check` tells you if it's stale)
   - run `npm test -w @pawsitivemileage/contracts`. Its tests fail if the route table and `api-stack.ts` disagree, or if the committed `packages/contracts/openapi.json` is stale.
 
 [README.md](README.md) is the full reference for architecture, API routes and environment variables.
@@ -19,7 +20,7 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 
 | | Account | CLI profile | Domains |
 |---|---|---|---|
-| **Current** (all environments) | `376784708284` | `pawsitivemileage` | `pawsitivemileage.app`, `staging.pawsitivemileage.app` (+ `api.` / `auth.` variants) |
+| **Current** (all environments) | `376784708284` | `pawsitivemileage` | `pawsitivemileage.app` (+ `api.`, `auth.`), `staging.pawsitivemileage.app` (+ `api-staging.`, `auth-staging.`) |
 | Legacy, frozen since the cutover | `817281265012` (Organization management account) | `bourbonlab-root` | `*.bourbonlab.net` (redirects to `pawsitivemileage.app`) |
 
 - **Never deploy to, or create resources in, the legacy account.** Every stack is pinned to `AWS_ACCOUNT_ID_<ENV>` and `deploy.sh` aborts if the active credentials don't match.
@@ -30,7 +31,7 @@ Serverless vehicle fuel and maintenance tracker. npm-workspaces monorepo:
 ## Commands
 
 ```bash
-npm test                              # all workspaces (api, web, cli, infra)
+npm test                              # all workspaces (contracts, sdk, api, web, cli, pm, infra)
 npm run lint --workspaces --if-present  # tsc --noEmit per workspace; must be clean
 npm run audit                         # npm audit --audit-level=high
 ./deploy.sh                           # install, build, test, CDK synth (staging) — no deploy
