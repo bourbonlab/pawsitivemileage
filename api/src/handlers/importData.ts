@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
-import { GetCommand, QueryCommand, BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, QueryCommand, BatchWriteCommand, DeleteCommand } from '@aws-sdk/lib-dynamodb';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { ulid } from 'ulid';
 import { getUserId } from '../lib/auth.js';
@@ -13,6 +13,7 @@ import { isOwnCsvImportKey } from '../lib/s3.js';
 import { validate } from '../lib/contract.js';
 import { ImportRequest } from '@pawsitivemileage/contracts';
 import type { Fillup } from '../types/fillup.js';
+import { canonicalFillups, fillupSortKey } from '../lib/fillupKeys.js';
 
 const logger = createLogger('importData');
 
@@ -305,19 +306,25 @@ async function recalculate(
     return success({ recalculatedCount: 0 } satisfies RecalculateResult, requestId);
   }
 
-  // 2. Sort by date ascending (explicit sort by date field for safety)
-  fillups.sort((a, b) => a.date.localeCompare(b.date));
+  // 2. One item per fill-up in date order; stale copies under an old key are collected
+  const { fillups: canonical, staleKeys } = canonicalFillups(fillups as Array<Fillup & { fillupDateId?: string }>);
 
   // 3. Recalculate all derived metrics
-  const updated = recalculateAllMetrics(fillups);
+  const updated = recalculateAllMetrics(canonical);
 
-  // 4. Write all updated fillups back to DynamoDB in batches of 25
+  // 4. Write all updated fillups back to DynamoDB in batches of 25, each under its date key
   for (let i = 0; i < updated.length; i += 25) {
     const batch = updated.slice(i, i + 25);
     const requestItems = batch.map(item => ({
-      PutRequest: { Item: item as unknown as Record<string, unknown> },
+      PutRequest: { Item: { ...item, fillupDateId: fillupSortKey(item) } as unknown as Record<string, unknown> },
     }));
     await batchWriteWithRetry(docClient, fillupsTable, requestItems);
+  }
+
+  // 5. Remove stale copies, so a fill-up is never stored (and listed) twice
+  const written = new Set(updated.map(fillupSortKey));
+  for (const key of staleKeys.filter((k) => !written.has(k))) {
+    await docClient.send(new DeleteCommand({ TableName: fillupsTable, Key: { vehicleId, fillupDateId: key } }));
   }
 
   logger.info(`Recalculate complete: ${updated.length} fillups recalculated`, requestId, userId);
