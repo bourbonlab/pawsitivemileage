@@ -7,8 +7,10 @@ import app.pawsitivemileage.api.generated.models.Fillup
 import app.pawsitivemileage.api.generated.models.FillupCreate
 import app.pawsitivemileage.sync.SyncOutcome
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 import java.util.UUID
 
+@Serializable
 data class FillupPage(val items: List<Fillup>, val nextCursor: String?)
 
 /**
@@ -20,10 +22,15 @@ class FillupRepository(
     private val dao: PendingFillupDao,
     private val scheduleSync: () -> Unit,
     private val now: () -> Long = System::currentTimeMillis,
+    private val snapshots: SnapshotCache? = null,
 ) {
-    suspend fun page(vehicleId: String, cursor: String? = null, limit: Int = 20): FillupPage {
-        val response = call { api().fillups.listFillups(vehicleId, limit = limit, cursor = cursor, order = FillUpsApi.OrderListFillups.DESC) }
-        return FillupPage(response.`data`, response.nextCursor)
+    /** One page, newest first. The first page is kept on the device and shown when offline. */
+    suspend fun page(vehicleId: String, cursor: String? = null, limit: Int = 20): Loaded<FillupPage> {
+        val fetch: suspend () -> FillupPage = {
+            val response = call { api().fillups.listFillups(vehicleId, limit = limit, cursor = cursor, order = FillUpsApi.OrderListFillups.DESC) }
+            FillupPage(response.`data`, response.nextCursor)
+        }
+        return if (cursor == null && snapshots != null) snapshots.load("fillups-$vehicleId", FillupPage.serializer(), fetch) else Loaded(fetch())
     }
 
     fun pending(vehicleId: String): Flow<List<PendingFillup>> = dao.observe(vehicleId)

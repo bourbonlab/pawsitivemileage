@@ -45,6 +45,7 @@ fun VehicleScreen(vehicleId: String, nickname: String, repo: FillupRepository, o
     var cursor by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
+    var offlineSince by remember { mutableStateOf<Long?>(null) }
     var refresh by remember { mutableStateOf(0) }
     val pending by repo.pending(vehicleId).collectAsState(initial = emptyList())
     val scope = rememberCoroutineScope()
@@ -53,10 +54,12 @@ fun VehicleScreen(vehicleId: String, nickname: String, repo: FillupRepository, o
         loading = true
         error = null
         runCatching { repo.page(vehicleId, next) }
-            .onSuccess { page ->
+            .onSuccess { loaded ->
                 if (next == null) fillups.clear()
-                fillups.addAll(page.items)
-                cursor = page.nextCursor
+                fillups.addAll(loaded.value.items)
+                offlineSince = loaded.offlineSince
+                // Offline, only the saved first page exists: no "Load more"
+                cursor = if (loaded.offlineSince == null) loaded.value.nextCursor else null
             }
             .onFailure { error = friendlyError(it, OFFLINE_FILLUPS) }
         loading = false
@@ -81,6 +84,7 @@ fun VehicleScreen(vehicleId: String, nickname: String, repo: FillupRepository, o
                 items(pending, key = { it.id }) { entry -> PendingRow(entry, onDiscard = { scope.launch { repo.discard(entry.id) } }) }
                 item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
             }
+            offlineSince?.let { item { Text(Format.offline(it), style = MaterialTheme.typography.labelMedium) } }
             items(fillups, key = { it.fillupId }) { FillupRow(it) }
             item {
                 when {

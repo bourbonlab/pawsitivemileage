@@ -63,8 +63,9 @@ class MainActivity : ComponentActivity() {
                     composable("garage") {
                         GarageScreen(
                             api = container.api,
+                            snapshots = container.snapshots,
                             onOpen = { nav.navigate("vehicle/${it.vehicleId}?name=${Uri.encode(it.nickname)}") },
-                            onSignOut = { scope.launch { container.auth.signOut() } },
+                            onSignOut = { scope.launch { container.signOut() } },
                         )
                     }
                     composable(

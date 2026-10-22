@@ -8,6 +8,7 @@ Native Android app (Kotlin, Jetpack Compose) for PawsitiveMileage, issue #28. It
 - **Garage**: your vehicles and the ones shared with you.
 - **Fill-ups**: newest first, 20 per page (`limit`/`cursor`/`order=desc`).
 - **Add a fill-up, online or not.** It is saved to a Room queue first. A WorkManager job sends it when there's a network, using the queue entry's ID as the `Idempotency-Key`, so retries and restarts never record it twice. A fill-up the API rejects stays in the list, marked, until you discard it.
+- **Offline viewing**: the last garage and each vehicle's newest page of fill-ups are kept on the device (`files/snapshots`) and shown offline, labelled "Offline · last updated …". Sign-out deletes them.
 - **Version gate**: if `/v1/meta` says `minimumVersions.android` is above this build, the app asks for an update instead of signing in.
 
 ## Build
@@ -47,7 +48,7 @@ app/src/main/kotlin/app/pawsitivemileage/
 ├── MainActivity.kt        # sign-in gate and navigation
 ├── api/                   # ApiClient, ApiException, enum query converter
 ├── auth/                  # AuthManager (AppAuth), AuthConfig from /v1/meta, SecureStore (Keystore AES-GCM)
-├── data/                  # Room queue of pending fill-ups, FillupRepository
+├── data/                  # Room queue of pending fill-ups, FillupRepository, SnapshotCache (offline copies)
 ├── sync/                  # SyncWorker (WorkManager), SyncOutcome
 └── ui/                    # Compose screens: sign-in, garage, vehicle, add fill-up
 ```
