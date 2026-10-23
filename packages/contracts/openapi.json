@@ -4342,6 +4342,7 @@
         "type": "object",
         "properties": {
           "schemaId": {
+            "description": "A maintenance schema; null makes the record a custom type (needs customTypeName)",
             "anyOf": [
               {
                 "type": "string",
@@ -4354,6 +4355,7 @@
             ]
           },
           "customTypeName": {
+            "description": "null removes it (needs a schemaId)",
             "anyOf": [
               {
                 "type": "string",

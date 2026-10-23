@@ -954,8 +954,8 @@ Response objects may gain fields within `/v1`; requests reject wrong types and o
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `schemaId` | string \| null |  | pattern `^[0-9A-HJKMNP-TV-Z]{26}$`; ULID |
-| `customTypeName` | string \| null |  | at most 255 chars |
+| `schemaId` | string \| null |  | pattern `^[0-9A-HJKMNP-TV-Z]{26}$`; A maintenance schema; null makes the record a custom type (needs customTypeName) |
+| `customTypeName` | string \| null |  | at most 255 chars; null removes it (needs a schemaId) |
 | `datePerformed` | string \| null |  | non-empty; YYYY-MM-DD |
 | `odometerAtService` | number \| null |  | ≥ 0 |
 | `cost` | number \| null |  | ≥ 0 |
