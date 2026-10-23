@@ -188,7 +188,9 @@ export const PresignRequest = z.object({
   vehicleId: Ulid,
   filename: requiredString().describe('Sanitized server-side; the stored key gets a unique prefix'),
   contentType: UploadContentType,
-  fileSize: optional(z.number().positive().max(10 * 1024 * 1024, { error: 'File size exceeds maximum of 10 MB' })).describe('Bytes, max 10 MB'),
+  // Signed into the URL with contentType, so S3 rejects a PUT of any other size or type
+  fileSize: z.number().int().positive().max(10 * 1024 * 1024, { error: 'File size exceeds maximum of 10 MB' })
+    .describe('Bytes, max 10 MB. The PUT must send exactly this many bytes.'),
 });
 export type PresignRequest = z.infer<typeof PresignRequest>;
 

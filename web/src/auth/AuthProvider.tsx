@@ -9,7 +9,6 @@ import {
 import {
   getCurrentUser,
   fetchAuthSession,
-  fetchUserAttributes,
   signInWithRedirect,
   signOut as amplifySignOut,
 } from 'aws-amplify/auth';
@@ -62,12 +61,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const attrs = await fetchUserAttributes();
+      // Name and email come from the ID token: reading them with fetchUserAttributes would need the
+      // aws.cognito.signin.user.admin scope, which also lets a token change the user's email
+      const claims = session.tokens.idToken?.payload ?? {};
+      const email = typeof claims.email === 'string' ? claims.email : '';
+      const name = typeof claims.name === 'string' && claims.name ? claims.name : email;
 
       const authUser: AuthUser = {
         userId: currentUser.userId,
-        email: attrs.email ?? '',
-        displayName: attrs.name ?? attrs.email ?? '',
+        email,
+        displayName: name,
       };
       setUser(authUser);
 

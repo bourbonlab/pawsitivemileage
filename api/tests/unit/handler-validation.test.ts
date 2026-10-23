@@ -110,10 +110,11 @@ describe('maintenance, sharing, uploads, profile', () => {
   });
 
   it('validates presign content type and size', async () => {
-    const body = { uploadType: 'receipt-photo', vehicleId: VID, filename: 'r.pdf', contentType: 'application/pdf' };
+    const body = { uploadType: 'receipt-photo', vehicleId: VID, filename: 'r.pdf', contentType: 'application/pdf', fileSize: 1024 };
     await expect400(presign(event('POST', '/v1/upload/presign', { ...body, contentType: 'image/gif' })),
       'contentType must be one of: image/jpeg, image/png, image/webp, image/heic, application/pdf, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, text/csv');
     await expect400(presign(event('POST', '/v1/upload/presign', { ...body, fileSize: 11 * 1024 * 1024 })), 'File size exceeds maximum of 10 MB');
+    await expect400(presign(event('POST', '/v1/upload/presign', { ...body, fileSize: undefined })), 'fileSize is required');
   });
 
   it('keeps the profile message for a blank display name', async () => {

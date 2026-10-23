@@ -11,6 +11,7 @@ import { parseFuelupsCsv, parseMaintenanceCsv } from '../lib/csv-parser.js';
 import { recalculateAllMetrics } from '../lib/metrics.js';
 import { isOwnCsvImportKey } from '../lib/s3.js';
 import { validate } from '../lib/contract.js';
+import { parseBody } from '../lib/validation.js';
 import { ImportRequest } from '@pawsitivemileage/contracts';
 import type { Fillup } from '../types/fillup.js';
 import { canonicalFillups, fillupSortKey } from '../lib/fillupKeys.js';
@@ -48,12 +49,31 @@ async function verifyVehicleOwnership(userId: string, vehicleId: string): Promis
   return !!result.Item;
 }
 
-function parseBody(event: APIGatewayProxyEventV2): Record<string, unknown> | null {
-  if (!event.body) return null;
+/** Same limit as uploads (PresignRequest.fileSize), checked again here before reading the file */
+export const MAX_IMPORT_BYTES = 10 * 1024 * 1024;
+
+/**
+ * Read an uploaded CSV, refusing one over MAX_IMPORT_BYTES before its body is read into memory.
+ * Returns the text, or the error response to send.
+ */
+async function downloadCsv(
+  bucket: string,
+  key: string,
+  requestId: string,
+): Promise<{ content: string } | { response: APIGatewayProxyResultV2 }> {
   try {
-    return JSON.parse(event.body) as Record<string, unknown>;
-  } catch {
-    return null;
+    const object = await getS3Client().send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    if (object.ContentLength === undefined || object.ContentLength > MAX_IMPORT_BYTES) {
+      (object.Body as { destroy?: () => void } | undefined)?.destroy?.();
+      return { response: error('VALIDATION_ERROR', 'CSV file exceeds maximum of 10 MB', requestId) };
+    }
+    return { content: await object.Body!.transformToString('utf-8') };
+  } catch (err: unknown) {
+    const code = (err as { name?: string }).name;
+    if (code === 'NoSuchKey' || code === 'AccessDenied') {
+      return { response: error('NOT_FOUND', 'CSV file not found', requestId) };
+    }
+    throw err;
   }
 }
 
@@ -86,21 +106,10 @@ async function importFuelups(
     return error('INTERNAL_ERROR', 'An internal error occurred', requestId);
   }
 
-  // 1. Download CSV from S3
-  let csvContent: string;
-  try {
-    const response = await getS3Client().send(new GetObjectCommand({
-      Bucket: photosBucket,
-      Key: s3Key,
-    }));
-    csvContent = await response.Body!.transformToString('utf-8');
-  } catch (err: unknown) {
-    const code = (err as { name?: string }).name;
-    if (code === 'NoSuchKey' || code === 'AccessDenied') {
-      return error('NOT_FOUND', 'CSV file not found', requestId);
-    }
-    throw err;
-  }
+  // 1. Download CSV from S3 (at most 10 MB)
+  const download = await downloadCsv(photosBucket, s3Key, requestId);
+  if ('response' in download) return download.response;
+  const csvContent = download.content;
 
   // 2. Parse CSV
   const parseResult = parseFuelupsCsv(csvContent);
@@ -196,21 +205,10 @@ async function importMaintenance(
     return error('INTERNAL_ERROR', 'An internal error occurred', requestId);
   }
 
-  // 1. Download CSV from S3
-  let csvContent: string;
-  try {
-    const response = await getS3Client().send(new GetObjectCommand({
-      Bucket: photosBucket,
-      Key: s3Key,
-    }));
-    csvContent = await response.Body!.transformToString('utf-8');
-  } catch (err: unknown) {
-    const code = (err as { name?: string }).name;
-    if (code === 'NoSuchKey' || code === 'AccessDenied') {
-      return error('NOT_FOUND', 'CSV file not found', requestId);
-    }
-    throw err;
-  }
+  // 1. Download CSV from S3 (at most 10 MB)
+  const download = await downloadCsv(photosBucket, s3Key, requestId);
+  if ('response' in download) return download.response;
+  const csvContent = download.content;
 
   // 2. Parse CSV
   const parseResult = parseMaintenanceCsv(csvContent);
@@ -382,7 +380,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('VALIDATION_ERROR', "Import type must be 'fuelups' or 'maintenance'", requestId);
     }
 
-    const body = parseBody(event);
+    const body = parseBody(event.body);
     if (!body) {
       return error('VALIDATION_ERROR', 'Invalid or missing request body', requestId);
     }

@@ -58,11 +58,11 @@ The [API reference](api-reference.md#overview) has the short version. How they w
 
 ### Auth
 
-- The **web** app uses its own Cognito app client and sends **ID tokens**.
+- The **web** app uses its own Cognito app client and sends **ID tokens**. Like the native clients, it has scopes `openid email profile` only.
 - **Android and `pm`** are public clients (`{prefix}-android-client`, `{prefix}-cli-client`, in `AuthStack`): authorization code + PKCE through the Hosted UI with Google, scopes `openid email profile` only (no `aws.cognito.signin.user.admin`). They send **access tokens**.
 - Redirects (`infra/lib/client-metadata.ts`): Android `app.pawsitivemileage://callback` in production and `app.pawsitivemileage.<env>://callback` elsewhere, so a staging build doesn't catch production redirects. `pm` uses `http://localhost:47815/callback`.
 - The JWT authorizer's audience lists all three clients. Access tokens have no `aud`, so API Gateway checks their `client_id` against the audience instead.
-- `getIdentity()` (`api/src/lib/auth.ts`) calls `https://{AUTH_DOMAIN}/oauth2/userInfo` with the caller's own token when `token_use` is `access`. If that fails, the profile is not created (500, retryable), so no profile ends up without an email.
+- `getIdentity()` (`api/src/lib/auth.ts`) calls `https://{AUTH_DOMAIN}/oauth2/userInfo` with the caller's own token when `token_use` is `access`. If that fails, the profile is not created (500, retryable), so no profile ends up without an email. If the token or userInfo says `email_verified` is false, the profile is not created either (403): shares are granted by email, so an unverified address must never be stored.
 - `GET /v1/meta` is public (`security: []` in OpenAPI; the SDK sends no token) and returns `auth`: issuer, Hosted UI domain, scopes, and per-platform `clientId`/`redirectUri`/`logoutUri`. A native client needs only the API base URL to sign in.
 
 ### Media URLs

@@ -71,7 +71,7 @@ export const routes = {
   // ── Profile ──
   getProfile: defineRoute({
     method: 'GET', path: '/v1/user/profile', tag: 'Profile', status: 200, alsoReturns: [201], response: User,
-    summary: "The caller's profile. Created from the token's claims on first call (201).",
+    summary: "The caller's profile. Created from the token's claims on first call (201); refused (403) if the email isn't verified.",
   }),
   updateProfile: defineRoute({
     method: 'PUT', path: '/v1/user/profile', tag: 'Profile', status: 200, body: ProfileUpdate, response: User,

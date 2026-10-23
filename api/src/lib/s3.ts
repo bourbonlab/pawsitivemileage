@@ -5,7 +5,10 @@ let s3Client: S3Client | null = null;
 
 function getS3Client(): S3Client {
   if (!s3Client) {
-    s3Client = new S3Client({});
+    // No automatic CRC32 checksums: newer SDKs would put an empty body's checksum into presigned
+    // PUT URLs, which S3 then rejects for the real file. Lambda uses the runtime's SDK version,
+    // so this keeps uploads independent of it.
+    s3Client = new S3Client({ requestChecksumCalculation: 'WHEN_REQUIRED' });
   }
   return s3Client;
 }
@@ -83,15 +86,23 @@ export function photoKeyFieldError(
 
 /**
  * Generate a presigned PUT URL for uploading an object to S3.
+ *
+ * Content-Type and Content-Length are signed, so S3 refuses (403) a PUT with any other type or
+ * size. Unsigned, a client could store e.g. text/html (served from the app's own origin at
+ * /photos/…) or a file far over the size limit.
  */
 export async function getPresignedUploadUrl(
   bucket: string,
   key: string,
   contentType: string,
+  contentLength: number,
   expiresInSeconds = 300,
 ): Promise<string> {
-  const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType });
-  return getSignedUrl(getS3Client(), command, { expiresIn: expiresInSeconds });
+  const command = new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType, ContentLength: contentLength });
+  return getSignedUrl(getS3Client(), command, {
+    expiresIn: expiresInSeconds,
+    signableHeaders: new Set(['content-type', 'content-length']),
+  });
 }
 
 /**

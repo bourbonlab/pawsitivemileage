@@ -100,6 +100,8 @@ API coverage **excludes `src/handlers/**`**, and only `userProfile.test.ts` exer
 
 **Recommendation:** Use a presigned POST policy with a `content-length-range` condition to enforce the 10 MB cap server-side.
 
+**Status — remediated 2026-10-23:** `fileSize` is required, and the presigned PUT signs `Content-Length` and `Content-Type`, so S3 rejects any other size or type. See F-19 in [security.md](security.md#follow-up-review--2026-10-23).
+
 ---
 
 ## Findings — Low

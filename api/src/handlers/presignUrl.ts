@@ -40,7 +40,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return error('VALIDATION_ERROR', valid.message, requestId);
     }
 
-    const { uploadType } = valid.data;
+    const { uploadType, fileSize } = valid.data;
     const vehicleId = body.vehicleId as string;
     const filename = body.filename as string;
     const contentType = body.contentType as string;
@@ -70,7 +70,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
 
     logger.info(`Generating presigned URL for ${uploadType}`, requestId, userId);
 
-    const url = await getPresignedUploadUrl(bucket, key, contentType, PRESIGN_EXPIRATION_SECONDS);
+    const url = await getPresignedUploadUrl(bucket, key, contentType, fileSize, PRESIGN_EXPIRATION_SECONDS);
 
     return success({ url, key, expiresIn: PRESIGN_EXPIRATION_SECONDS }, requestId);
   } catch (err) {

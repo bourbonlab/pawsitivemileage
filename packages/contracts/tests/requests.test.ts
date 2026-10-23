@@ -140,7 +140,7 @@ describe('ShareCreate / ProfileUpdate', () => {
 });
 
 describe('PresignRequest', () => {
-  const presign = { uploadType: 'receipt-photo', vehicleId: VID, filename: 'receipt.pdf', contentType: 'application/pdf' };
+  const presign = { uploadType: 'receipt-photo', vehicleId: VID, filename: 'receipt.pdf', contentType: 'application/pdf', fileSize: 1024 };
 
   it('accepts the allowed upload and content types', () => {
     ok(PresignRequest, presign);
@@ -152,6 +152,13 @@ describe('PresignRequest', () => {
     bad(PresignRequest, { ...presign, contentType: 'image/gif' });
     bad(PresignRequest, { ...presign, fileSize: 10 * 1024 * 1024 + 1 });
     bad(PresignRequest, { ...presign, fileSize: 0 });
+  });
+
+  it('requires a whole-number fileSize, which is signed into the upload URL', () => {
+    const { fileSize: _omitted, ...withoutSize } = presign;
+    bad(PresignRequest, withoutSize);
+    bad(PresignRequest, { ...presign, fileSize: null });
+    bad(PresignRequest, { ...presign, fileSize: 10.5 });
   });
 });
 

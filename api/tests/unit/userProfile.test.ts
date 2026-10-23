@@ -158,6 +158,25 @@ describe('userProfile handler', () => {
       expect(body.data.updatedAt).toBeDefined();
     });
 
+    it('refuses to create a profile when the ID token says the email is unverified', async () => {
+      // A user who changed their Cognito email to someone else's address must not get their shares
+      mockSend.mockResolvedValueOnce({ Item: undefined });
+      const event = makeEvent({ method: 'GET' });
+      Object.assign((event.requestContext as any).authorizer.jwt.claims, { email: 'victim@example.com', email_verified: 'false' });
+
+      const { statusCode, body } = parseResponse(await handler(event) as { statusCode: number; body: string });
+      expect(statusCode).toBe(403);
+      expect(body.code).toBe('FORBIDDEN');
+      expect(mockSend.mock.calls.some(([cmd]) => cmd.constructor.name === 'PutCommand')).toBe(false);
+    });
+
+    it('creates the profile when the ID token says the email is verified', async () => {
+      mockSend.mockResolvedValueOnce({ Item: undefined }).mockResolvedValueOnce({});
+      const event = makeEvent({ method: 'GET' });
+      (event.requestContext as any).authorizer.jwt.claims.email_verified = 'true';
+      expect((await handler(event) as { statusCode: number }).statusCode).toBe(201);
+    });
+
     it('uses email as displayName fallback when name claim is missing', async () => {
       mockSend.mockResolvedValueOnce({ Item: undefined });
       mockSend.mockResolvedValueOnce({});
@@ -386,6 +405,19 @@ describe('profile auto-create from an access token (#22)', () => {
       mockSend.mockResolvedValueOnce({ Item: undefined });
       const { statusCode } = parseResponse(await handler(accessEvent()) as { statusCode: number; body: string });
       expect(statusCode).toBe(500);
+      expect(putItems()).toHaveLength(0);
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('refuses an email that userInfo reports as unverified', async () => {
+    for (const verified of ['false', false]) {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response(JSON.stringify({ sub: 'user-123', email: 'victim@example.com', email_verified: verified })));
+      mockSend.mockReset();
+      mockSend.mockResolvedValueOnce({ Item: undefined });
+      const { statusCode, body } = parseResponse(await handler(accessEvent()) as { statusCode: number; body: string });
+      expect(statusCode).toBe(403);
+      expect(body.code).toBe('FORBIDDEN');
       expect(putItems()).toHaveLength(0);
       fetchSpy.mockRestore();
     }

@@ -536,7 +536,7 @@
     "/v1/user/profile": {
       "get": {
         "operationId": "getProfile",
-        "summary": "The caller's profile. Created from the token's claims on first call (201).",
+        "summary": "The caller's profile. Created from the token's claims on first call (201); refused (403) if the email isn't verified.",
         "tags": [
           "Profile"
         ],
@@ -4605,24 +4605,18 @@
             "$ref": "#/components/schemas/UploadContentType"
           },
           "fileSize": {
-            "description": "Bytes, max 10 MB",
-            "anyOf": [
-              {
-                "type": "number",
-                "exclusiveMinimum": 0,
-                "maximum": 10485760
-              },
-              {
-                "type": "null"
-              }
-            ]
+            "type": "integer",
+            "exclusiveMinimum": 0,
+            "maximum": 10485760,
+            "description": "Bytes, max 10 MB. The PUT must send exactly this many bytes."
           }
         },
         "required": [
           "uploadType",
           "vehicleId",
           "filename",
-          "contentType"
+          "contentType",
+          "fileSize"
         ]
       },
       "PresignResult": {
@@ -4631,7 +4625,7 @@
           "url": {
             "type": "string",
             "format": "uri",
-            "description": "PUT the file here with the same Content-Type"
+            "description": "PUT the file here with exactly the requested Content-Type and fileSize; S3 rejects anything else (403)"
           },
           "key": {
             "type": "string",

@@ -76,13 +76,13 @@ export function PhotoUpload({
       setErrorMessage(null);
 
       try {
-        const { url, key } = await presignMutation.mutateAsync({
+        const { url, key, contentType } = await presignMutation.mutateAsync({
           uploadType,
           vehicleId,
           file,
         });
 
-        await uploadFileToS3(url, file);
+        await uploadFileToS3(url, file, contentType);
 
         setUploadState('success');
         onUploadComplete(key);

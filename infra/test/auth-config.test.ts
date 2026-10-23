@@ -90,6 +90,24 @@ describe('AuthStack', () => {
     expect(byName['pawsitivemileage-staging-cli-client'].CallbackURLs).toEqual(['http://localhost:47815/callback']);
   });
 
+  it('gives no client the Cognito user-admin scope, so users cannot rewrite their own email', () => {
+    // With aws.cognito.signin.user.admin a token can call UpdateUserAttributes; shares are
+    // granted by email, so that would let a user take someone else's shares
+    const clients = Object.values(authTemplate('staging').findResources('AWS::Cognito::UserPoolClient'));
+    expect(clients).toHaveLength(3);
+    for (const c of clients) {
+      const props = c.Properties as { ClientName: string; AllowedOAuthScopes: string[] };
+      expect([...props.AllowedOAuthScopes].sort(), props.ClientName).toEqual(['email', 'openid', 'profile']);
+    }
+  });
+
+  it("maps Google's email_verified so the API can refuse unverified emails", () => {
+    authTemplate().hasResourceProperties('AWS::Cognito::UserPoolIdentityProvider', {
+      ProviderName: 'Google',
+      AttributeMapping: Match.objectLike({ email: 'email', email_verified: 'email_verified' }),
+    });
+  });
+
   it('gives production Android its own redirect scheme and puts every client in the JWT audience', () => {
     const app = makeApp();
     const config = getEnvironmentConfig(app, 'production');

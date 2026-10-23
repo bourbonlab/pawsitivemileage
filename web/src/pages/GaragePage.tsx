@@ -165,12 +165,12 @@ function AddVehicleDialog({ onClose }: { onClose: () => void }) {
       // If a photo was selected, upload it and update the vehicle
       if (pendingFile && vehicle.vehicleId) {
         try {
-          const { url, key } = await presignMutation.mutateAsync({
+          const { url, key, contentType } = await presignMutation.mutateAsync({
             uploadType: 'vehicle-photo',
             vehicleId: vehicle.vehicleId,
             file: pendingFile,
           });
-          await uploadFileToS3(url, pendingFile);
+          await uploadFileToS3(url, pendingFile, contentType);
 
           // Fire-and-forget update — vehicle is already created
           const { api } = await import('@/api/client');

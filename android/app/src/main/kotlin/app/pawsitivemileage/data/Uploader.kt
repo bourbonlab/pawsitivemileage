@@ -29,7 +29,7 @@ class Uploader(private val api: () -> ApiClient, private val http: OkHttpClient 
                     vehicleId = vehicleId,
                     filename = attachment.name,
                     contentType = UploadContentType.entries.first { it.value == attachment.contentType },
-                    fileSize = file.length().toDouble(),
+                    fileSize = file.length().toInt(), // at most 10 MB; signed into the URL, so the PUT must match
                 ),
             )
         }.`data`

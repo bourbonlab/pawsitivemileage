@@ -76,6 +76,11 @@ async function getProfile(
   if (!identity) {
     return error('INTERNAL_ERROR', 'Could not read your email from the sign-in service; try again', requestId);
   }
+  // Shares are granted by email: never create a profile for an email the user hasn't verified
+  if (identity.emailVerified === false) {
+    logger.warn('Refused to create a profile for an unverified email', requestId, userId);
+    return error('FORBIDDEN', 'Your email address is not verified. Sign out and sign in again with Google.', requestId);
+  }
   const { email, name: displayName } = identity;
 
   const now = new Date().toISOString();
