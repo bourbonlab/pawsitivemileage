@@ -147,10 +147,14 @@ export const MaintenanceCreate = z.object({
 });
 export type MaintenanceCreate = z.infer<typeof MaintenanceCreate>;
 
-/** Every field is optional. `receiptPhotoKey: null` removes the receipt and deletes the file. */
+/**
+ * Every field is optional. `receiptPhotoKey: null` removes the receipt and deletes the file.
+ * `schemaId: null` makes the record a custom type, and `customTypeName: null` removes the custom
+ * name; the record must keep one of the two (400 otherwise).
+ */
 export const MaintenanceUpdate = z.object({
-  schemaId: optional(Ulid),
-  customTypeName: optional(maxLen(255)),
+  schemaId: optional(Ulid).describe('A maintenance schema; null makes the record a custom type (needs customTypeName)'),
+  customTypeName: optional(maxLen(255)).describe('null removes it (needs a schemaId)'),
   datePerformed: optional(DateInput),
   odometerAtService: optional(z.number().min(0)),
   cost: optional(z.number().min(0)),

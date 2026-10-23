@@ -272,15 +272,28 @@ async function updateMaintenance(
   if (stale) return stale;
   const condition = ifMatchCondition(event);
 
-  // If schemaId is being changed, look up the new schema
+  // The record's type. schemaId: a string switches to that schema, null makes the record a custom
+  // type, absent leaves it unchanged. customTypeName: null removes it. Android sends every field,
+  // so a custom-type record arrives with `schemaId: null`, and a schedule one with
+  // `customTypeName: null`. Looking up a null schemaId made DynamoDB fail the request (500).
+  let schemaId = existing.schemaId;
   let schemaName = existing.schemaName;
-  if (body.schemaId !== undefined) {
-    const newSchemaId = body.schemaId as string;
-    const schema = await getSchema(newSchemaId);
+  if (typeof body.schemaId === 'string') {
+    const schema = await getSchema(body.schemaId);
     if (!schema) {
       return error('NOT_FOUND', 'Maintenance schema not found', requestId);
     }
+    schemaId = body.schemaId;
     schemaName = schema.name;
+  } else if (body.schemaId === null) {
+    schemaId = undefined;
+    schemaName = undefined;
+  }
+  const customTypeName = body.customTypeName === undefined
+    ? existing.customTypeName
+    : (body.customTypeName as string | null) || undefined;
+  if (!schemaId && !customTypeName) {
+    return error('VALIDATION_ERROR', 'Either schemaId or customTypeName is required', requestId);
   }
 
   const now = new Date().toISOString();
@@ -312,9 +325,9 @@ async function updateMaintenance(
     ...existing,
     // Re-attribute to the owner in case an older record was stamped with a shared user's id
     userId: ownerUserId,
-    ...(body.schemaId !== undefined && { schemaId: body.schemaId as string }),
-    ...(schemaName !== undefined && { schemaName }),
-    ...(body.customTypeName !== undefined && { customTypeName: body.customTypeName as string }),
+    schemaId,
+    schemaName,
+    customTypeName,
     datePerformed: updatedDate,
     odometerAtService: (body.odometerAtService as number) ?? existing.odometerAtService,
     cost: (body.cost as number) ?? existing.cost,
