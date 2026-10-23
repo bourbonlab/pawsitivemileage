@@ -76,7 +76,7 @@ export const Report = responseObject({
 export type Report = z.infer<typeof Report>;
 
 export const PresignResult = responseObject({
-  url: z.url().describe('PUT the file here with the same Content-Type'),
+  url: z.url().describe('PUT the file here with exactly the requested Content-Type and fileSize; S3 rejects anything else (403)'),
   key: z.string().describe('Store this on the record (photoKey / receiptPhotoKey) or pass it to import'),
   expiresIn: z.number().int().describe('Seconds'),
 });

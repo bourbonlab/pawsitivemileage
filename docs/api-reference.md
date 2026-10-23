@@ -28,7 +28,7 @@ Interactive views of the same document: [Redoc](https://redocly.github.io/redoc/
 | | **[Meta](#meta)** | Public client metadata: version gating, feature flags, policy links |
 | GET | [`/v1/meta`](#get-v1meta) | Minimum client versions, feature flags and policy links (no sign-in needed) |
 | | **[Profile](#profile)** | The signed-in user's profile and account |
-| GET | [`/v1/user/profile`](#get-v1userprofile) | The caller's profile. Created from the token's claims on first call (201). |
+| GET | [`/v1/user/profile`](#get-v1userprofile) | The caller's profile. Created from the token's claims on first call (201); refused (403) if the email isn't verified. |
 | PUT | [`/v1/user/profile`](#put-v1userprofile) | Update the display name |
 | DELETE | [`/v1/user/profile`](#delete-v1userprofile) | Delete the account and all owned vehicles, records and files |
 | | **[Vehicles](#vehicles)** | Vehicles the caller owns (shared vehicles are under Sharing) |
@@ -97,7 +97,7 @@ The signed-in user's profile and account.
 
 ### GET /v1/user/profile
 
-The caller's profile. Created from the token's claims on first call (201).
+The caller's profile. Created from the token's claims on first call (201); refused (403) if the email isn't verified.
 
 SDK: `api.getProfile()` · Auth: bearer token
 
@@ -996,13 +996,13 @@ Response objects may gain fields within `/v1`; requests reject wrong types and o
 | `vehicleId` | string | yes | pattern `^[0-9A-HJKMNP-TV-Z]{26}$`; ULID |
 | `filename` | string | yes | non-empty; Sanitized server-side; the stored key gets a unique prefix |
 | `contentType` | [UploadContentType](#uploadcontenttype) | yes |  |
-| `fileSize` | number \| null |  | ≤ 10485760; > 0; Bytes, max 10 MB |
+| `fileSize` | integer | yes | ≤ 10485760; > 0; Bytes, max 10 MB. The PUT must send exactly this many bytes. |
 
 ### PresignResult
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `url` | string (uri) | yes | PUT the file here with the same Content-Type |
+| `url` | string (uri) | yes | PUT the file here with exactly the requested Content-Type and fileSize; S3 rejects anything else (403) |
 | `key` | string | yes | Store this on the record (photoKey / receiptPhotoKey) or pass it to import |
 | `expiresIn` | integer | yes | Seconds |
 

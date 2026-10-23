@@ -21,7 +21,8 @@ export function configureAmplify() {
         loginWith: {
           oauth: {
             domain: domain ?? '',
-            scopes: ['openid', 'email', 'profile', 'aws.cognito.signin.user.admin'],
+            // Identity scopes only: the user-admin scope would let a token change the user's email
+            scopes: ['openid', 'email', 'profile'],
             redirectSignIn: [redirectBase + '/callback'],
             redirectSignOut: [redirectBase],
             responseType: 'code',

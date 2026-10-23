@@ -232,3 +232,23 @@ describe('humanizeSubServiceTypes', () => {
     expect(humanizeSubServiceTypes(' oil_filter , engine_oil ')).toBe('Oil Filter, Engine Oil');
   });
 });
+
+describe('contract length limits on imported text', () => {
+  it('skips a fill-up row with notes over 1000 characters, with the reason', () => {
+    const csv = `fuelup_date,gallons,odometer,price,notes\n2024-08-08,13.5,44800,3.37,${'n'.repeat(1001)}\n2024-08-09,10,45000,3,${'n'.repeat(1000)}`;
+    const result = parseFuelupsCsv(csv);
+    expect(result.records).toHaveLength(1);
+    expect(result.skipped).toEqual([{ rowNumber: 2, reason: 'notes must be at most 1000 characters' }]);
+  });
+
+  it('skips a maintenance row with a type name over 255 characters or notes over 1000', () => {
+    const longType = 'a'.repeat(256);
+    const csv = `service_date,odometer,price,sub_service_types,notes\n2024-08-08,1,1,${longType},x\n2024-08-09,1,1,oil,${'n'.repeat(1001)}\n2024-08-10,1,1,oil,fine`;
+    const result = parseMaintenanceCsv(csv);
+    expect(result.records.map((r) => r.notes)).toEqual(['fine']);
+    expect(result.skipped).toEqual([
+      { rowNumber: 2, reason: 'customTypeName must be at most 255 characters' },
+      { rowNumber: 3, reason: 'notes must be at most 1000 characters' },
+    ]);
+  });
+});

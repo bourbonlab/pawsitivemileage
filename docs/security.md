@@ -12,6 +12,11 @@
 > Since this assessment, the app moved to its own AWS account (`376784708284`) and domain
 > (`pawsitivemileage.app`), and gained public PKCE clients for Android and the `pm` CLI.
 > File and line references below are from the date of each review and may have moved.
+>
+> **Update — 2026-10-23:** A third review found **F-18** (HIGH: share takeover by changing your own
+> Cognito email), **F-19** (upload type and size not enforced by S3, which also undid F-10) and **F-20**
+> (CSV import skipped the length limits). All three are remediated; see
+> [Follow-up Review (2026-10-23)](#follow-up-review--2026-10-23).
 
 ---
 
@@ -25,11 +30,11 @@ That said, the review identified 14 findings across critical, high, medium, and 
 
 ## Remediation Status
 
-**13 of 17 findings remediated**; one accepted as a risk. F-01–F-14 were addressed in the `feat/security-hardening` branch; F-15–F-17 come from the [follow-up review](#follow-up-review--2026-05-22).
+**16 of 20 findings remediated**; one accepted as a risk. F-01–F-14 were addressed in the `feat/security-hardening` branch; F-15–F-17 come from the [2026-05 follow-up review](#follow-up-review--2026-05-22) and F-18–F-20 from the [2026-10 follow-up review](#follow-up-review--2026-10-23).
 
 | Status | Count | Findings |
 |--------|-------|----------|
-| ✅ Remediated | 13 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-09, F-10, F-11, F-13, F-15, F-16 |
+| ✅ Remediated | 16 | F-01, F-02, F-03, F-04, F-05, F-06, F-07, F-09, F-10, F-11, F-13, F-15, F-16, F-18, F-19, F-20 |
 | ⚠️ Accepted risk | 1 | F-12 (no interactive IAM approval — dedicated account, IAM reviewed in PRs; since 2026-10-20) |
 | ⬚ Not addressed | 3 | F-08 (admin audit trail — new feature, deferred), F-14 (table name prefix — breaking change, requires migration), F-17 (inline scripts allowed by the CSP; photos readable by URL) |
 
@@ -203,6 +208,10 @@ if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
 }
 ```
 
+**Correction (2026-10-23):** the allowlist was checked by the API but not by S3, because the SDK
+doesn't sign `Content-Type` in a presigned PUT by default. A client could send any type on the PUT.
+Fixed by F-19.
+
 ---
 
 ### F-11 — Error Stack Traces Logged in All Environments (LOW)
@@ -344,6 +353,7 @@ the local `parseBody` with the shared, size-capped implementation from `validati
 other handlers check submitted photo and receipt keys the same way (`photoKeyFieldError`).
 The import handler still has its own `parseBody` without the 64 KB cap; its body is a
 single validated `s3Key`, so the remaining exposure is the API Gateway payload limit.
+*(2026-10-23: replaced with the shared, size-capped `parseBody`.)*
 
 ### F-16 — Account Deletion Leaves Orphaned Sharing Records (MEDIUM)
 
@@ -391,3 +401,74 @@ access model as an accepted tradeoff.
 | F-15 | MEDIUM | Import handler trusts client-supplied S3 key | A01: Broken Access Control | ✅ Remediated 2026-10-20 (key check); local `parseBody` remains |
 | F-16 | MEDIUM | Account deletion leaves orphaned sharing records | A01: Broken Access Control | ✅ Remediated 2026-10-22 (v1.4.0) |
 | F-17 | LOW | CSP allows inline scripts; photos served publicly | A05: Security Misconfiguration | ⬚ Not addressed |
+
+---
+
+## Follow-up Review — 2026-10-23
+
+A third review covered the API, infrastructure, the web, Android and `pm` clients, and CI/CD. It
+found the three issues below and fixed them in one change. `npm audit` was clean. Authorization
+checks in the handlers, CI (pinned actions, OIDC roles per GitHub environment) and native token
+storage were sound.
+
+### F-18 — Share Takeover by Changing Your Own Email (HIGH)
+
+**Files:** `infra/lib/stacks/auth-stack.ts`, `web/src/auth/amplify-config.ts`, `api/src/lib/auth.ts`, `api/src/handlers/userProfile.ts`
+
+Shares are granted by email: `verifyAccess` and `GET /v1/vehicles/shared` look up the caller's email
+in the Users table. That email is copied from Cognito when the profile is first created, and the
+API did not check `email_verified`.
+
+The web app client allowed the `aws.cognito.signin.user.admin` scope, every attribute was writable
+from it, and the pool applied email changes before verification. So any Google user could:
+
+1. sign in on the web and take their access token from the browser;
+2. call Cognito's `UpdateUserAttributes` to set their email to the victim's address;
+3. make their first `GET /v1/user/profile`, which stored the victim's email;
+4. list the vehicles shared with that email and read or write them at the shared permission.
+
+Neither the victim nor an account for the victim was needed.
+
+**Status — remediated 2026-10-23:**
+- No app client has the user-admin scope, so tokens can't call `UpdateUserAttributes`. The web reads
+  the user's name and email from the ID token instead of `fetchUserAttributes`. Email must stay
+  writable by the clients, because Cognito writes Google's mapped attributes at every sign-in.
+- Google's `email_verified` is mapped. `getProfile` refuses (403) to create a profile when the ID
+  token or `/oauth2/userInfo` says the email is unverified. Cognito marks a changed email unverified,
+  so this also covers sessions that still hold the old scope.
+- Existing profiles keep the email they were created with; this change doesn't re-check them.
+
+### F-19 — Upload Type and Size Not Enforced by S3 (MEDIUM)
+
+**Files:** `api/src/lib/s3.ts`, `api/src/handlers/presignUrl.ts`, `packages/contracts/src/requests.ts`
+
+The presigned PUT URL signed only `host`. `fileSize` was optional and never reached S3, and
+`Content-Type` wasn't signed. Verified on staging: a URL presigned for `image/png` accepted a PUT
+with `Content-Type: text/html`, stored as `text/html`. Such a file is served from the app's own
+origin at `/photos/…`, where the CSP still allows inline scripts (F-17). That made stored XSS
+possible, and a CSV import could be any size and was read whole into Lambda memory.
+
+**Status — remediated 2026-10-23:** `fileSize` is required (a whole number, at most 10 MB). The URL
+signs `Content-Type` and `Content-Length`, and S3 returns 403 for any other type or size (verified
+on staging). The S3 client no longer puts an automatic CRC32 checksum in presigned URLs, so
+signing doesn't depend on the Lambda runtime's SDK version. The web sends the type it presigned
+for, and the import handler refuses an object over 10 MB before reading it.
+
+### F-20 — CSV Import Skipped the Length Limits (LOW)
+
+**Files:** `api/src/lib/csv-parser.ts`
+
+Imported rows were stored without the contract's length limits, so notes or type names of any
+length up to DynamoDB's item size could be written, partly undoing F-03.
+
+**Status — remediated 2026-10-23:** each parsed row is checked against the contract's own field
+schemas (`notes` 1000, maintenance `customTypeName` 255). A row that fails is skipped with the
+reason.
+
+### 2026-10 Follow-up Risk Summary
+
+| ID | Severity | Finding | OWASP Category | Status |
+|----|----------|---------|----------------|--------|
+| F-18 | HIGH | Share takeover by changing your own Cognito email | A01: Broken Access Control | ✅ Remediated 2026-10-23 |
+| F-19 | MEDIUM | Upload type and size not enforced by S3 | A04: Insecure Design | ✅ Remediated 2026-10-23 |
+| F-20 | LOW | CSV import skipped the length limits | A03: Injection | ✅ Remediated 2026-10-23 |

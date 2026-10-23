@@ -82,7 +82,7 @@ export function ImportDialog({
       });
 
       // Step 2: Upload to S3
-      await uploadFileToS3(presignResult.url, file);
+      await uploadFileToS3(presignResult.url, file, presignResult.contentType);
 
       // Step 3: Call import API
       setState('importing');

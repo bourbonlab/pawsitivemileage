@@ -56,6 +56,9 @@ export class AuthStack extends cdk.Stack {
       scopes: ['profile', 'email', 'openid'],
       attributeMapping: {
         email: cognito.ProviderAttribute.GOOGLE_EMAIL,
+        // Tokens then say whether Google verified the address; the API refuses to create a
+        // profile (which receives shares by email) for an unverified one
+        emailVerified: cognito.ProviderAttribute.GOOGLE_EMAIL_VERIFIED,
         fullname: cognito.ProviderAttribute.GOOGLE_NAME,
         custom: {
           picture: cognito.ProviderAttribute.GOOGLE_PICTURE,
@@ -93,11 +96,13 @@ export class AuthStack extends cdk.Stack {
       userPoolClientName: `${config.resourcePrefix}-app-client`,
       oAuth: {
         flows: { authorizationCodeGrant: true },
+        // No aws.cognito.signin.user.admin: with it, a user's token could call Cognito's
+        // UpdateUserAttributes and set their email to someone else's address (shares are granted
+        // by email). The web reads the user's name and email from the ID token instead.
         scopes: [
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.EMAIL,
           cognito.OAuthScope.PROFILE,
-          cognito.OAuthScope.COGNITO_ADMIN,
         ],
         callbackUrls,
         logoutUrls,

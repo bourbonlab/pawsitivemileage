@@ -1,6 +1,20 @@
 // CSV Parser for Fuelly export files
 // Pure functions — no side effects, no DynamoDB calls
 
+import * as z from 'zod';
+import { FillupCreate, MaintenanceCreate } from '@pawsitivemileage/contracts';
+import { validate } from './contract.js';
+
+/**
+ * Imported text fields get the same length limits as creating the record through the API, so an
+ * import can't store what POST would reject. A row that fails is skipped with the reason.
+ */
+const FuelupText = z.object({ notes: FillupCreate.shape.notes });
+const MaintenanceText = z.object({
+  customTypeName: MaintenanceCreate.shape.customTypeName,
+  notes: MaintenanceCreate.shape.notes,
+});
+
 export interface ParsedFuelup {
   date: string;
   currencySpent: number;
@@ -214,6 +228,12 @@ export function parseFuelupsCsv(csvContent: string): ParseResult<ParsedFuelup> {
       record.notes = notes;
     }
 
+    const text = validate(FuelupText, record);
+    if (!text.ok) {
+      skipped.push({ rowNumber, reason: text.message });
+      continue;
+    }
+
     records.push(record);
   }
 
@@ -301,6 +321,12 @@ export function parseMaintenanceCsv(csvContent: string): ParseResult<ParsedMaint
     const notes = getField(row, columnMap, 'notes');
     if (notes) {
       record.notes = notes;
+    }
+
+    const text = validate(MaintenanceText, record);
+    if (!text.ok) {
+      skipped.push({ rowNumber, reason: text.message });
+      continue;
     }
 
     records.push(record);

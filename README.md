@@ -615,7 +615,7 @@ Base URL: `https://api.pawsitivemileage.app/v1` (staging: `https://api-staging.p
 
 Behavior the schemas don't spell out:
 
-- **Uploads:** S3 keys are `{ownerUserId}/{vehicleId}/{uploadType}/{ulid}-{filename}`, always under the **vehicle owner's** ID, including receipts uploaded by someone the vehicle is shared with, so a vehicle's files are removed with the owner's account. Keys written before the ULID was added (`…/{uploadType}/{filename}`) still work, because records store the full key. A *new* photo key on a create or update must sit under the owner's prefix for that vehicle and type, so a record can't point at, or later delete, another user's object; an unchanged key is always accepted. Presigned upload URLs sign `Content-Length`, enforcing the 10 MB limit.
+- **Uploads:** S3 keys are `{ownerUserId}/{vehicleId}/{uploadType}/{ulid}-{filename}`, always under the **vehicle owner's** ID, including receipts uploaded by someone the vehicle is shared with, so a vehicle's files are removed with the owner's account. Keys written before the ULID was added (`…/{uploadType}/{filename}`) still work, because records store the full key. A *new* photo key on a create or update must sit under the owner's prefix for that vehicle and type, so a record can't point at, or later delete, another user's object; an unchanged key is always accepted. Presigned upload URLs sign `Content-Type` and `Content-Length` (from the required `fileSize`), so S3 rejects a PUT of any other type or size, which enforces the type allowlist and the 10 MB limit.
 - **Account deletion** (`DELETE /v1/user/profile`) removes shares in both directions, vehicles, fill-ups, maintenance, photos and receipts, exports, the profile, and last the Cognito user. It's safe to retry. Users reach it from **Account** in the web header or the Android app; the public page `/delete-account` (Google Play's deletion URL, linked in every footer) explains the steps and what's kept: database backups up to 35 days, logs 90 days.
 - **Sharing** is by email, without checking that the email has an account (so it can't be used to discover users). `maintenance` is a legacy permission that behaves like `fuel`.
 - **Fill-up metrics** are recalculated for the whole vehicle on every fill-up create, update and delete (see [Data Model](#key-data-types)).
@@ -701,7 +701,8 @@ The sign-out flow manually constructs the Cognito logout URL to work around an A
 ### Cognito Configuration
 
 - User Pool with email sign-in, Google as sole identity provider; deletion protection on in production
-- OAuth scopes: `openid`, `email`, `profile`, `aws.cognito.signin.user.admin`
+- OAuth scopes: `openid`, `email`, `profile` for every client. No client gets `aws.cognito.signin.user.admin`, which would let a user change their own email through Cognito; the web reads name and email from the ID token
+- Google's `email_verified` is mapped, and the API refuses to create a profile for an unverified email (shares are granted by email)
 - Authorization code grant flow (PKCE)
 - No client secret (SPA client); the Android and CLI clients above are public too
 - Non-production environments include `http://localhost:5173` in callback/logout URLs
@@ -813,7 +814,7 @@ Each API route group maps to a dedicated Lambda function (13 in all). All functi
 - **`logger.ts`** — `createLogger(handler)` returns structured JSON logger with `info()`, `warn()`, `error()` methods
 - **`metrics.ts`** — `calculateDerivedMetrics()` for single fillup, `recalculateAllMetrics()` for full sequence recalculation with partial fill accumulation
 - **`reminders.ts`** — `calculateReminder()` with 500-mile and 30-day thresholds (only for types with a recorded service)
-- **`csv-parser.ts`** — `parseFuelupsCsv()` and `parseMaintenanceCsv()` for Fuelly CSV import with field mapping, validation, and skip logic
+- **`csv-parser.ts`** — `parseFuelupsCsv()` and `parseMaintenanceCsv()` for Fuelly CSV import with field mapping, validation, and skip logic. Text fields get the contract's length limits (notes 1000, maintenance type name 255); a row over them is skipped with the reason
 - **`s3.ts`** — `getPresignedUploadUrl()`, `getPresignedDownloadUrl()`, `uploadObject()`, `buildS3Key()`, `photoKeyFieldError()` and `isOwnCsvImportKey()` (submitted keys must sit under the vehicle owner's prefix)
 
 ---
@@ -1068,7 +1069,9 @@ A full security assessment is documented in [docs/security.md](docs/security.md)
 - String length validation on all user-supplied text fields across all handlers
 - Location coordinate range validation (lat: -90 to 90, lng: -180 to 180)
 - CSV export formula injection protection (prefixes dangerous characters with single quote)
-- Presigned URL filename sanitization and content type whitelist (JPEG, PNG, WebP, HEIC only)
+- Presigned URL filename sanitization and a content type allowlist (images, PDF, Word, CSV). The URL signs the content type and the declared size, so S3 enforces both
+- CSV import refuses files over 10 MB before reading them, and skips rows whose text fields break the API's length limits
+- No client gets the `aws.cognito.signin.user.admin` scope, and the API refuses to create a profile for an unverified email, because shares are granted by email
 - API Gateway throttling (100 burst / 50 requests per second)
 - CloudFront security response headers (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - Production stack trace suppression in Lambda logs
