@@ -110,11 +110,16 @@ Live at **[pawsitivemileage.app](https://pawsitivemileage.app)**, with an [Andro
 
 ## Screenshots
 
+Screenshots use sample data.
+
 ### Garage
 ![Garage](docs/Garage.png)
 
-### Fillups
-![Fillups](docs/Fillups.png)
+### Vehicle dashboard
+![Vehicle dashboard](docs/Vehicle.png)
+
+### On a phone
+<img src="docs/Phone-Dash.png" alt="Vehicle dashboard on a phone, dark mode" width="270"> <img src="docs/Phone-Fillups.png" alt="Fillups on a phone, light mode" width="270">
 
 ### Analytics
 ![Analytics](docs/Analytics.png)
