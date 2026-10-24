@@ -35,6 +35,8 @@ export default defineConfig({
     },
   },
   build: {
+    // Fonts stay files: the CSP's font-src 'self' blocks data: URIs
+    assetsInlineLimit: (file) => (file.endsWith('.woff2') ? false : undefined),
     rollupOptions: {
       output: {
         manualChunks,
