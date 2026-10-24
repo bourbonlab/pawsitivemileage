@@ -124,7 +124,7 @@ export function LocationPicker({ onLocationChange, initialData, className }: Loc
 
           {/* Geolocation result */}
           {geoStatus === 'success' && lat != null && lng != null && (
-            <div className="flex items-center gap-2 rounded-md bg-green-50 p-2 text-xs text-green-700 dark:bg-green-950 dark:text-green-300">
+            <div className="flex items-center gap-2 rounded-md bg-success/12 p-2 text-xs text-success">
               <CheckCircle2 className="size-3.5 shrink-0" aria-hidden="true" />
               <span>
                 Location detected: {lat.toFixed(5)}, {lng.toFixed(5)}

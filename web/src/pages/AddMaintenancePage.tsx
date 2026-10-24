@@ -107,7 +107,7 @@ export default function AddMaintenancePage() {
 
   if (!canEditRecords(sharedEntry?.permission)) {
     return (
-      <div className="container mx-auto max-w-lg space-y-6 p-4">
+      <div className="mx-auto w-full max-w-lg space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <Button variant="ghost" size="sm" asChild>
           <Link to={`/vehicles/${vehicleId}`}>
             <ArrowLeft className="size-4" /> Back to Vehicle
@@ -121,7 +121,7 @@ export default function AddMaintenancePage() {
   }
 
   return (
-    <div className="container mx-auto max-w-lg space-y-6 p-4">
+    <div className="mx-auto w-full max-w-lg space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
       {/* Back button */}
       <Button variant="ghost" size="sm" asChild>
         <Link to={`/vehicles/${vehicleId}`}>

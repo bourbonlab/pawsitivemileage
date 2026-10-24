@@ -109,7 +109,7 @@ export default function AdminSchemasPage() {
   /* ---- Loading ---- */
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <BackButton />
         <div className="flex items-center justify-center py-24" role="status">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -122,7 +122,7 @@ export default function AdminSchemasPage() {
   /* ---- Error ---- */
   if (isError) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <BackButton />
         <p className="py-16 text-center text-sm text-destructive" role="alert">
           Failed to load maintenance schemas. Please try again.
@@ -132,7 +132,7 @@ export default function AdminSchemasPage() {
   }
 
   return (
-    <div className="container mx-auto space-y-6 p-4">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
       <BackButton />
 
       {/* Header */}

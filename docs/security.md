@@ -386,6 +386,11 @@ The CloudFront `ResponseHeadersPolicy` sets `script-src 'self' 'unsafe-inline'`.
 is weaker than the **F-07** recommendation (`script-src 'self'`). A Vite production
 build does not emit inline scripts.
 
+`script-src` also allows `https://static.cloudflareinsights.com` and `connect-src` allows
+`https://cloudflareinsights.com`, for the Cloudflare Web Analytics beacon that the proxy injects.
+`'unsafe-eval'` stays off: the web app runs zod in jitless mode (`window.__zod_globalConfig` in `web/index.html`, set before any bundle loads), so
+validation never needs `new Function`.
+
 Additionally, the `/photos/*` CloudFront behavior serves objects with no signed URLs
 or signed cookies — any photo (including receipts, which may contain PII) is readable
 by anyone holding the key.

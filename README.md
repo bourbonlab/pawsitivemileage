@@ -110,11 +110,16 @@ Live at **[pawsitivemileage.app](https://pawsitivemileage.app)**, with an [Andro
 
 ## Screenshots
 
+Screenshots use sample data.
+
 ### Garage
 ![Garage](docs/Garage.png)
 
-### Fillups
-![Fillups](docs/Fillups.png)
+### Vehicle dashboard
+![Vehicle dashboard](docs/Vehicle.png)
+
+### On a phone
+<img src="docs/Phone-Dash.png" alt="Vehicle dashboard on a phone, dark mode" width="270"> <img src="docs/Phone-Fillups.png" alt="Fillups on a phone, light mode" width="270">
 
 ### Analytics
 ![Analytics](docs/Analytics.png)
@@ -197,7 +202,9 @@ pawsitivemileage/
 │   │   │   └── admin.ts    # Admin API calls
 │   │   ├── auth/           # Amplify config, AuthProvider, ProtectedRoute, AdminRoute
 │   │   ├── components/     # UI components
-│   │   │   ├── Layout.tsx          # App shell: nav (incl. Account), theme toggle, footer links
+│   │   │   ├── Layout.tsx          # App shell: sidebar vehicle switcher (drawer on phones), Account, theme toggle, footer links
+│   │   │   ├── VehicleDash.tsx     # Vehicle "Dash" tab: odometer, MPG / $ per gallon / $ per mile gauges, fuel economy, service
+│   │   │   ├── Instruments.tsx     # Gauge (270° dial) and Odometer (digit wheels)
 │   │   │   ├── AppVersion.tsx      # Footer release version (/version.json) and Android APK link (/downloads/android.json)
 │   │   │   ├── VehicleCard.tsx, FillupList.tsx, MaintenanceList.tsx, DetailPeekDialog.tsx
 │   │   │   ├── FillupMap.tsx, LocationPicker.tsx  # Leaflet map and location picker
@@ -209,12 +216,12 @@ pawsitivemileage/
 │   │   │   ├── SharedGarageSection.tsx, SharingManagementDialog.tsx
 │   │   │   ├── charts/             # Recharts: MPG, spending, cost per mile, cost per gallon
 │   │   │   └── ui/                 # shadcn/ui primitives (Radix-based)
-│   │   ├── lib/            # metrics formatting, photo URLs, sharing permissions, pagination, theme, cn()
+│   │   ├── lib/            # metrics formatting, vehicle dashboard stats, photo URLs, sharing permissions, pagination, theme, cn()
 │   │   ├── pages/          # Route pages (see Frontend Architecture → Pages)
 │   │   ├── App.tsx         # Root: QueryClientProvider + AuthProvider + RouterProvider
 │   │   ├── router.tsx      # React Router route definitions
 │   │   ├── main.tsx        # Entry point (configureAmplify → render)
-│   │   └── app.css         # Global styles (Tailwind CSS v4)
+│   │   └── app.css         # Global styles and Night Drive theme tokens (Tailwind CSS v4)
 │   ├── public/             # Static assets (logo)
 │   └── tests/              # Vitest unit + component tests
 │
@@ -718,8 +725,11 @@ The sign-out flow manually constructs the Cognito logout URL to work around an A
 - **React Router v8** with `createBrowserRouter` — element-based route definitions, no loader/action patterns currently used
 - **TanStack Query v5** for server state (5-minute stale time, single retry, no refetch on window focus)
 - **Tailwind CSS v4** with the Vite plugin (`@tailwindcss/vite`)
-- Light, dark and system themes (`useTheme`, toggled in the header)
-- **shadcn/ui** components built on Radix primitives (alert, badge, button, card, dialog, input, label, select, separator, switch, table, tabs, textarea)
+- **Night Drive** look: dark mode is an espresso instrument cluster, light mode the cream "Dashboard Dial" palette, both with the logo dial's peach, copper and saddle-brown accents. Colours are CSS variables in `app.css` (`--brand`, `--inset`, `--gauge-track`, `--success`, `--warning` and `--chart-1`…`5` on top of the shadcn set), so components never hard-code colours
+- Light, dark and system themes (`useTheme`, toggled in the sidebar, or the top bar on phones)
+- Fonts are self-hosted from `@fontsource-variable` (Schibsted Grotesk for text, JetBrains Mono for figures), because the CSP only allows `font-src 'self'`
+- Responsive layout: from `lg` (1024px) a fixed sidebar lists your vehicles and the ones shared with you; on phones it becomes a drawer, lists turn into cards, and a vehicle page has a floating "+ Fillup" button
+- **shadcn/ui** components built on Radix primitives (alert, badge, button, card, dialog, dropdown-menu, input, label, select, separator, switch, table, tabs, textarea)
 - **Recharts 3.x** for analytics charts
 - **Leaflet + react-leaflet** for fillup location maps and location picker
 
@@ -752,8 +762,8 @@ Entity and response types come from the SDK too (`import type { Fillup } from '@
 | `/privacy` | PrivacyPolicyPage | Public |
 | `/terms` | TermsOfServicePage | Public |
 | `/delete-account` | DeleteAccountInfoPage: how to delete an account and what's kept (Google Play's deletion URL) | Public |
-| `/garage` | GaragePage | Protected |
-| `/vehicles/:vehicleId` | VehicleDetailPage | Protected |
+| `/garage` | GaragePage (`?add=1` opens Add vehicle) | Protected |
+| `/vehicles/:vehicleId` | VehicleDetailPage: Dash, Fillups and Service tabs (`?tab=fillups` or `?tab=service`) | Protected |
 | `/vehicles/:vehicleId/fillups/new` | AddFillupPage | Protected |
 | `/vehicles/:vehicleId/maintenance/new` | AddMaintenancePage | Protected |
 | `/vehicles/:vehicleId/analytics` | AnalyticsPage | Protected |

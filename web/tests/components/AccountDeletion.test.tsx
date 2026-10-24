@@ -6,6 +6,8 @@ vi.mock('@/auth/AuthProvider', () => ({
   useAuth: () => ({ signOut: vi.fn(), isAdmin: false, user: { email: 'a@example.com' }, isAuthenticated: true, isLoading: false }),
 }));
 vi.mock('@/components/AppVersion', () => ({ AppVersion: () => null }));
+vi.mock('@/api/vehicles', () => ({ useVehicles: () => ({ data: [] }) }));
+vi.mock('@/api/sharing', () => ({ useSharedVehicles: () => ({ data: [] }) }));
 vi.mock('@/lib/useTheme', () => ({ useTheme: () => ({ isDark: false, toggle: vi.fn() }) }));
 
 import DeleteAccountInfoPage from '@/pages/DeleteAccountInfoPage';

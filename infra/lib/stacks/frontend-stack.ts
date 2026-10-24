@@ -73,11 +73,12 @@ export class FrontendStack extends cdk.Stack {
         contentSecurityPolicy: {
           contentSecurityPolicy: [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
+            // Cloudflare Web Analytics: the proxy injects its beacon, which reports back to cloudflareinsights.com
+            "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' blob: data: https://*.tile.openstreetmap.org",
             "font-src 'self'",
-            `connect-src 'self' https://${config.apiDomain} https://${config.resourcePrefix}-photos.s3.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://${config.authDomain}`,
+            `connect-src 'self' https://${config.apiDomain} https://${config.resourcePrefix}-photos.s3.us-east-1.amazonaws.com https://cognito-idp.us-east-1.amazonaws.com https://${config.authDomain} https://cloudflareinsights.com`,
             "frame-ancestors 'none'",
           ].join('; '),
           override: true,

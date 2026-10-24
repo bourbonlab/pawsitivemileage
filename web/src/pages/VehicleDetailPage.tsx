@@ -1,12 +1,13 @@
 import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router';
+import { useParams, useNavigate, useSearchParams, Link } from 'react-router';
 import {
-  ArrowLeft, Car, Loader2, Archive, ArchiveRestore,
-  BarChart3, Download, Plus, Pencil, Upload, RefreshCw, Users,
+  ArrowLeft, Loader2, Archive, ArchiveRestore, BarChart3, Download, Fuel, Gauge,
+  MoreHorizontal, Plus, Pencil, Upload, RefreshCw, Users, Wrench,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -29,12 +30,18 @@ import { ImportDialog } from '@/components/ImportDialog';
 import { useRecalculateMetrics } from '@/api/import';
 import { useSharedVehicles } from '@/api/sharing';
 import { SharingManagementDialog } from '@/components/SharingManagementDialog';
-import { canEditRecords, canImportData } from '@/lib/sharing';
+import { VehicleDash } from '@/components/VehicleDash';
+import { VehiclePhoto } from '@/components/VehicleCard';
+import { canEditRecords, canImportData, permissionLabel } from '@/lib/sharing';
 import type { Vehicle } from '@pawsitivemileage/sdk';
+
+const TABS = ['dash', 'fillups', 'service'] as const;
+type Tab = (typeof TABS)[number];
 
 export default function VehicleDetailPage() {
   const { vehicleId } = useParams<{ vehicleId: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const vehicleQuery = useVehicle(vehicleId);
   const fillupsQuery = useFillups(vehicleId);
@@ -59,6 +66,7 @@ export default function VehicleDetailPage() {
   const canImport = canImportData(sharedEntry?.permission);
 
   const recalculate = useRecalculateMetrics(vehicleId ?? '');
+  const overdueCount = remindersQuery.data?.filter((r) => r.isOverdue).length ?? 0;
 
   if (vehicleQuery.isLoading) {
     return (
@@ -71,7 +79,7 @@ export default function VehicleDetailPage() {
 
   if (vehicleQuery.isError || !vehicleQuery.data) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8">
         <Button variant="ghost" size="sm" onClick={() => navigate('/garage')}>
           <ArrowLeft className="size-4" /> Back to Garage
         </Button>
@@ -92,215 +100,228 @@ export default function VehicleDetailPage() {
     });
   }
 
+  const tab = TABS.includes(searchParams.get('tab') as Tab) ? (searchParams.get('tab') as Tab) : 'dash';
+  const setTab = (next: string) => {
+    setSearchParams(next === 'dash' ? {} : { tab: next }, { replace: true });
+    window.scrollTo({ top: 0 });
+  };
+
+  function handleRecalculate() {
+    setRecalcMessage('');
+    recalculate.mutate(undefined, {
+      onSuccess: (data) => {
+        setRecalcMessage(`Recalculated ${data.recalculatedCount} fillups`);
+        setTimeout(() => setRecalcMessage(''), 5000);
+      },
+      onError: () => {
+        setRecalcMessage('Recalculation failed. Please try again.');
+        setTimeout(() => setRecalcMessage(''), 5000);
+      },
+    });
+  }
+
+  const identity = [`${vehicle.year} ${vehicle.make} ${vehicle.model}`, vehicle.licensePlate].filter(Boolean).join(' · ');
+
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Back button */}
-      <Button variant="ghost" size="sm" asChild>
-        <Link to="/garage">
-          <ArrowLeft className="size-4" /> Back to Garage
-        </Link>
-      </Button>
-
+    <div className="mx-auto w-full max-w-6xl px-4 pt-5 pb-28 sm:px-6 sm:pb-10 lg:px-8 lg:pt-7">
       {/* Vehicle header */}
-      <Card>
-        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
-          <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-            {vehicle.photoKey ? (
-              <img
-                src={`/photos/${vehicle.photoKey}`}
-                alt={vehicle.nickname}
-                className="size-full object-cover"
-              />
-            ) : (
-              <Car className="size-10 text-muted-foreground" aria-hidden="true" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl font-bold truncate">{vehicle.nickname}</h1>
+      <div className="flex flex-col gap-4 md:flex-row md:items-center">
+        <div className="flex min-w-0 flex-1 items-center gap-3.5">
+          <VehiclePhoto photoKey={vehicle.photoKey ?? undefined} className="size-14 shrink-0 sm:size-16" />
+          <div className="min-w-0">
+            <p className="truncate font-mono text-[11px] tracking-wide text-muted-foreground uppercase sm:text-xs">{identity}</p>
+            <div className="mt-0.5 flex items-center gap-2">
+              <h1 className="truncate text-2xl font-extrabold tracking-tight sm:text-[32px] sm:leading-tight">{vehicle.nickname}</h1>
               {vehicle.isArchived && <Badge variant="secondary">Archived</Badge>}
+              {sharedEntry && <Badge variant="outline">{permissionLabel[sharedEntry.permission]}</Badge>}
             </div>
-            <p className="text-muted-foreground">
-              {vehicle.year} {vehicle.make} {vehicle.model}
-            </p>
-            {(vehicle.vin || vehicle.licensePlate) && (
-              <p className="text-sm text-muted-foreground">
-                {[vehicle.vin && `VIN: ${vehicle.vin}`, vehicle.licensePlate && `Plate: ${vehicle.licensePlate}`]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </p>
-            )}
+            {vehicle.vin && <p className="hidden truncate font-mono text-[11px] text-muted-foreground/80 sm:block">VIN {vehicle.vin}</p>}
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Action buttons */}
-      <div className="flex flex-wrap gap-2">
-        {!isSharedUser && (
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" /> Edit
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild className="flex-1 md:flex-none">
+            <Link to={`/vehicles/${vehicleId}/analytics`}>
+              <BarChart3 /> Analytics
+            </Link>
           </Button>
-        )}
-        {!isSharedUser && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleArchiveToggle}
-            disabled={archiveVehicle.isPending}
-          >
-            {archiveVehicle.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : vehicle.isArchived ? (
-              <ArchiveRestore className="size-4" />
-            ) : (
-              <Archive className="size-4" />
-            )}
-            {vehicle.isArchived ? 'Unarchive' : 'Archive'}
-          </Button>
-        )}
-        <Button variant="outline" size="sm" asChild>
-          <Link to={`/vehicles/${vehicleId}/analytics`}>
-            <BarChart3 className="size-4" /> Analytics
-          </Link>
-        </Button>
-        <Button variant="outline" size="sm" asChild>
-          <Link to={`/vehicles/${vehicleId}/export`}>
-            <Download className="size-4" /> Export
-          </Link>
-        </Button>
-        {canImport && (
-          <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-            <Upload className="size-4" /> Import Data
-          </Button>
-        )}
-        {canImport && (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={recalculate.isPending}
-            onClick={() => {
-              setRecalcMessage('');
-              recalculate.mutate(undefined, {
-                onSuccess: (data) => {
-                  setRecalcMessage(`Recalculated ${data.recalculatedCount} fillups`);
-                  setTimeout(() => setRecalcMessage(''), 5000);
-                },
-                onError: () => {
-                  setRecalcMessage('Recalculation failed. Please try again.');
-                  setTimeout(() => setRecalcMessage(''), 5000);
-                },
-              });
-            }}
-          >
-            {recalculate.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RefreshCw className="size-4" />
-            )}
-            Recalculate Metrics
-          </Button>
-        )}
-        {!isSharedUser && (
-          <Button variant="outline" size="sm" onClick={() => setSharingOpen(true)}>
-            <Users className="size-4" /> Manage Sharing
-          </Button>
-        )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon" className="size-10" aria-label="More actions">
+                <MoreHorizontal className="size-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link to={`/vehicles/${vehicleId}/export`}>
+                  <Download /> Export
+                </Link>
+              </DropdownMenuItem>
+              {canImport && (
+                <DropdownMenuItem onSelect={() => setImportOpen(true)}>
+                  <Upload /> Import data
+                </DropdownMenuItem>
+              )}
+              {canImport && (
+                <DropdownMenuItem disabled={recalculate.isPending} onSelect={handleRecalculate}>
+                  {recalculate.isPending ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                  Recalculate metrics
+                </DropdownMenuItem>
+              )}
+              {!isSharedUser && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => setSharingOpen(true)}>
+                    <Users /> Manage sharing
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                    <Pencil /> Edit vehicle
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled={archiveVehicle.isPending} onSelect={handleArchiveToggle}>
+                    {vehicle.isArchived ? <ArchiveRestore /> : <Archive />}
+                    {vehicle.isArchived ? 'Unarchive' : 'Archive'}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {canEdit && (
+            <Button asChild className="hidden sm:inline-flex">
+              <Link to={`/vehicles/${vehicleId}/fillups/new`}>
+                <Plus /> Fillup
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Recalculate feedback */}
       {recalcMessage && (
-        <p className={`text-sm font-medium ${recalcMessage.includes('failed') ? 'text-destructive' : 'text-green-600 dark:text-green-400'}`}>
+        <p
+          className={`mt-3 text-sm font-medium ${recalcMessage.includes('failed') ? 'text-destructive' : 'text-success'}`}
+          role="status"
+        >
           {recalcMessage}
         </p>
       )}
 
-      {/* Reminder banner */}
-      {remindersQuery.data && remindersQuery.data.length > 0 && (
-        <ReminderBanner reminders={remindersQuery.data} />
+      <Tabs value={tab} onValueChange={setTab} className="mt-5 gap-4">
+        <TabsList className="w-full sm:w-fit">
+          <TabsTrigger value="dash">
+            <Gauge className="hidden sm:block" /> Dash
+          </TabsTrigger>
+          <TabsTrigger value="fillups">
+            <Fuel className="hidden sm:block" /> Fillups
+          </TabsTrigger>
+          <TabsTrigger value="service">
+            <Wrench className="hidden sm:block" /> Service
+            {overdueCount > 0 && (
+              <span className="grid size-[18px] place-items-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                {overdueCount}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="dash">
+          {fillupsQuery.isLoading ? (
+            <Spinner label="Loading fillups…" />
+          ) : fillupsQuery.isError ? (
+            <p className="py-8 text-center text-sm text-destructive" role="alert">
+              Failed to load fillups.
+            </p>
+          ) : (
+            <VehicleDash
+              vehicleId={vehicleId!}
+              fillups={fillupsQuery.data ?? []}
+              reminders={remindersQuery.data ?? []}
+              canEdit={canEdit}
+              onShowFillups={() => setTab('fillups')}
+              onShowService={() => setTab('service')}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="fillups">
+          {fillupsQuery.isLoading ? (
+            <Spinner label="Loading fillups…" />
+          ) : fillupsQuery.isError ? (
+            <p className="py-8 text-center text-sm text-destructive" role="alert">
+              Failed to load fillups.
+            </p>
+          ) : (
+            <Tabs defaultValue="list" className="gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-lg font-bold tracking-tight">Fillups</h2>
+                <TabsList>
+                  <TabsTrigger value="list">List</TabsTrigger>
+                  <TabsTrigger value="map">Map</TabsTrigger>
+                </TabsList>
+              </div>
+              <TabsContent value="list">
+                <FillupList
+                  fillups={fillupsQuery.data ?? []}
+                  vehicleId={vehicleId!}
+                  onDelete={(id) => deleteFillup.mutate(id)}
+                  onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data: data as Parameters<typeof editFillup.mutate>[0]['data'] })}
+                  isDeleting={deleteFillup.isPending}
+                  isEditing={editFillup.isPending}
+                  readOnly={!canEdit}
+                />
+              </TabsContent>
+              <TabsContent value="map">
+                <FillupMap fillups={fillupsQuery.data ?? []} />
+              </TabsContent>
+            </Tabs>
+          )}
+        </TabsContent>
+
+        <TabsContent value="service" className="flex flex-col gap-4">
+          {remindersQuery.data && remindersQuery.data.length > 0 && (
+            <ReminderBanner reminders={remindersQuery.data} />
+          )}
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-lg font-bold tracking-tight">Maintenance</h2>
+            {canEdit && (
+              <Button variant="outline" asChild>
+                <Link to={`/vehicles/${vehicleId}/maintenance/new`}>
+                  <Plus /> Log service
+                </Link>
+              </Button>
+            )}
+          </div>
+          {maintenanceQuery.isLoading ? (
+            <Spinner label="Loading maintenance records…" />
+          ) : maintenanceQuery.isError ? (
+            <p className="py-8 text-center text-sm text-destructive" role="alert">
+              Failed to load maintenance records.
+            </p>
+          ) : (
+            <MaintenanceList
+              records={maintenanceQuery.data ?? []}
+              vehicleId={vehicleId!}
+              onDelete={(id) => deleteMaintenance.mutate(id)}
+              onEdit={(recordId, data) => editMaintenance.mutate({ recordId, data: data as Parameters<typeof editMaintenance.mutate>[0]['data'] })}
+              isDeleting={deleteMaintenance.isPending}
+              isEditing={editMaintenance.isPending}
+              readOnly={!canEdit}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Phones: the main job at the pump is one thumb away */}
+      {canEdit && (
+        <Button
+          asChild
+          size="lg"
+          className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-30 h-14 rounded-full px-6 text-base shadow-lg shadow-black/25 sm:hidden"
+        >
+          <Link to={`/vehicles/${vehicleId}/${tab === 'service' ? 'maintenance' : 'fillups'}/new`}>
+            <Plus className="size-5" /> {tab === 'service' ? 'Service' : 'Fillup'}
+          </Link>
+        </Button>
       )}
-
-      <Separator />
-
-      {/* Fillups section */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Fillups</h2>
-          {canEdit && (
-            <Button size="sm" asChild>
-              <Link to={`/vehicles/${vehicleId}/fillups/new`}>
-                <Plus className="size-4" /> Add Fillup
-              </Link>
-            </Button>
-          )}
-        </div>
-        {fillupsQuery.isLoading ? (
-          <div className="flex justify-center py-8" role="status">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            <span className="sr-only">Loading fillups…</span>
-          </div>
-        ) : fillupsQuery.isError ? (
-          <p className="py-8 text-center text-sm text-destructive" role="alert">
-            Failed to load fillups.
-          </p>
-        ) : (
-          <Tabs defaultValue="list">
-            <TabsList>
-              <TabsTrigger value="list">List</TabsTrigger>
-              <TabsTrigger value="map">Map</TabsTrigger>
-            </TabsList>
-            <TabsContent value="list">
-              <FillupList
-                fillups={fillupsQuery.data ?? []}
-                vehicleId={vehicleId!}
-                onDelete={(id) => deleteFillup.mutate(id)}
-                onEdit={(fillupId, data) => editFillup.mutate({ fillupId, data: data as Parameters<typeof editFillup.mutate>[0]['data'] })}
-                isDeleting={deleteFillup.isPending}
-                isEditing={editFillup.isPending}
-                readOnly={!canEdit}
-              />
-            </TabsContent>
-            <TabsContent value="map">
-              <FillupMap fillups={fillupsQuery.data ?? []} />
-            </TabsContent>
-          </Tabs>
-        )}
-      </section>
-
-      <Separator />
-
-      {/* Maintenance section */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Maintenance</h2>
-          {canEdit && (
-            <Button size="sm" asChild>
-              <Link to={`/vehicles/${vehicleId}/maintenance/new`}>
-                <Plus className="size-4" /> Add Maintenance
-              </Link>
-            </Button>
-          )}
-        </div>
-        {maintenanceQuery.isLoading ? (
-          <div className="flex justify-center py-8" role="status">
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-            <span className="sr-only">Loading maintenance records…</span>
-          </div>
-        ) : maintenanceQuery.isError ? (
-          <p className="py-8 text-center text-sm text-destructive" role="alert">
-            Failed to load maintenance records.
-          </p>
-        ) : (
-          <MaintenanceList
-            records={maintenanceQuery.data ?? []}
-            vehicleId={vehicleId!}
-            onDelete={(id) => deleteMaintenance.mutate(id)}
-            onEdit={(recordId, data) => editMaintenance.mutate({ recordId, data: data as Parameters<typeof editMaintenance.mutate>[0]['data'] })}
-            isDeleting={deleteMaintenance.isPending}
-            isEditing={editMaintenance.isPending}
-            readOnly={!canEdit}
-          />
-        )}
-      </section>
 
       {/* Import dialog */}
       <ImportDialog
@@ -333,6 +354,15 @@ export default function VehicleDetailPage() {
   );
 }
 
+
+function Spinner({ label }: { label: string }) {
+  return (
+    <div className="flex justify-center py-10" role="status">
+      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  Edit Vehicle Dialog                                                */

@@ -85,7 +85,7 @@ export default function ExportPage() {
   /* ---- Loading state ---- */
   if (vehicleQuery.isLoading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <BackButton vehicleId={vehicleId} />
         <div className="flex items-center justify-center py-24" role="status">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -98,7 +98,7 @@ export default function ExportPage() {
   /* ---- Error state ---- */
   if (vehicleQuery.isError) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <BackButton vehicleId={vehicleId} />
         <p className="py-16 text-center text-sm text-destructive" role="alert">
           Failed to load vehicle data. Please try again.
@@ -110,7 +110,7 @@ export default function ExportPage() {
   const vehicle = vehicleQuery.data;
 
   return (
-    <div className="container mx-auto max-w-lg space-y-6 p-4">
+    <div className="mx-auto w-full max-w-lg space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
       <BackButton vehicleId={vehicleId} />
 
       {/* Page header */}
@@ -161,7 +161,7 @@ export default function ExportPage() {
         <CardContent className="space-y-3">
           {/* CSV Fillups */}
           <ExportOption
-            icon={<FileSpreadsheet className="size-5 text-green-600 dark:text-green-400" aria-hidden="true" />}
+            icon={<FileSpreadsheet className="size-5 text-success" aria-hidden="true" />}
             title="Fillups CSV"
             description="All fillup records with calculated metrics"
             isPending={exportFillups.isPending}
@@ -181,7 +181,7 @@ export default function ExportPage() {
 
           {/* CSV Maintenance */}
           <ExportOption
-            icon={<FileSpreadsheet className="size-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />}
+            icon={<FileSpreadsheet className="size-5 text-brand" aria-hidden="true" />}
             title="Maintenance CSV"
             description="All maintenance records and service history"
             isPending={exportMaintenance.isPending}
@@ -201,7 +201,7 @@ export default function ExportPage() {
 
           {/* PDF Report */}
           <ExportOption
-            icon={<FileText className="size-5 text-red-600 dark:text-red-400" aria-hidden="true" />}
+            icon={<FileText className="size-5 text-destructive" aria-hidden="true" />}
             title="PDF Report"
             description="Summary report with charts and statistics"
             isPending={exportPdf.isPending}
@@ -284,7 +284,7 @@ function ExportOption({
 
       {/* Success feedback */}
       {isSuccess && successMessage && (
-        <div className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400" role="status">
+        <div className="flex items-center gap-1.5 text-xs text-success" role="status">
           <CheckCircle2 className="size-3.5" aria-hidden="true" />
           {successMessage}
         </div>

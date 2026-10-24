@@ -47,7 +47,7 @@ export function SpendingChart({ data }: SpendingChartProps) {
             />
             <Bar
               dataKey="totalSpent"
-              fill="hsl(221, 83%, 53%)"
+              fill="var(--chart-2)"
               radius={[4, 4, 0, 0]}
             />
           </BarChart>

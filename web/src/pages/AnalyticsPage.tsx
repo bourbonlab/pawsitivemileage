@@ -24,7 +24,7 @@ export default function AnalyticsPage() {
   /* ---- Loading state ---- */
   if (vehicleQuery.isLoading || dashboardQuery.isLoading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <BackButton vehicleId={vehicleId} />
         <div className="flex items-center justify-center py-24" role="status">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -37,7 +37,7 @@ export default function AnalyticsPage() {
   /* ---- Error state ---- */
   if (vehicleQuery.isError || dashboardQuery.isError) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <BackButton vehicleId={vehicleId} />
         <p className="py-16 text-center text-sm text-destructive" role="alert">
           Failed to load analytics data. Please try again.
@@ -58,7 +58,7 @@ export default function AnalyticsPage() {
       dashboard.pricePerGallonTrend.length > 0);
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
       <BackButton vehicleId={vehicleId} />
 
       {/* Page header */}
@@ -226,9 +226,9 @@ function TrendBadge({
 
   let colorClass = 'text-muted-foreground';
   if (direction === 'up') {
-    colorClass = invertColor ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400';
+    colorClass = invertColor ? 'text-destructive' : 'text-success';
   } else if (direction === 'down') {
-    colorClass = invertColor ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+    colorClass = invertColor ? 'text-success' : 'text-destructive';
   }
 
   return (
