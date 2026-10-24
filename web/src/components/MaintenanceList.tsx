@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { ArrowUpDown, Trash2, Pencil, Wrench, Loader2, ImageIcon, FileText } from 'lucide-react';
-import { DetailPeekDialog, hasDetails } from '@/components/DetailPeekDialog';
+import { ArrowUpDown, Trash2, Pencil, Wrench, Loader2, Eye } from 'lucide-react';
+import { DetailPeekDialog } from '@/components/DetailPeekDialog';
+import { AttachmentHints } from '@/components/FillupList';
 import type { DetailPeekData } from '@/components/DetailPeekDialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -53,9 +54,14 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
   function buildPeekData(r: MaintenanceRecord): DetailPeekData {
     return {
       title: `${r.schemaName || r.customTypeName || 'Maintenance'} — ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`,
+      stats: [
+        { label: 'Odometer', value: r.odometerAtService.toLocaleString() },
+        { label: 'Cost', value: `$${r.cost.toFixed(2)}` },
+      ],
+      receiptPhotoKey: r.receiptPhotoKey,
       notes: r.notes,
       stationName: r.stationName,
-      address: r.address,
+      address: r.address ?? r.location,
       locationLat: r.locationLat,
       locationLng: r.locationLng,
     };
@@ -110,41 +116,33 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
           </TableHeader>
           <TableBody>
             {pageItems.map((r) => (
-              <TableRow key={r.recordId}>
+              <TableRow key={r.recordId} className="cursor-pointer" onClick={() => setPeekingRecord(r)}>
                 <TableCell className="whitespace-nowrap">{new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}</TableCell>
-                <TableCell>{r.schemaName || r.customTypeName || '—'}</TableCell>
+                <TableCell>
+                  <span className="flex items-center gap-2">
+                    {r.schemaName || r.customTypeName || '—'}
+                    <AttachmentHints record={r} />
+                  </span>
+                </TableCell>
                 <TableCell className="text-right tabular-nums">{r.odometerAtService.toLocaleString()}</TableCell>
                 <TableCell className="text-right tabular-nums">${r.cost.toFixed(2)}</TableCell>
                 <TableCell>
                   <div className="flex gap-1">
-                    {hasDetails(r) && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setPeekingRecord(r)}
-                        aria-label={`View details for maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
-                      >
-                        <FileText className="size-4" />
-                      </Button>
-                    )}
-                    {r.receiptPhotoKey && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => window.open(`/photos/${r.receiptPhotoKey}`, '_blank')}
-                        aria-label={`View receipt photo from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
-                      >
-                        <ImageIcon className="size-4" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      onClick={(e) => { e.stopPropagation(); setPeekingRecord(r); }}
+                      aria-label={`View maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
+                    >
+                      <Eye className="size-4" />
+                    </Button>
                     {!readOnly && (
                       <Button
                         variant="ghost"
                         size="icon"
                         className="size-8"
-                        onClick={() => setEditingRecord(r)}
+                        onClick={(e) => { e.stopPropagation(); setEditingRecord(r); }}
                         aria-label={`Edit maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
                       >
                         <Pencil className="size-4" />
@@ -155,7 +153,7 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
                         variant="ghost"
                         size="icon"
                         className="size-8 text-destructive hover:text-destructive"
-                        onClick={() => onDelete(r.recordId)}
+                        onClick={(e) => { e.stopPropagation(); onDelete(r.recordId); }}
                         disabled={isDeleting}
                         aria-label={`Delete maintenance from ${new Date(r.datePerformed + 'T00:00:00').toLocaleDateString()}`}
                       >
@@ -196,6 +194,7 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
         data={peekingRecord ? buildPeekData(peekingRecord) : null}
         open={!!peekingRecord}
         onOpenChange={(open) => { if (!open) setPeekingRecord(null); }}
+        onEdit={readOnly ? undefined : () => { setEditingRecord(peekingRecord); setPeekingRecord(null); }}
       />
     </>
   );

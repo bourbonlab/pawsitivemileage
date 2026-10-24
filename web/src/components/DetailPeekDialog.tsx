@@ -1,10 +1,11 @@
 import { MapContainer, TileLayer, Marker } from 'react-leaflet';
 import { icon } from 'leaflet';
-import { MapPin, StickyNote } from 'lucide-react';
+import { MapPin, Pencil, Receipt } from 'lucide-react';
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 import 'leaflet/dist/leaflet.css';
 import markerIconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -23,6 +24,9 @@ const markerIcon = icon({
 export interface DetailPeekData {
   /** Dialog title, e.g. "Fillup — 1/15/2026" */
   title: string;
+  /** Headline figures shown as tiles (odometer, cost, MPG…) */
+  stats?: { label: string; value: string }[];
+  receiptPhotoKey?: string | null;
   notes?: string | null;
   stationName?: string | null;
   address?: string | null;
@@ -38,20 +42,12 @@ interface DetailPeekDialogProps {
   data: DetailPeekData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Shows an Edit button (omit for read-only viewers) */
+  onEdit?: () => void;
 }
 
-/** Returns true when there's at least one piece of detail worth showing. */
-export function hasDetails(d: {
-  notes?: string | null;
-  stationName?: string | null;
-  address?: string | null;
-  locationLat?: number | null;
-  locationLng?: number | null;
-}): boolean {
-  return !!(d.notes || d.stationName || d.address || (d.locationLat != null && d.locationLng != null));
-}
-
-export function DetailPeekDialog({ data, open, onOpenChange }: DetailPeekDialogProps) {
+/** Read-only view of a fillup or maintenance record: figures, notes, location, map and receipt */
+export function DetailPeekDialog({ data, open, onOpenChange, onEdit }: DetailPeekDialogProps) {
   if (!data) return null;
 
   const hasLocation = data.locationLat != null && data.locationLng != null;
@@ -60,18 +56,27 @@ export function DetailPeekDialog({ data, open, onOpenChange }: DetailPeekDialogP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-sm max-h-[85vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base">
-            <StickyNote className="size-4 shrink-0" aria-hidden="true" />
-            {data.title}
-          </DialogTitle>
+          <DialogTitle className="text-lg">{data.title}</DialogTitle>
           <DialogDescription className="sr-only">
             Details for {data.title}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 text-sm">
+        <div className="grid gap-4 text-sm">
+          {/* Headline figures */}
+          {data.stats && data.stats.length > 0 && (
+            <dl className="grid grid-cols-3 gap-px overflow-hidden rounded-xl border bg-border">
+              {data.stats.map((s) => (
+                <div key={s.label} className="bg-card px-2.5 py-2.5 sm:px-3">
+                  <dt className="text-xs text-muted-foreground">{s.label}</dt>
+                  <dd className="truncate font-mono text-[15px] font-semibold tabular-nums sm:text-base">{s.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
           {/* Badges */}
           {data.badges && data.badges.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
@@ -97,7 +102,7 @@ export function DetailPeekDialog({ data, open, onOpenChange }: DetailPeekDialogP
           {hasNotes && (
             <div className="grid gap-1">
               <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Notes</p>
-              <p className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2">{data.notes}</p>
+              <p className="whitespace-pre-wrap rounded-lg bg-muted px-3 py-2">{data.notes}</p>
             </div>
           )}
 
@@ -115,7 +120,7 @@ export function DetailPeekDialog({ data, open, onOpenChange }: DetailPeekDialogP
 
           {/* Mini map */}
           {hasLocation && (
-            <div className="overflow-hidden rounded-md border" style={{ height: 180 }}>
+            <div className="overflow-hidden rounded-xl border" style={{ height: 180 }}>
               <MapContainer
                 center={[data.locationLat!, data.locationLng!]}
                 zoom={14}
@@ -130,7 +135,36 @@ export function DetailPeekDialog({ data, open, onOpenChange }: DetailPeekDialogP
               </MapContainer>
             </div>
           )}
+
+          {/* Receipt */}
+          {data.receiptPhotoKey && (
+            <div className="grid gap-1">
+              <p className="text-muted-foreground text-xs font-medium uppercase tracking-wide flex items-center gap-1">
+                <Receipt className="size-3" aria-hidden="true" />
+                Receipt
+              </p>
+              <a href={`/photos/${data.receiptPhotoKey}`} target="_blank" rel="noopener noreferrer" className="block">
+                <img
+                  src={`/photos/${data.receiptPhotoKey}`}
+                  alt="Receipt photo (opens full size)"
+                  className="max-h-64 w-full rounded-xl border bg-muted object-contain"
+                />
+              </a>
+            </div>
+          )}
+
+          {!hasNotes && !hasStation && !hasLocation && !data.receiptPhotoKey && (
+            <p className="text-muted-foreground">No notes, location or receipt on this record.</p>
+          )}
         </div>
+
+        {onEdit && (
+          <DialogFooter>
+            <Button variant="outline" onClick={onEdit}>
+              <Pencil /> Edit
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );

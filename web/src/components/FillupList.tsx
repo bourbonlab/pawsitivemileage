@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { ArrowUpDown, Trash2, Pencil, Fuel, Loader2, ImageIcon, FileText } from 'lucide-react';
+import { ArrowUpDown, Trash2, Pencil, Fuel, Loader2, Eye, MapPin, Paperclip, StickyNote } from 'lucide-react';
 import { usePagination } from '@/lib/use-pagination';
 import { PaginationControls } from '@/components/PaginationControls';
-import { DetailPeekDialog, hasDetails } from '@/components/DetailPeekDialog';
+import { DetailPeekDialog } from '@/components/DetailPeekDialog';
 import type { DetailPeekData } from '@/components/DetailPeekDialog';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -59,12 +59,22 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
     if (f.isBusiness) badges.push({ label: 'Business', variant: 'secondary' });
 
     const extras: DetailPeekData['extras'] = [];
-    if (f.costPerMile != null) extras.push({ label: 'Cost / Mile', value: `$${f.costPerMile.toFixed(2)}` });
     if (f.milesSinceLastFillup != null) extras.push({ label: 'Miles Driven', value: f.milesSinceLastFillup.toLocaleString() });
     if (f.daysSinceLastFillup != null) extras.push({ label: 'Days Between', value: String(f.daysSinceLastFillup) });
 
+    const stats: DetailPeekData['stats'] = [
+      { label: 'Odometer', value: f.odometerReading.toLocaleString() },
+      { label: 'Gallons', value: f.gallonsAdded.toFixed(3) },
+      { label: 'Cost', value: `$${f.currencySpent.toFixed(2)}` },
+      { label: 'MPG', value: f.mpg != null ? f.mpg.toFixed(1) : '—' },
+      { label: '$ / gal', value: f.pricePerGallon != null ? `$${f.pricePerGallon.toFixed(3)}` : '—' },
+      { label: '$ / mile', value: f.costPerMile != null ? `$${f.costPerMile.toFixed(2)}` : '—' },
+    ];
+
     return {
       title: `Fillup — ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`,
+      stats,
+      receiptPhotoKey: f.receiptPhotoKey,
       notes: f.notes,
       stationName: f.stationName,
       address: f.address,
@@ -78,34 +88,21 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
   function renderActions(f: Fillup) {
     return (
       <>
-        {hasDetails(f) && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={() => setPeekingFillup(f)}
-            aria-label={`View details for fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-          >
-            <FileText className="size-4" />
-          </Button>
-        )}
-        {f.receiptPhotoKey && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={() => window.open(`/photos/${f.receiptPhotoKey}`, '_blank')}
-            aria-label={`View receipt photo from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-          >
-            <ImageIcon className="size-4" />
-          </Button>
-        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-8"
+          onClick={(e) => { e.stopPropagation(); setPeekingFillup(f); }}
+          aria-label={`View fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+        >
+          <Eye className="size-4" />
+        </Button>
         {!readOnly && (
           <Button
             variant="ghost"
             size="icon"
             className="size-8"
-            onClick={() => setEditingFillup(f)}
+            onClick={(e) => { e.stopPropagation(); setEditingFillup(f); }}
             aria-label={`Edit fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
           >
             <Pencil className="size-4" />
@@ -116,7 +113,7 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
             variant="ghost"
             size="icon"
             className="size-8 text-destructive hover:text-destructive"
-            onClick={() => onDelete(f.fillupId)}
+            onClick={(e) => { e.stopPropagation(); onDelete(f.fillupId); }}
             disabled={isDeleting}
             aria-label={`Delete fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
           >
@@ -169,7 +166,11 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
       {/* Phones: one card per fillup instead of a sideways-scrolling table */}
       <ul className="flex flex-col gap-2 sm:hidden">
         {pageItems.map((f) => (
-          <li key={f.fillupId} className="rounded-2xl border bg-card px-4 py-3">
+          <li
+            key={f.fillupId}
+            className="cursor-pointer rounded-2xl border bg-card px-4 py-3 transition-colors hover:border-ring/60"
+            onClick={() => setPeekingFillup(f)}
+          >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="font-semibold">{new Date(f.date + 'T00:00:00').toLocaleDateString()}</p>
@@ -183,7 +184,10 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
                 <p className="text-xs text-brand">{f.mpg != null ? `${f.mpg.toFixed(1)} mpg` : '—'}</p>
               </div>
             </div>
-            <div className="-mr-2 -mb-1 flex justify-end gap-1">{renderActions(f)}</div>
+            <div className="-mr-2 -mb-1 flex items-center justify-end gap-1">
+              <AttachmentHints record={f} />
+              {renderActions(f)}
+            </div>
           </li>
         ))}
       </ul>
@@ -203,8 +207,13 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
           </TableHeader>
           <TableBody>
             {pageItems.map((f) => (
-              <TableRow key={f.fillupId}>
-                <TableCell className="whitespace-nowrap">{new Date(f.date + 'T00:00:00').toLocaleDateString()}</TableCell>
+              <TableRow key={f.fillupId} className="cursor-pointer" onClick={() => setPeekingFillup(f)}>
+                <TableCell className="whitespace-nowrap">
+                  <span className="flex items-center gap-2">
+                    {new Date(f.date + 'T00:00:00').toLocaleDateString()}
+                    <AttachmentHints record={f} />
+                  </span>
+                </TableCell>
                 <TableCell className="text-right tabular-nums">{f.odometerReading.toLocaleString()}</TableCell>
                 <TableCell className="text-right tabular-nums">{f.gallonsAdded.toFixed(2)}</TableCell>
                 <TableCell className="text-right tabular-nums">${f.currencySpent.toFixed(2)}</TableCell>
@@ -245,8 +254,27 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
         data={peekingFillup ? buildPeekData(peekingFillup) : null}
         open={!!peekingFillup}
         onOpenChange={(open) => { if (!open) setPeekingFillup(null); }}
+        onEdit={readOnly ? undefined : () => { setEditingFillup(peekingFillup); setPeekingFillup(null); }}
       />
     </>
+  );
+}
+
+/** Small icons saying a record has notes, a location or a receipt worth opening */
+export function AttachmentHints({ record: r }: {
+  record: {
+    notes?: string | null; stationName?: string | null; address?: string | null; location?: string | null;
+    locationLat?: number | null; receiptPhotoKey?: string | null;
+  };
+}) {
+  const hasLocation = !!(r.stationName || r.address || r.location || r.locationLat != null);
+  if (!r.notes && !hasLocation && !r.receiptPhotoKey) return null;
+  return (
+    <span className="flex items-center gap-1 text-muted-foreground" aria-hidden="true">
+      {r.notes && <StickyNote className="size-3.5" />}
+      {hasLocation && <MapPin className="size-3.5" />}
+      {r.receiptPhotoKey && <Paperclip className="size-3.5" />}
+    </span>
   );
 }
 
