@@ -22,7 +22,7 @@ export function ReminderBanner({ reminders }: ReminderBannerProps) {
         </Alert>
       ))}
       {upcoming.map((r) => (
-        <Alert key={r.schemaName} className="border-yellow-500 text-yellow-700 dark:text-yellow-400 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-400">
+        <Alert key={r.schemaName} className="border-warning/50 bg-brand-soft [&>svg]:text-warning">
           <Clock className="size-4" />
           <AlertTitle>Upcoming: {r.schemaName}</AlertTitle>
           <AlertDescription>{formatReminderDetail(r)}</AlertDescription>

@@ -152,8 +152,8 @@ export function PhotoUpload({
               </div>
             )}
             {uploadState === 'success' && (
-              <div className="absolute bottom-1 right-1 rounded-full bg-green-600 p-1">
-                <Check className="size-3 text-white" />
+              <div className="absolute bottom-1 right-1 rounded-full bg-success p-1">
+                <Check className="size-3 text-background" />
               </div>
             )}
           </div>
@@ -179,8 +179,8 @@ export function PhotoUpload({
               <Loader2 className="absolute size-5 animate-spin text-muted-foreground" />
             )}
             {uploadState === 'success' && (
-              <div className="absolute bottom-1 right-1 rounded-full bg-green-600 p-1">
-                <Check className="size-3 text-white" />
+              <div className="absolute bottom-1 right-1 rounded-full bg-success p-1">
+                <Check className="size-3 text-background" />
               </div>
             )}
           </div>

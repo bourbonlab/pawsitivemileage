@@ -59,7 +59,7 @@ export default function AccountPage() {
 
   if (isLoading) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <div className="flex items-center justify-center py-24" role="status">
           <Loader2 className="size-6 animate-spin text-muted-foreground" />
           <span className="sr-only">Loading account…</span>
@@ -70,7 +70,7 @@ export default function AccountPage() {
 
   if (!user) {
     return (
-      <div className="container mx-auto p-4">
+      <div className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
         <p className="py-16 text-center text-sm text-muted-foreground">
           Unable to load account information.
         </p>
@@ -81,7 +81,7 @@ export default function AccountPage() {
   const canDelete = deleteConfirmText === 'DELETE';
 
   return (
-    <div className="container mx-auto max-w-2xl space-y-6 p-4">
+    <div className="mx-auto w-full max-w-2xl space-y-6 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
       {/* Back button */}
       <Button variant="ghost" size="sm" asChild>
         <Link to="/garage">

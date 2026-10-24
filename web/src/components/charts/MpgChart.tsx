@@ -28,6 +28,7 @@ export function MpgChart({ data }: MpgChartProps) {
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
               dataKey="date"
+              minTickGap={28}
               tick={{ fontSize: 12 }}
               tickFormatter={(v: string) =>
                 new Date(v).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -49,9 +50,9 @@ export function MpgChart({ data }: MpgChartProps) {
             <Line
               type="monotone"
               dataKey="mpg"
-              stroke="hsl(142, 71%, 45%)"
-              strokeWidth={2}
-              dot={{ r: 3 }}
+              stroke="var(--chart-1)"
+              strokeWidth={2.5}
+              dot={{ r: 2.5, strokeWidth: 0, fill: 'var(--chart-1)' }}
               activeDot={{ r: 5 }}
             />
           </LineChart>

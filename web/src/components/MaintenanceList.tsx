@@ -97,7 +97,7 @@ export function MaintenanceList({ records, vehicleId, onDelete, onEdit, isDeleti
 
   return (
     <>
-      <div className="overflow-x-auto rounded-md border">
+      <div className="overflow-x-auto rounded-2xl border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

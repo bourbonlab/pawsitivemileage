@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router';
 import { Plus, Loader2, Car, Upload, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -16,33 +17,56 @@ import { Label } from '@/components/ui/label';
 import { VehicleCard } from '@/components/VehicleCard';
 import { SharedGarageSection } from '@/components/SharedGarageSection';
 import { useVehicles, useCreateVehicle } from '@/api/vehicles';
+import { useSharedVehicles } from '@/api/sharing';
 import { usePresignedUpload, uploadFileToS3 } from '@/api/upload';
 
 export default function GaragePage() {
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [dialogOpen, setDialogOpen] = useState(searchParams.get('add') === '1');
 
   const activeQuery = useVehicles('active');
   const archivedQuery = useVehicles('archived');
+  const sharedQuery = useSharedVehicles();
+
+  // The sidebar's "Add vehicle" links here with ?add=1
+  useEffect(() => {
+    if (searchParams.get('add') !== '1') return;
+    setDialogOpen(true);
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  const activeCount = activeQuery.data?.length ?? 0;
+  const sharedCount = sharedQuery.data?.length ?? 0;
+  const openAdd = () => setDialogOpen(true);
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Garage</h1>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus /> Add Vehicle
-            </Button>
-          </DialogTrigger>
-          <AddVehicleDialog onClose={() => setDialogOpen(false)} />
-        </Dialog>
-      </div>
-
-      <Tabs defaultValue="active">
-        <TabsList>
-          <TabsTrigger value="active">Active</TabsTrigger>
-          <TabsTrigger value="archived">Archived</TabsTrigger>
-        </TabsList>
+    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <Tabs defaultValue="active" className="gap-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">Garage</h1>
+            {activeQuery.data && (
+              <p className="mt-1.5 text-sm text-muted-foreground sm:text-[15px]">
+                {activeCount} vehicle{activeCount === 1 ? '' : 's'}
+                {sharedCount > 0 && ` · ${sharedCount} shared with you`}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <TabsList>
+              <TabsTrigger value="active">Active</TabsTrigger>
+              <TabsTrigger value="archived">Archived</TabsTrigger>
+            </TabsList>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="ml-auto sm:ml-0">
+                  <Plus /> Add vehicle
+                </Button>
+              </DialogTrigger>
+              <AddVehicleDialog onClose={() => setDialogOpen(false)} />
+            </Dialog>
+          </div>
+        </div>
 
         <TabsContent value="active">
           <VehicleGrid
@@ -50,6 +74,7 @@ export default function GaragePage() {
             isLoading={activeQuery.isLoading}
             isError={activeQuery.isError}
             emptyMessage="No vehicles yet. Add your first vehicle to get started!"
+            onAdd={openAdd}
           />
         </TabsContent>
 
@@ -80,9 +105,11 @@ interface VehicleGridProps {
   isLoading: boolean;
   isError: boolean;
   emptyMessage: string;
+  /** Shows the dashed "add another" tile when set */
+  onAdd?: () => void;
 }
 
-function VehicleGrid({ vehicles, isLoading, isError, emptyMessage }: VehicleGridProps) {
+function VehicleGrid({ vehicles, isLoading, isError, emptyMessage, onAdd }: VehicleGridProps) {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-16" role="status">
@@ -102,18 +129,36 @@ function VehicleGrid({ vehicles, isLoading, isError, emptyMessage }: VehicleGrid
 
   if (!vehicles?.length) {
     return (
-      <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
+      <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed py-16 text-muted-foreground">
         <Car className="size-10" aria-hidden="true" />
         <p className="text-sm">{emptyMessage}</p>
+        {onAdd && (
+          <Button variant="outline" onClick={onAdd}>
+            <Plus /> Add vehicle
+          </Button>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 xl:grid-cols-2">
       {vehicles.map((v) => (
         <VehicleCard key={v.vehicleId} vehicle={v} />
       ))}
+      {onAdd && (
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl border-[1.5px] border-dashed border-input p-6 text-sm text-muted-foreground transition-colors hover:border-ring hover:text-foreground"
+        >
+          <span className="grid size-11 place-items-center rounded-full bg-muted text-foreground">
+            <Plus className="size-5" aria-hidden="true" />
+          </span>
+          <span className="font-semibold text-foreground">Add another vehicle</span>
+          <span className="text-xs">Then import your history from a Fuelly CSV</span>
+        </button>
+      )}
     </div>
   );
 }

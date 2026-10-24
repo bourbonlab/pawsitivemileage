@@ -149,9 +149,9 @@ function SummaryCardDisplay({
     <div className="space-y-3">
       {/* The visual card */}
       <Card className="overflow-hidden">
-        <div className="bg-gradient-to-br from-primary/90 to-primary p-6 text-primary-foreground">
+        <div className="bg-gradient-to-br from-[#2a241f] to-[#171411] p-6 text-[#eeeae4]">
           <div className="mb-4">
-            <h3 className="text-xl font-bold">{nickname}</h3>
+            <h3 className="text-xl font-bold text-[#f0c49a]">{nickname}</h3>
             <p className="text-sm opacity-80">{data.year} Year in Review</p>
           </div>
 
@@ -161,7 +161,7 @@ function SummaryCardDisplay({
                 <p className="text-xs uppercase tracking-wide opacity-70">
                   {s.label}
                 </p>
-                <p className="text-lg font-bold">{s.value}</p>
+                <p className="font-mono text-lg font-semibold">{s.value}</p>
               </div>
             ))}
           </div>
@@ -216,16 +216,18 @@ function renderCardToCanvas(
 
   // Background gradient
   const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, '#2563eb');   // blue-600
-  grad.addColorStop(1, '#1d4ed8');   // blue-700
+  // Night Drive espresso, matching the on-screen card
+  grad.addColorStop(0, '#2a241f');
+  grad.addColorStop(1, '#171411');
   ctx.fillStyle = grad;
   roundRect(ctx, 0, 0, W, H, 16);
   ctx.fill();
 
   // Title
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = '#f0c49a';
   ctx.font = 'bold 28px system-ui, -apple-system, sans-serif';
   ctx.fillText(nickname, 32, 52);
+  ctx.fillStyle = '#eeeae4';
 
   ctx.font = '16px system-ui, -apple-system, sans-serif';
   ctx.globalAlpha = 0.8;

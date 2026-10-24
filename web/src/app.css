@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "@fontsource-variable/schibsted-grotesk";
+@import "@fontsource-variable/jetbrains-mono";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -35,81 +37,105 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-inset: var(--inset);
+  --color-gauge-track: var(--gauge-track);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --font-sans: 'Schibsted Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/*
+ * Night Drive theme. Light mode is the cream "Dashboard Dial" palette; dark mode is the
+ * espresso instrument cluster. Both share the dial's peach / copper / saddle-brown accents.
+ */
 :root {
-  --radius: 0.5rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --radius: 0.75rem;
+  --background: #f7f3ec;
+  --foreground: #23252b;
+  --card: #fffdf9;
+  --card-foreground: #23252b;
+  --popover: #fffdf9;
+  --popover-foreground: #23252b;
+  --primary: #23252b;
+  --primary-foreground: #f7f3ec;
+  --secondary: #ece5d8;
+  --secondary-foreground: #23252b;
+  --muted: #ece5d8;
+  --muted-foreground: #6c665d;
+  --accent: #ece5d8;
+  --accent-foreground: #23252b;
+  --destructive: #b0361f;
+  --destructive-foreground: #b0361f;
+  --border: #e6ddcf;
+  --input: #d6cbb8;
+  --ring: #c7773f;
+  --brand: #a65a26;
+  --brand-soft: #fbeee0;
+  --inset: #ece5d8;
+  --gauge-track: #e6ddcf;
+  --success: #3f7d4c;
+  --warning: #c7773f;
+  --chart-1: #c7773f;
+  --chart-2: #a65a26;
+  --chart-3: #d9a877;
+  --chart-4: #6f7f5c;
+  --chart-5: #8c8578;
+  --sidebar: #fffdf9;
+  --sidebar-foreground: #23252b;
+  --sidebar-primary: #23252b;
+  --sidebar-primary-foreground: #f7f3ec;
+  --sidebar-accent: #ece5d8;
+  --sidebar-accent-foreground: #23252b;
+  --sidebar-border: #e6ddcf;
+  --sidebar-ring: #c7773f;
 }
 
 .dark {
-  --background: oklch(0.16 0.025 260);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.18 0.028 260);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.18 0.028 260);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0.025 260);
-  --secondary: oklch(0.24 0.032 260);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.24 0.032 260);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.24 0.032 260);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.28 0.035 260);
-  --input: oklch(0.28 0.035 260);
-  --ring: oklch(0.439 0.02 260);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.14 0.022 260);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.24 0.032 260);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.28 0.035 260);
-  --sidebar-ring: oklch(0.439 0.02 260);
+  --background: #191613;
+  --foreground: #eeeae4;
+  --card: #221e1a;
+  --card-foreground: #eeeae4;
+  --popover: #221e1a;
+  --popover-foreground: #eeeae4;
+  --primary: #f0c49a;
+  --primary-foreground: #1a1714;
+  --secondary: #2d2823;
+  --secondary-foreground: #eeeae4;
+  --muted: #2d2823;
+  --muted-foreground: #a39a8f;
+  --accent: #2d2823;
+  --accent-foreground: #eeeae4;
+  --destructive: #e0634a;
+  --destructive-foreground: #ff9b85;
+  --border: #352f29;
+  --input: #403830;
+  --ring: #c7773f;
+  --brand: #f0c49a;
+  --brand-soft: #3a2a1e;
+  --inset: #100e0c;
+  --gauge-track: #3a332c;
+  --success: #8fd19e;
+  --warning: #e5a36c;
+  --chart-1: #f0c49a;
+  --chart-2: #d48a52;
+  --chart-3: #b8875a;
+  --chart-4: #9db88a;
+  --chart-5: #e8d6bf;
+  --sidebar: #13110f;
+  --sidebar-foreground: #eeeae4;
+  --sidebar-primary: #f0c49a;
+  --sidebar-primary-foreground: #1a1714;
+  --sidebar-accent: #2d2823;
+  --sidebar-accent-foreground: #eeeae4;
+  --sidebar-border: #2d2823;
+  --sidebar-ring: #c7773f;
 }
 
 @layer base {
@@ -117,21 +143,27 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
   }
 }
 
-/* Recharts dark mode support */
-.dark .recharts-default-tooltip {
-  background-color: oklch(0.18 0.028 260) !important;
-  border-color: oklch(0.28 0.035 260) !important;
-  color: oklch(0.985 0 0) !important;
+/* Recharts follows the theme tokens */
+.recharts-default-tooltip {
+  background-color: var(--popover) !important;
+  border-color: var(--border) !important;
+  border-radius: 10px;
+  color: var(--popover-foreground) !important;
 }
 
-.dark .recharts-cartesian-axis-tick-value {
-  fill: oklch(0.708 0 0);
+.recharts-cartesian-axis-tick-value {
+  fill: var(--muted-foreground);
+  font-family: var(--font-mono);
 }
 
-.dark .recharts-label {
-  fill: oklch(0.708 0 0);
+.recharts-label {
+  fill: var(--muted-foreground);
+}
+
+.recharts-cartesian-grid line {
+  stroke: var(--border);
 }

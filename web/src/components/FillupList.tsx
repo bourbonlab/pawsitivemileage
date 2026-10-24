@@ -75,6 +75,58 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
     };
   }
 
+  function renderActions(f: Fillup) {
+    return (
+      <>
+        {hasDetails(f) && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => setPeekingFillup(f)}
+            aria-label={`View details for fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+          >
+            <FileText className="size-4" />
+          </Button>
+        )}
+        {f.receiptPhotoKey && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => window.open(`/photos/${f.receiptPhotoKey}`, '_blank')}
+            aria-label={`View receipt photo from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+          >
+            <ImageIcon className="size-4" />
+          </Button>
+        )}
+        {!readOnly && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8"
+            onClick={() => setEditingFillup(f)}
+            aria-label={`Edit fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+          >
+            <Pencil className="size-4" />
+          </Button>
+        )}
+        {!readOnly && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-8 text-destructive hover:text-destructive"
+            onClick={() => onDelete(f.fillupId)}
+            disabled={isDeleting}
+            aria-label={`Delete fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
+          >
+            {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+          </Button>
+        )}
+      </>
+    );
+  }
+
   function toggleSort(field: SortField) {
     if (sortField === field) {
       setSortAsc((prev) => !prev);
@@ -114,7 +166,29 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
 
   return (
     <>
-      <div className="overflow-x-auto rounded-md border">
+      {/* Phones: one card per fillup instead of a sideways-scrolling table */}
+      <ul className="flex flex-col gap-2 sm:hidden">
+        {pageItems.map((f) => (
+          <li key={f.fillupId} className="rounded-2xl border bg-card px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-semibold">{new Date(f.date + 'T00:00:00').toLocaleDateString()}</p>
+                <p className="truncate font-mono text-xs text-muted-foreground">
+                  {f.odometerReading.toLocaleString()} mi · {f.gallonsAdded.toFixed(2)} gal
+                  {f.pricePerGallon != null && ` · $${f.pricePerGallon.toFixed(2)}`}
+                </p>
+              </div>
+              <div className="shrink-0 text-right font-mono tabular-nums">
+                <p className="font-semibold">${f.currencySpent.toFixed(2)}</p>
+                <p className="text-xs text-brand">{f.mpg != null ? `${f.mpg.toFixed(1)} mpg` : '—'}</p>
+              </div>
+            </div>
+            <div className="-mr-2 -mb-1 flex justify-end gap-1">{renderActions(f)}</div>
+          </li>
+        ))}
+      </ul>
+
+      <div className="hidden overflow-x-auto rounded-2xl border bg-card sm:block">
         <Table>
           <TableHeader>
             <TableRow>
@@ -137,53 +211,7 @@ export function FillupList({ fillups, vehicleId, onDelete, onEdit, isDeleting, i
                 <TableCell className="text-right tabular-nums">{f.mpg != null ? f.mpg.toFixed(1) : '—'}</TableCell>
                 <TableCell className="text-right tabular-nums">{f.pricePerGallon != null ? `${f.pricePerGallon.toFixed(2)}` : '—'}</TableCell>
                 <TableCell>
-                  <div className="flex gap-1">
-                    {hasDetails(f) && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setPeekingFillup(f)}
-                        aria-label={`View details for fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-                      >
-                        <FileText className="size-4" />
-                      </Button>
-                    )}
-                    {f.receiptPhotoKey && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => window.open(`/photos/${f.receiptPhotoKey}`, '_blank')}
-                        aria-label={`View receipt photo from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-                      >
-                        <ImageIcon className="size-4" />
-                      </Button>
-                    )}
-                    {!readOnly && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8"
-                        onClick={() => setEditingFillup(f)}
-                        aria-label={`Edit fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-                      >
-                        <Pencil className="size-4" />
-                      </Button>
-                    )}
-                    {!readOnly && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 text-destructive hover:text-destructive"
-                        onClick={() => onDelete(f.fillupId)}
-                        disabled={isDeleting}
-                        aria-label={`Delete fillup from ${new Date(f.date + 'T00:00:00').toLocaleDateString()}`}
-                      >
-                        {isDeleting ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-                      </Button>
-                    )}
-                  </div>
+                  <div className="flex gap-1">{renderActions(f)}                  </div>
                 </TableCell>
               </TableRow>
             ))}

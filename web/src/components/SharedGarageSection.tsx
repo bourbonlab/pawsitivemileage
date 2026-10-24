@@ -1,72 +1,17 @@
-import { useNavigate } from 'react-router';
-import { Users, Car, Loader2 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Users, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
+import { VehicleCard } from '@/components/VehicleCard';
 import { useSharedVehicles } from '@/api/sharing';
-import { permissionLabel, permissionVariant } from '@/lib/sharing';
-import type { SharedVehicle } from '@pawsitivemileage/sdk';
-
-function SharedVehicleCard({ item }: { item: SharedVehicle }) {
-  const navigate = useNavigate();
-  const { vehicle, ownerDisplayName, permission } = item;
-
-  return (
-    <Card
-      className={cn('cursor-pointer transition-shadow hover:shadow-md')}
-      onClick={() => navigate(`/vehicles/${vehicle.vehicleId}`)}
-      role="link"
-      tabIndex={0}
-      aria-label={`View shared vehicle ${vehicle.nickname}`}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          navigate(`/vehicles/${vehicle.vehicleId}`);
-        }
-      }}
-    >
-      <CardContent className="flex items-center gap-4 p-4">
-        <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
-          {vehicle.photoKey ? (
-            <img
-              src={`/photos/${vehicle.photoKey}`}
-              alt={vehicle.nickname}
-              className="size-full object-cover"
-            />
-          ) : (
-            <Car className="size-8 text-muted-foreground" aria-hidden="true" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate font-semibold">{vehicle.nickname}</p>
-            <Badge variant={permissionVariant[permission]}>
-              {permissionLabel[permission]}
-            </Badge>
-          </div>
-          <p className="truncate text-sm text-muted-foreground">
-            {vehicle.year} {vehicle.make} {vehicle.model}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            Shared by {ownerDisplayName}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
+import { permissionLabel } from '@/lib/sharing';
 
 export function SharedGarageSection() {
   const { data: sharedVehicles, isLoading, isError } = useSharedVehicles();
 
   return (
-    <div className="mt-8">
-      <Separator className="mb-6" />
-      <div className="mb-4 flex items-center gap-2">
-        <Users className="size-5 text-muted-foreground" aria-hidden="true" />
-        <h2 className="text-lg font-semibold">Shared with You</h2>
-      </div>
+    <section className="mt-10" aria-labelledby="shared-heading">
+      <h2 id="shared-heading" className="mb-3 text-lg font-bold tracking-tight">
+        Shared with you
+      </h2>
 
       {isLoading && (
         <div className="flex items-center justify-center py-12" role="status">
@@ -82,19 +27,24 @@ export function SharedGarageSection() {
       )}
 
       {!isLoading && !isError && !sharedVehicles?.length && (
-        <div className="flex flex-col items-center gap-2 py-12 text-muted-foreground">
-          <Users className="size-10" aria-hidden="true" />
-          <p className="text-sm">No vehicles have been shared with you</p>
+        <div className="flex items-center gap-3 rounded-2xl bg-muted px-5 py-4 text-sm text-muted-foreground">
+          <Users className="size-5 shrink-0" aria-hidden="true" />
+          <p>No vehicles have been shared with you. When family adds you, their cars park here.</p>
         </div>
       )}
 
       {!isLoading && !isError && !!sharedVehicles?.length && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           {sharedVehicles.map((sv) => (
-            <SharedVehicleCard key={sv.shareId} item={sv} />
+            <VehicleCard
+              key={sv.shareId}
+              vehicle={sv.vehicle}
+              note={`Shared by ${sv.ownerDisplayName}`}
+              badge={<Badge variant="secondary">{permissionLabel[sv.permission]}</Badge>}
+            />
           ))}
         </div>
       )}
-    </div>
+    </section>
   );
 }

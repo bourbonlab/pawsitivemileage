@@ -28,6 +28,7 @@ export function CostPerGallonChart({ data }: CostPerGallonChartProps) {
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
               dataKey="date"
+              minTickGap={28}
               tick={{ fontSize: 12 }}
               tickFormatter={(v: string) =>
                 new Date(v + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
@@ -49,9 +50,9 @@ export function CostPerGallonChart({ data }: CostPerGallonChartProps) {
             <Line
               type="monotone"
               dataKey="pricePerGallon"
-              stroke="hsl(280, 68%, 50%)"
-              strokeWidth={2}
-              dot={{ r: 3 }}
+              stroke="var(--chart-3)"
+              strokeWidth={2.5}
+              dot={{ r: 2.5, strokeWidth: 0, fill: 'var(--chart-3)' }}
               activeDot={{ r: 5 }}
             />
           </LineChart>
