@@ -7,6 +7,9 @@
   </head>
   <body>
     <script>
+      // zod runs jitless: its JIT and eval probe use new Function, which the CSP (no 'unsafe-eval')
+      // reports. zod reads this global when it loads, before any schema is built.
+      window.__zod_globalConfig={jitless:true};
       // Prevent flash of wrong theme on load
       (function(){var t=localStorage.getItem('pm-theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark')})();
     </script>

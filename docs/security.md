@@ -388,7 +388,7 @@ build does not emit inline scripts.
 
 `script-src` also allows `https://static.cloudflareinsights.com` and `connect-src` allows
 `https://cloudflareinsights.com`, for the Cloudflare Web Analytics beacon that the proxy injects.
-`'unsafe-eval'` stays off: the web app runs zod in jitless mode (`web/src/main.tsx`), so
+`'unsafe-eval'` stays off: the web app runs zod in jitless mode (`window.__zod_globalConfig` in `web/index.html`, set before any bundle loads), so
 validation never needs `new Function`.
 
 Additionally, the `/photos/*` CloudFront behavior serves objects with no signed URLs
